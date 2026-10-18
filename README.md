@@ -7,6 +7,7 @@
 </p>
 
 <p align="center">
+  <a href="https://github.com/ATGPlatforms/vaayil/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/ATGPlatforms/vaayil?style=flat-square&label=release&color=3E5A42"></a>
   <a href="LICENSE"><img alt="Licence: GPL-3.0-or-later" src="https://img.shields.io/badge/licence-GPL--3.0--or--later-3E5A42?style=flat-square"></a>
   <img alt="Android 8.0 or newer" src="https://img.shields.io/badge/Android-8.0%2B-3E5A42?style=flat-square&logo=android&logoColor=white">
   <img alt="Built with Kotlin and Jetpack Compose" src="https://img.shields.io/badge/Kotlin-Jetpack%20Compose-3F5C78?style=flat-square&logo=kotlin&logoColor=white">
@@ -168,16 +169,30 @@ list anywhere.
 
 ## Install
 
-Vaayil 1.0.0 is on its way:
+Vaayil needs Android 8.0 (API 26) or newer, and a WireGuard configuration to connect to.
 
-- **GitHub Releases:** signed APKs with every release;
-  [Obtainium](https://github.com/ImranR98/Obtainium) can follow this repository for
-  updates. Coming with v1.0.0.
-- **F-Droid:** coming soon.
+- **GitHub Releases:** the signed APK is attached to every
+  [release](https://github.com/ATGPlatforms/vaayil/releases/latest).
+- **Obtainium:** add `https://github.com/ATGPlatforms/vaayil` in
+  [Obtainium](https://github.com/ImranR98/Obtainium), and it installs each new release
+  from GitHub.
+- **F-Droid:** submitted for inclusion
+  ([merge request](https://gitlab.com/fdroid/fdroiddata/-/merge_requests/53145)). The
+  F-Droid build is set up to be reproducible, so F-Droid can publish the same signed APK
+  as the GitHub release.
 - **Google Play:** planned.
 
-Until then, [build it from source](#building-from-source). Vaayil needs Android 8.0
-(API 26) or newer, and a WireGuard configuration to connect to.
+To check an APK before you install it, compare its signing certificate with Vaayil's:
+
+```bash
+apksigner verify --print-certs vaayil-1.0.0-1.apk
+```
+
+The `certificate SHA-256 digest` line must read
+`6db86593371589a71a026eacab61770bb1e902552fcdfb3ebfd5f9d0ef141558`. Every release is
+signed with this certificate.
+
+You can also [build Vaayil from source](#building-from-source).
 
 ## Building from source
 
@@ -186,7 +201,9 @@ Prerequisites:
 - JDK 17
 - Android SDK: compileSdk/targetSdk 36, minSdk 26, Android Gradle Plugin 8.10.x
 - NDK 27.0.12077973 and CMake 3.22.1 — the vendored WireGuard tunnel module builds its
-  native library from source, and needs `make` and a host C compiler (`cc`) on `PATH`
+  native library from source
+- For the full gate only, `make` and a host C compiler (`cc`) on `PATH`: `./gradlew build`
+  also runs the native DNS filter's Go tests with the race detector
 - The first native build downloads Go 1.24.3 into the Gradle user home, checked against
   a pinned SHA-256, and can take several minutes
 
