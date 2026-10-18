@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Vellum canvas (DESIGN.md §2): the warm paper ground the window paints. -->
+    <color name="vellum_canvas">#FBFAF7</color>
+</resources>

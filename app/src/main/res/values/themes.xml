@@ -1,0 +1,11 @@
+<resources>
+    <!-- Vellum is light-only (DESIGN.md): the window paints the canvas #FBFAF7 and both
+         system bars stay transparent with dark glyphs — MainActivity's enableEdgeToEdge
+         owns the runtime bar styling (device-fix C1). -->
+    <style name="Theme.Vaayil" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@color/vellum_canvas</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowLightStatusBar">true</item>
+    </style>
+</resources>

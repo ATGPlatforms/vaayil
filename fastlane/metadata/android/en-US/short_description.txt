@@ -1,0 +1,1 @@
+A private WireGuard client for your own tunnels. No accounts, no analytics.

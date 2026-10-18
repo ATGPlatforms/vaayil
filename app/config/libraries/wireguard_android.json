@@ -1,0 +1,8 @@
+{
+  "uniqueId": "wireguard-android",
+  "name": "wireguard-android",
+  "developers": [{ "name": "WireGuard LLC" }],
+  "description": "Copyright \u00a9 WireGuard LLC\n\nWireGuard's Android tunnel library (GoBackend, config parsing and key handling), tag 1.0.20260102, vendored and built from source by Vaayil.",
+  "website": "https://git.zx2c4.com/wireguard-android/about/",
+  "licenses": ["apache_2_0_wireguard_android"]
+}

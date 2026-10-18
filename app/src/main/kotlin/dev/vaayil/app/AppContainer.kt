@@ -1,0 +1,340 @@
+package dev.vaayil.app
+
+import android.content.ComponentName
+import android.content.Context
+import android.content.Intent
+import android.content.pm.PackageManager
+import android.util.Log
+import androidx.datastore.core.handlers.ReplaceFileCorruptionHandler
+import androidx.datastore.preferences.core.booleanPreferencesKey
+import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.emptyPreferences
+import androidx.datastore.preferences.preferencesDataStore
+import dev.vaayil.core.automation.AutoConnectService
+import dev.vaayil.core.automation.AutomationReceiver
+import dev.vaayil.core.data.ActiveProfileStore
+import dev.vaayil.core.data.AutomationRulesStore
+import dev.vaayil.core.data.DataGraph
+import dev.vaayil.core.data.SplitTunnelRulesStore
+import dev.vaayil.core.data.rescueLegacySplitTunnelRules
+import dev.vaayil.core.model.Profile
+import dev.vaayil.core.model.SplitTunnelPolicy
+import dev.vaayil.core.model.SplitTunnelSelections
+import dev.vaayil.core.tunnel.api.HandshakeState
+import dev.vaayil.core.tunnel.api.TunnelEngine
+import dev.vaayil.core.tunnel.wg.ConnectionRegistry
+import dev.vaayil.core.tunnel.wg.EngineProvider
+import dev.vaayil.core.tunnel.wg.VpnTunnelService
+import dev.vaayil.feature.profiles.EditorDraft
+import dev.vaayil.feature.settings.SettingsFlags
+import dev.vaayil.feature.tunnel.TunnelController
+import dev.vaayil.feature.tunnel.TunnelControllerStore
+import java.util.UUID
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
+
+/**
+ * Flags live in their own DataStore file; core:data owns the active-profile file. A file that
+ * cannot be parsed is replaced with empty flags instead of crashing every process start (C11):
+ * `onboardingDone` resets, so onboarding runs again, rather than the app never starting.
+ */
+internal val Context.settingsDataStore by preferencesDataStore(
+    name = "vaayil_flags",
+    corruptionHandler = ReplaceFileCorruptionHandler {
+        Log.w(TAG, "vaayil_flags is unreadable; the flags were reset")
+        emptyPreferences()
+    },
+)
+
+private const val TAG = "AppContainer"
+
+private val darkModeFollowSystemKey = booleanPreferencesKey("darkModeFollowSystem")
+
+/** S3: the pre-light-only theme flag. Nothing reads or writes it anymore; wipe once at start. */
+internal suspend fun wipeLegacyFlags(context: Context) {
+    context.settingsDataStore.edit { it.remove(darkModeFollowSystemKey) }
+}
+
+private val ONBOARDING_DONE = booleanPreferencesKey("onboardingDone")
+
+/** C7: set by the first notification-permission ask, before its dialog launches. */
+private val NOTIFICATIONS_ASKED = booleanPreferencesKey("notificationsAsked")
+
+class AppContainer internal constructor(
+    private val appContext: Context,
+    startupRunner: suspend (List<StartupStep>) -> Unit,
+    engineInitializer: (AppContainer) -> Unit,
+) {
+    /**
+     * Production construction: the real start-up runner ([runStartupSteps]) and [initEngine].
+     * Tests pass a recording runner and a no-op initializer through the internal constructor
+     * instead, so a construction under test does neither native nor Keystore work.
+     */
+    constructor(appContext: Context) : this(
+        appContext,
+        { steps -> runStartupSteps(steps) },
+        { container -> container.initEngine() },
+    )
+
+    val db = DataGraph.database(appContext)
+    val profiles = DataGraph.repository(appContext)
+    val activeProfile = ActiveProfileStore(appContext)
+    val splitTunnelRules = SplitTunnelRulesStore(appContext)
+
+    private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
+    /**
+     * C4: settings saved while a tunnel is CONNECTING are applied when its start settles CONNECTED
+     * for that same profile — one restart, however many saves land during the start, and nothing
+     * at all when it settles FAILED, DISCONNECTED or as another profile. App-scoped like the
+     * registry it reads, and the callback captures the application context, never the activity:
+     * a screen that goes away cannot cancel a pending restart.
+     */
+    internal val settingsRestarts = SettingsRestartCoordinator(
+        appScope,
+        ConnectionRegistry.status,
+    ) { profileId -> restartTunnel(appContext, profileId) }
+
+    /**
+     * UI connect/disconnect is service-routed: the controller is built over an engine adapter
+     * that fires VpnTunnelService intents instead of engine calls. Only VpnTunnelService and
+     * EngineProvider touch the WireGuard engine. The engine-to-registry bridge
+     * (ConnectionRegistry.bridge) starts once in EngineProvider.init and lives for the process
+     * (F7), so toggle() reads the engine's own status from the registry whether or not a
+     * service instance is alive.
+     */
+    val tunnelController = TunnelController(
+        ServiceTunnelEngine(appContext),
+        StoreAdapter(activeProfile),
+        { id -> profiles.get(id) },
+    )
+
+    /** G4/J13: the process-wide value from ConnectionRegistry.bridge, one timer for every surface. */
+    val handshakeState: StateFlow<HandshakeState> = ConnectionRegistry.handshake
+
+    val settingsFlags: Flow<SettingsFlags> = appContext.settingsDataStore.data.map { prefs ->
+        SettingsFlags(
+            onboardingDone = prefs[ONBOARDING_DONE] ?: false,
+        )
+    }
+
+    suspend fun setFlag(key: String, value: Boolean) {
+        val prefKey = when (key) {
+            "onboardingDone" -> ONBOARDING_DONE
+            else -> return
+        }
+        appContext.settingsDataStore.edit { it[prefKey] = value }
+    }
+
+    /**
+     * C7: claims the one-time notification ask — true only to the first caller. The flag is
+     * persisted before the dialog launches, so onboarding and the manual connect gate ask once
+     * in total. Read and write land in one DataStore edit, so two callers cannot both win.
+     */
+    internal suspend fun claimNotificationPermissionRequest(): Boolean {
+        var claimed = false
+        appContext.settingsDataStore.edit { prefs ->
+            if (prefs[NOTIFICATIONS_ASKED] != true) {
+                prefs[NOTIFICATIONS_ASKED] = true
+                claimed = true
+            }
+        }
+        return claimed
+    }
+
+    val automationRules = AutomationRulesStore(appContext)
+
+    /** Wi-Fi guard foreground service; paired with the Settings toggle. */
+    fun startAutoConnectService() = AutoConnectService.start(appContext)
+
+    fun stopAutoConnectService() = AutoConnectService.stop(appContext)
+
+    /**
+     * Imports awaiting review: parse lands the profile here, the editor opens on it, and only
+     * Save writes the row (F18). Process death empties this map — acceptable, nothing was
+     * written. ConcurrentHashMap because ImportViewModel parses off the main dispatcher.
+     */
+    val pendingDrafts = java.util.concurrent.ConcurrentHashMap<String, Profile>()
+
+    /**
+     * F19: the search-domain notice of each import draft that has one, keyed like
+     * [pendingDrafts]. The review editor takes it out and shows it once as it opens.
+     */
+    val importNotices = java.util.concurrent.ConcurrentHashMap<String, String>()
+
+    /**
+     * F30: each open editor's in-progress draft, keyed by its back-stack entry id, so an edit
+     * survives Android recreating the activity. Memory only: it holds private keys, so it never
+     * goes into a saved-state Bundle, and a process death loses it, by design.
+     */
+    val editorDrafts = java.util.concurrent.ConcurrentHashMap<String, EditorDraft>()
+
+    /** Drops every in-memory draft when the activity finishes for good (spec U7). */
+    fun dropDrafts() {
+        pendingDrafts.clear()
+        importNotices.clear()
+        editorDrafts.clear()
+    }
+
+    /**
+     * Parses an import into an unsaved draft keyed by its id; throws the parser's exception on
+     * bad input. The name is made unique against the stored profiles (F26). Search domains the
+     * profile cannot keep leave a notice for the review (F19).
+     */
+    suspend fun parseImport(text: String, name: String): Profile {
+        val taken = profiles.observeProfiles().first().map { it.name }.toSet()
+        val draft = parseImportDraft(text, name, taken)
+        searchDomainNotice(draft.droppedSearchDomains)?.let { importNotices[draft.profile.id] = it }
+        pendingDrafts[draft.profile.id] = draft.profile
+        return draft.profile
+    }
+
+    /** Copy with a fresh id and a unique "(copy)" name suffix, backing the list screen's Duplicate action. */
+    suspend fun duplicateProfile(id: String) {
+        val source = profiles.get(id) ?: return
+        val taken = profiles.observeProfiles().first().map { it.name }.toSet()
+        profiles.save(
+            source.copy(
+                id = UUID.randomUUID().toString(),
+                name = uniqueProfileName(source.name + " (copy)", taken),
+            ),
+        )
+    }
+
+    suspend fun installedApps(): Set<String> =
+        appContext.packageManager.getInstalledPackages(0)
+            .mapNotNull { it.packageName }
+            .filterNot { it == appContext.packageName }
+            .toSet()
+
+    /**
+     * C11: the one-time upgrades, in order. The runner runs them synchronously and strictly
+     * BEFORE Room's first open: the legacy-rules rescue reads the raw SQLite file whose dormant
+     * columns MIGRATION_2_3 then drops. Costs a few ms once; determinism is worth it.
+     */
+    private fun startupSteps(): List<StartupStep> = listOf(
+        // First touch of the at-rest key: on a fresh install nothing else does, and the
+        // Profiles tab would call the Keystore unavailable for the whole session.
+        StartupStep("warm") { DataGraph.crypto().warm() },
+        StartupStep("rescueLegacySplitTunnelRules") {
+            rescueLegacySplitTunnelRules(splitTunnelRules, appContext, activeProfile)
+        },
+        StartupStep("reEncryptAtRest") { profiles.reEncryptAtRest() },
+        StartupStep("wipeLegacyFlags") { wipeLegacyFlags(appContext) },
+    )
+
+    init {
+        // Synchronous by design: every upgrade finishes before the engine takes over (C11).
+        runBlocking { startupRunner(startupSteps()) }
+        engineInitializer(this)
+    }
+
+    /**
+     * F7: the engine-to-registry bridge and the service's engine seams, initialised once per
+     * process, after the one-time upgrades above.
+     */
+    private fun initEngine() {
+        EngineProvider.init(
+            appContext,
+            { installedApps() },
+            { id -> profiles.get(id) },
+            { splitTunnelRules.snapshot() },
+        )
+    }
+}
+
+private class StoreAdapter(private val s: ActiveProfileStore) : TunnelControllerStore {
+    override suspend fun setActive(id: String?) = s.setActive(id)
+}
+
+/**
+ * TunnelEngine adapter that never touches the WireGuard engine: start/stop fire VpnTunnelService
+ * intents (the service owns engine access), and status/stats are read back from ConnectionRegistry,
+ * which the process-lifetime bridge started in EngineProvider.init keeps current (F7). Lets
+ * TunnelController keep its exact surface while control stays service-routed.
+ */
+private class ServiceTunnelEngine(private val context: Context) : TunnelEngine {
+    override val status get() = ConnectionRegistry.status
+    override val stats get() = ConnectionRegistry.stats
+
+    override suspend fun start(profile: Profile) {
+        context.startService(
+            Intent(context, VpnTunnelService::class.java)
+                .setAction(VpnTunnelService.ACTION_CONNECT)
+                .putExtra(VpnTunnelService.EXTRA_PROFILE_ID, profile.id),
+        )
+    }
+
+    override suspend fun stop() {
+        context.startService(
+            Intent(context, VpnTunnelService::class.java)
+                .setAction(VpnTunnelService.ACTION_DISCONNECT),
+        )
+    }
+}
+
+/**
+ * Saves the app-wide split-tunnel rules and has the live tunnel apply them: at once while it is
+ * CONNECTED, or once a CONNECTING start settles CONNECTED for that same profile (C4, through
+ * [SettingsRestartCoordinator]); a start that settles FAILED, DISCONNECTED or as another profile
+ * applies nothing. Never for an edit to the inactive mode's list, and never while nothing is
+ * live: a restart is a full down/resolve/up cycle with an unprotected window unless Android
+ * lockdown is on (S6).
+ */
+internal suspend fun saveSplitTunnelRules(
+    store: SplitTunnelRulesStore,
+    selections: SplitTunnelSelections,
+    restarts: SettingsRestartCoordinator,
+) {
+    val before = store.snapshotSelections().active
+    store.setSelections(selections)
+    // The save is on disk before the restart request: a pending one reads the store as it settles.
+    if (selections.active != before) restarts.request()
+}
+
+/**
+ * F22: a saved edit to the connected profile applies at once, like a split-tunnel save (spec §11),
+ * and as its CONNECTING start settles when the save landed mid-connect (C4). Only when something
+ * the tunnel uses changed: a rename alone waits for the next connect, and an edit to a profile
+ * that is not the live one waits for that profile's own next connect.
+ */
+internal fun restartIfConnectedProfileChanged(
+    before: Profile?,
+    after: Profile,
+    restarts: SettingsRestartCoordinator,
+) {
+    if (before != null && before.copy(name = after.name) == after) return
+    restarts.request(after.id)
+}
+
+/**
+ * C4: the one production restart call — [VpnTunnelService]'s ACTION_CONNECT for [profileId], the
+ * same service intent the UI's connect path fires. [SettingsRestartCoordinator]'s callback is
+ * built on it, so the restart intent is constructed in one place.
+ */
+internal fun restartTunnel(context: Context, profileId: String) {
+    context.startService(
+        Intent(context, VpnTunnelService::class.java)
+            .setAction(VpnTunnelService.ACTION_CONNECT)
+            .putExtra(VpnTunnelService.EXTRA_PROFILE_ID, profileId),
+    )
+}
+
+/**
+ * Flips the exported automation receiver: shipped disabled, enabled only by the Settings
+ * toggle (T-3). The token gate in the receiver is the second half of the same opt-in.
+ */
+internal fun setExternalControlEnabled(context: Context, enabled: Boolean) {
+    context.packageManager.setComponentEnabledSetting(
+        ComponentName(context, AutomationReceiver::class.java),
+        if (enabled) PackageManager.COMPONENT_ENABLED_STATE_ENABLED else PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
+        PackageManager.DONT_KILL_APP,
+    )
+}

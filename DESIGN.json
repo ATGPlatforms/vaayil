@@ -1,0 +1,162 @@
+{
+  "schemaVersion": 3,
+  "generatedAt": "2026-09-20T00:00:00Z",
+  "title": "Design System: Vaayil (Vellum)",
+  "extensions": {
+    "colorMeta": {
+      "canvas": { "role": "canvas", "displayName": "Vellum Canvas", "canonical": "#FBFAF7", "oklch": "0.985 0.004 91", "tonalRamp": ["#FBFAF7", "#F6F3EC", "#F1ECE1", "#ECE5D7", "#E7DECD", "#E1D7C3"] },
+      "container-1": { "role": "film-1", "displayName": "One Film", "canonical": "#F6F3EC", "oklch": "0.965 0.010 88" },
+      "container-2": { "role": "film-2", "displayName": "Two Films", "canonical": "#F1ECE1", "oklch": "0.944 0.016 86" },
+      "container-3": { "role": "film-3", "displayName": "Three Films", "canonical": "#ECE5D7", "oklch": "0.924 0.020 85" },
+      "container-4": { "role": "film-4", "displayName": "Four Films", "canonical": "#E7DECD", "oklch": "0.903 0.025 83" },
+      "container-5": { "role": "film-floor", "displayName": "The Floor", "canonical": "#E1D7C3", "oklch": "0.882 0.029 85" },
+      "on-surface": { "role": "neutral", "displayName": "Ink", "canonical": "#23221D", "oklch": "0.251 0.009 98" },
+      "on-surface-variant": { "role": "neutral", "displayName": "Secondary Ink", "canonical": "#57544A", "oklch": "0.446 0.016 93" },
+      "hairline": { "role": "divider-decorative", "displayName": "Hairline", "canonical": "#DDD4C2", "oklch": "0.872 0.026 85" },
+      "seam": { "role": "edge-decorative", "displayName": "Seam", "canonical": "#CEC2A9", "oklch": "0.817 0.037 85" },
+      "stroke-3": { "role": "boundary-load-bearing", "displayName": "Stroke 3", "canonical": "#7C7264", "oklch": "0.559 0.027 81" },
+      "primary": { "role": "primary", "displayName": "Sage", "canonical": "#3E5A42", "oklch": "0.438 0.052 148" },
+      "primary-container": { "role": "primary-container", "displayName": "Sage Container", "canonical": "#CFE0CE", "oklch": "0.889 0.030 144" },
+      "on-primary-container": { "role": "primary-container", "displayName": "On Sage Container", "canonical": "#22371F", "oklch": "0.312 0.050 141" },
+      "sage-mark": { "role": "mark", "displayName": "Sage Mark", "canonical": "#4A7350", "oklch": "0.515 0.072 148" },
+      "slate": { "role": "secondary", "displayName": "Slate", "canonical": "#3F5C78", "oklch": "0.464 0.057 248" },
+      "tertiary": { "role": "tertiary", "displayName": "Lavender", "canonical": "#5A4E78", "oklch": "0.454 0.069 297" },
+      "field-active": { "role": "semantic-active", "displayName": "Connected Field", "canonical": "#DCE8D9", "oklch": "0.918 0.024 139" },
+      "on-field-active": { "role": "semantic-active", "displayName": "On Connected Field", "canonical": "#28402C", "oklch": "0.345 0.046 149" },
+      "field-idle": { "role": "semantic-idle", "displayName": "Disconnected Field", "canonical": "#EAE4D8", "oklch": "0.920 0.017 85" },
+      "idle-dot": { "role": "semantic-idle", "displayName": "Idle Dot", "canonical": "#7C7264", "oklch": "0.559 0.027 81" },
+      "warning": { "role": "semantic-warning", "displayName": "Amber Surface", "canonical": "#F3E2C3", "oklch": "0.919 0.045 83" },
+      "on-warning": { "role": "semantic-warning", "displayName": "On Amber", "canonical": "#5E4218", "oklch": "0.402 0.069 74" },
+      "warning-mark": { "role": "semantic-warning", "displayName": "Amber Mark", "canonical": "#B9762B", "oklch": "0.624 0.121 65" },
+      "error": { "role": "semantic-error", "displayName": "Clay Surface", "canonical": "#F7DBD4", "oklch": "0.913 0.033 34" },
+      "on-error": { "role": "semantic-error", "displayName": "On Clay", "canonical": "#7B241C", "oklch": "0.396 0.122 29" },
+      "error-mark": { "role": "semantic-error", "displayName": "Clay Mark", "canonical": "#A93A31", "oklch": "0.506 0.148 28" },
+      "m3-error": { "role": "semantic-error", "displayName": "M3 Error", "canonical": "#BA1A1A", "oklch": "0.506 0.193 28" },
+      "pastel-1": { "role": "avatar-cycle-0", "displayName": "Pastel Sage", "canonical": "#DCE8D9", "oklch": "0.918 0.024 139" },
+      "on-pastel-1": { "role": "avatar-cycle-0", "displayName": "On Pastel Sage", "canonical": "#2A3F2E", "oklch": "0.344 0.040 150" },
+      "pastel-2": { "role": "avatar-cycle-1", "displayName": "Pastel Slate", "canonical": "#D8E3EE", "oklch": "0.911 0.019 248" },
+      "on-pastel-2": { "role": "avatar-cycle-1", "displayName": "On Pastel Slate", "canonical": "#233A4C", "oklch": "0.338 0.043 243" },
+      "pastel-3": { "role": "avatar-cycle-2", "displayName": "Pastel Lavender", "canonical": "#E2DCEC", "oklch": "0.904 0.022 303" },
+      "on-pastel-3": { "role": "avatar-cycle-2", "displayName": "On Pastel Lavender", "canonical": "#332C48", "oklch": "0.314 0.050 295" },
+      "scrim": { "role": "backdrop", "displayName": "Scrim", "canonical": "#23221D @ 44%" },
+      "disabled": { "role": "disabled", "displayName": "Disabled Ink", "canonical": "#85827A", "oklch": "0.567 0.013 90" }
+    },
+    "typographyMeta": {
+      "display": { "displayName": "Display", "purpose": "The hero disc state word and screen-owning moments; Schibsted Grotesk 600 at 30." },
+      "headline": { "displayName": "Headline", "purpose": "Screen titles; 21/600." },
+      "title": { "displayName": "Title", "purpose": "Card titles and section headers; 16/600." },
+      "body": { "displayName": "Body", "purpose": "Reading text and explanations, 15/400, ≤65ch lines." },
+      "body-small": { "displayName": "Body Small", "purpose": "Secondary copy at 13/400 — capped at two lines; longer copy uses body." },
+      "annotation": { "displayName": "Annotation", "purpose": "Captions and helper text; 12/500." },
+      "label": { "displayName": "Label", "purpose": "Uppercase technical micro-copy and eyebrows; 11/700, +0.115em." },
+      "telemetry-num": { "displayName": "Telemetry Number", "purpose": "Speeds, byte counters — 21/600 with tabular figures (tnum), never jitter." },
+      "action": { "displayName": "Action", "purpose": "Button labels; 15/600, +0.010em." },
+      "mono": { "displayName": "Data Mono", "purpose": "Endpoints, keys, IPs, DNS servers, package names — all machine data. The shared mono text style (monoTextStyle) pins 14/20 with zero tracking; smaller mono usages (package names 13sp, version string 12sp) are sanctioned per-component exceptions (amended 2026-09-21, device review C4)." }
+    },
+    "shadows": [
+      { "name": "sheet-lift", "value": "6dp; ambient #3A301C, spot #3A301C @ 60% (Android-native)", "purpose": "The only shadow in the system: dialogs, dropdowns, the selected segment, and focused fields — lifted sheets over the bare canvas. Resting sheets carry none; the bottom bar is docked and casts nothing; the search pill is a filled field (2026-09-21 device review C6). Android scales ambient/spot alphas by ~0.039/~0.19, so full-alpha ambient + 0x99 spot land at ~3.9%/~11% effective — the old web-token alphas (0.06/0.08) rendered at ~0.2%/1.5% and were invisible." }
+    ],
+    "motion": [
+      { "name": "film", "value": "200ms linear (intent)", "purpose": "Ladder-step tone change on press = +1 film. Shipped as an instant tone swap — reduced-motion-legal by construction; the 200ms figure describes intent, not code." },
+      { "name": "fill", "value": "260ms tween", "purpose": "Hero disc fill, canvas↔sage, when the disc gains or loses its sage. Shipped as a 260ms animateColorAsState tween (FastOutSlowIn); snaps under reduced motion." },
+      { "name": "press", "value": "90ms (intent)", "purpose": "+1-film press feedback. Shipped as an instant tone swap, feedback preserved; the 90ms figure describes intent, not code." },
+      { "name": "breath", "value": "2400ms opacity 1.0→0.6 repeat-reverse", "purpose": "Breathing dot, opacity only; static at 1.0 under reduced motion; samples about ten times a second, not every frame, keeping an idle screen cheap. Nothing slides, nothing scales." }
+    ],
+    "breakpoints": [
+      { "name": "two-pane-min", "value": "600dp" },
+      { "name": "two-pane-large", "value": "840dp" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Tab Header",
+      "kind": "header",
+      "refersTo": "tab-header",
+      "description": "The one shared header opening every tab (device review 2026-09-21, C9/X1): title 12dp below the top bar, intro 4dp under the title, content 16dp below; a trailing action aligns to the title's first baseline.",
+      "html": "<header class=\"ds-tab-header\"><div class=\"ds-tab-header-row\"><h1 class=\"ds-tab-title\">VPN Profiles</h1><button class=\"ds-tab-action\">Add Profile</button></div><p class=\"ds-tab-intro\">3 tunnels configured • 1 active</p></header>",
+      "css": ".ds-tab-header { padding: 12px 0 16px; } .ds-tab-header-row { display: flex; align-items: baseline; justify-content: space-between; } .ds-tab-title { font: 600 18px/24px 'Schibsted Grotesk', sans-serif; letter-spacing: -0.002em; color: #23221D; margin: 0; } .ds-tab-intro { font: 400 15px/23px 'Schibsted Grotesk', sans-serif; letter-spacing: 0.004em; color: #57544A; margin: 4px 0 0; } .ds-tab-action { background: none; border: none; font: 600 15px/20px 'Schibsted Grotesk', sans-serif; color: #23221D; cursor: pointer; }"
+    },
+    {
+      "name": "Status Pill (Active)",
+      "kind": "chip",
+      "refersTo": "status-pill-active",
+      "description": "Breathing-dot pill stating the connected truth.",
+      "html": "<span class=\"ds-pill-active\"><i></i>Active</span>",
+      "css": ".ds-pill-active { display: inline-flex; align-items: center; gap: 8px; background: #DCE8D9; color: #28402C; font: 600 15px/20px 'Schibsted Grotesk', sans-serif; letter-spacing: 0.01em; padding: 6px 16px; border-radius: 999px; } .ds-pill-active i { width: 7px; height: 7px; border-radius: 999px; background: #4A7350; }"
+    },
+    {
+      "name": "Status Pill (Idle)",
+      "kind": "chip",
+      "refersTo": "status-pill-idle",
+      "description": "Disconnected field pill; the dot is stroke-3, never a mid grey.",
+      "html": "<span class=\"ds-pill-idle\"><i></i>Disconnected</span>",
+      "css": ".ds-pill-idle { display: inline-flex; align-items: center; gap: 8px; background: #EAE4D8; color: #57544A; font: 600 15px/20px 'Schibsted Grotesk', sans-serif; letter-spacing: 0.01em; padding: 6px 16px; border-radius: 999px; } .ds-pill-idle i { width: 7px; height: 7px; border-radius: 999px; background: #7C7264; }"
+    },
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Affirmation actions: Add Profile, Save, Connect. Press adds ink, never scale.",
+      "html": "<button class=\"ds-btn-primary\">Add Profile</button>",
+      "css": ".ds-btn-primary { background: #3E5A42; color: #FBFAF7; font: 600 15px/20px 'Schibsted Grotesk', sans-serif; letter-spacing: 0.01em; height: 52px; padding: 0 24px; border: none; border-radius: 10px; cursor: pointer; transition: background 200ms linear; } .ds-btn-primary:active { background: #38543D; } .ds-btn-primary:disabled { background: #ECE5D7; color: #85827A; }"
+    },
+    {
+      "name": "Film Sheet",
+      "kind": "card",
+      "refersTo": "sheet",
+      "description": "One film of paper over the board: tonal step, 1dp closed cut seam, no shadow.",
+      "html": "<div class=\"ds-sheet\"><div class=\"ds-sheet-title\">Home server</div><div class=\"ds-sheet-mono\">203.0.113.2:51820</div></div>",
+      "css": ".ds-sheet { background: #F6F3EC; border-radius: 10px; padding: 20px; max-width: 360px; box-shadow: inset 0 0 0 1px #CEC2A9; } .ds-sheet-title { font: 600 16px/22px 'Schibsted Grotesk', sans-serif; color: #23221D; } .ds-sheet-mono { font: 400 14px/20px monospace; color: #57544A; margin-top: 2px; }"
+    },
+    {
+      "name": "Well Input",
+      "kind": "input",
+      "refersTo": "input-field",
+      "description": "Three-film well with the closed seam perimeter; focus lifts it to bare canvas with the focus ring.",
+      "html": "<input class=\"ds-input-mono\" value=\"10.111.222.3\" readonly>",
+      "css": ".ds-input-mono { background: #ECE5D7; color: #23221D; font: 400 14px/20px monospace; padding: 12px 16px; border: 2px solid transparent; border-radius: 8px; width: 240px; box-shadow: inset 0 0 0 1px #CEC2A9; } .ds-input-mono:focus { outline: none; background: #FBFAF7; border-color: #3E5A42; box-shadow: 0 2px 6px rgba(58,48,28,0.06), 0 10px 28px rgba(58,48,28,0.08); }"
+    },
+    {
+      "name": "Hero Connect Disc",
+      "kind": "custom",
+      "refersTo": "hero-disc",
+      "description": "112dp window to the bare board in a three-film seat; connected, the window fills sage.",
+      "html": "<div class=\"ds-hero\"><button class=\"ds-hero-disc ds-hero-on\">ACTIVE</button></div>",
+      "css": ".ds-hero { background: #ECE5D7; border-radius: 14px; padding: 40px; display: flex; justify-content: center; } .ds-hero-disc { width: 112px; height: 112px; border-radius: 999px; border: 1px solid #CEC2A9; background: #FBFAF7; color: #57544A; font: 600 15px/20px 'Schibsted Grotesk', sans-serif; letter-spacing: 0.01em; cursor: pointer; transition: background 260ms cubic-bezier(0.4, 0, 0.2, 1); } .ds-hero-on { background: #3E5A42; color: #FBFAF7; border-color: #3E5A42; box-shadow: 0 0 0 10px #ECE5D7, 0 0 0 10.5px #4A7350; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "Vellum",
+    "overview": "A warm paper board — canvas deepened one film at a time — with sage, slate, and lavender ink; cut-paper seams instead of shadows and honest telemetry. Vaayil's interface is a calm household guardian: it states the truth plainly — protected or not — in an atmosphere of domestic quiet. Security through peace, not urgency.",
+    "keyCharacteristics": [
+      "Light-only: cream canvas and paper films — identical on every device, day or night.",
+      "Depth is layered paper: tonal films, closed 1dp seams, one lifted shadow reserved for real overlays.",
+      "Sage means sanctuary: active/verified states and affirmation actions; clay means error; amber means warning; lavender accents DNS/advanced; slate governs transport data.",
+      "Sans for UI (Schibsted Grotesk), monospace for data, tabular figures for telemetry."
+    ],
+    "rules": [
+      { "name": "The Daylight Is the Brand Rule", "body": "One light palette from Vaayil, not the wallpaper. Dynamic color and dark themes are prohibited; the app renders identically on every device, day or night.", "section": "colors" },
+      { "name": "The Sage Means Sanctuary Rule", "body": "Sage marks active tunnel states, verified cryptography, and affirmation buttons — nothing else. Errors are clay, warnings amber, DNS/advanced accents lavender, transport data slate.", "section": "colors" },
+      { "name": "The Data Speaks Mono Rule", "body": "If a string is something the tunnel consumes or produces — an endpoint, a key, an IP, a DNS address, a rule target, a statistic — it renders in monospace; live telemetry numbers use tabular figures. No exceptions.", "section": "typography" },
+      { "name": "The Film Rule", "body": "Depth is paper, not shadow. One film = OKLCH ΔL −0.0206 ±0.0008, ΔC +0.0050 ±0.0012, hue 85° ±6°; the ladder ships as six static hexes and nesting caps at three cumulative films. Seams are 1dp #CEC2A9, one closed perimeter (amended 2026-09-21: a single inset drawRoundRect stroke; sub-48dp decorative tiles carry fill only); Modifier.border is banned. The single shadow, sheet-lift, belongs to lifted sheets alone.", "section": "elevation" }
+    ],
+    "dos": [
+      "Do keep surfaces in the canvas-and-film ladder; the palette has no dark mode.",
+      "Do reserve sage for sanctuary states and affirmation actions.",
+      "Do render machine data in monospace and telemetry in tabular Schibsted Grotesk.",
+      "Do carry load-bearing boundaries on stroke-3; hairline and seam are decoration.",
+      "Do honor reduced motion: fills swap instantly, dots sit static, feedback is preserved.",
+      "Do show real telemetry only; an empty slot stays quiet rather than decorative."
+    ],
+    "donts": [
+      "Don't enable Material You dynamic color or ship a dark variant.",
+      "Don't use Modifier.border and don't leave any edge undrawn — the seam is one closed perimeter drawn by the shared seam modifier; an open bracket reads as a broken card.",
+      "Don't cast a shadow anywhere except a lifted sheet.",
+      "Don't stack films past three — a fourth film is a development error, not a color.",
+      "Don't put warning-mark or error-mark on text; marks stroke, on-colors carry text.",
+      "Don't consumer-VPN-market it: no neon gradients, no fear-urgency banners, no globe maps, no fake speedometers.",
+      "Don't add motion beyond state feedback; nothing slides, nothing scales.",
+      "Don't reach for a dialog when an inline explanation will do."
+    ]
+  }
+}

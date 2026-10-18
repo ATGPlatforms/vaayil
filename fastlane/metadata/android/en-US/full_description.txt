@@ -1,0 +1,30 @@
+Vaayil is a calm, private client for the WireGuard® tunnels you already have: a server you run yourself, or a configuration from a provider you trust. Vaayil sells no bandwidth, runs no servers and has no accounts.
+
+BRING YOUR OWN TUNNEL
+• Import a .conf file, paste a configuration, scan a QR code, or enter the details by hand.
+• Connect with one tap. The dashboard tells you at a glance whether your tunnel is up and has completed its handshake, with honest session totals and the time of the last handshake.
+• Works with Android's Always-on VPN and "Block connections without VPN".
+
+SPLIT TUNNELING
+• Choose the apps that bypass the tunnel, or the only apps that use it. Changes apply right away.
+
+ENCRYPTED DNS
+• DNS over HTTPS and DNS over TLS through an in-tunnel resolver.
+• Split DNS: answer chosen domains with your current network's resolver instead.
+
+AUTOMATION
+• Connect automatically on Wi-Fi networks you haven't marked as trusted, on mobile data, or when the phone starts.
+• Optional: start and stop tunnels from automation apps with explicit intents, protected by a per-install token.
+
+PRIVATE BY DESIGN
+• No accounts, no analytics, no crash reporting, no ads.
+• Private keys are encrypted at rest with a key held in the Android Keystore, when the device's Keystore is available.
+• Android cloud backup is off for Vaayil. Move to a new phone with an encrypted, passphrase-protected backup file that you export yourself.
+
+COMPLETELY FREE
+• All features, with no trial limit or in-app purchases.
+
+ABOUT THE VPN PERMISSION
+Vaayil uses Android's VpnService to run the WireGuard tunnel you configure. Traffic is encrypted from your device to your tunnel's endpoint. Vaayil does not collect, log, sell or share your traffic, your DNS queries or your browsing.
+
+WireGuard is a registered trademark of Jason A. Donenfeld.

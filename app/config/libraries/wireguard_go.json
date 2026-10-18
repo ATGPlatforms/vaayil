@@ -1,0 +1,8 @@
+{
+  "uniqueId": "wireguard-go",
+  "name": "wireguard-go",
+  "developers": [{ "name": "Jason A. Donenfeld" }],
+  "description": "Copyright \u00a9 WireGuard LLC\n\nThe WireGuard Go implementation inside the native tunnel backend (libwg-go.so), which Vaayil builds from source for wireguard-android's GoBackend.",
+  "website": "https://git.zx2c4.com/wireguard-go/about/",
+  "licenses": ["mit_wireguard_go"]
+}

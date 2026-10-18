@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Vaayil brand mark: interlocking V with gateway notch (Vellum palette).
+     Drawn inside the adaptive-icon safe zone (66/108 center circle). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Left+right arms of the V (deep sage core) -->
+    <path
+        android:fillColor="#4A6B5B"
+        android:pathData="M35,38 L54,74 L73,38 L64.5,38 L54,58.5 L43.5,38 Z" />
+    <!-- Interlock shadow: right arm drawn darker where it crosses the left -->
+    <path
+        android:fillColor="#325344"
+        android:pathData="M54,46.5 L64.5,38 L73,38 L58,67 Z" />
+    <!-- Gateway notch: white dot and mint tongue at the vertex -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M54,48.2 m-2.4,0 a2.4,2.4 0 1 0 4.8,0 a2.4,2.4 0 1 0 -4.8,0" />
+    <path
+        android:fillColor="#C6EBD7"
+        android:pathData="M51.4,54.5 h5.2 v8.3 a2.6,2.6 0 0 1 -5.2,0 Z" />
+</vector>

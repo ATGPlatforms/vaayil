@@ -1,0 +1,149 @@
+{
+  "formatVersion": 1,
+  "database": {
+    "version": 2,
+    "identityHash": "64249af01bc2e896513a9a7e7676191a",
+    "entities": [
+      {
+        "tableName": "profiles",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `name` TEXT NOT NULL, `privateKey` TEXT NOT NULL, `addresses` TEXT NOT NULL, `dnsServers` TEXT NOT NULL, `mtu` INTEGER, `listenPort` INTEGER, `peerPublicKey` TEXT NOT NULL, `presharedKey` TEXT, `endpoint` TEXT NOT NULL, `allowedIps` TEXT NOT NULL, `keepalive` INTEGER, `splitMode` TEXT NOT NULL, `splitPackages` TEXT NOT NULL, `providerId` TEXT, `providerServerId` TEXT, `createdAt` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, `dnsMode` TEXT NOT NULL, `dnsSecureType` TEXT, `dnsSecureEndpoint` TEXT, `dnsRules` TEXT NOT NULL, PRIMARY KEY(`id`))",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "name",
+            "columnName": "name",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "privateKey",
+            "columnName": "privateKey",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "addresses",
+            "columnName": "addresses",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "dnsServers",
+            "columnName": "dnsServers",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "mtu",
+            "columnName": "mtu",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "listenPort",
+            "columnName": "listenPort",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "peerPublicKey",
+            "columnName": "peerPublicKey",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "presharedKey",
+            "columnName": "presharedKey",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "endpoint",
+            "columnName": "endpoint",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "allowedIps",
+            "columnName": "allowedIps",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "keepalive",
+            "columnName": "keepalive",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "splitMode",
+            "columnName": "splitMode",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "splitPackages",
+            "columnName": "splitPackages",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "providerId",
+            "columnName": "providerId",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "providerServerId",
+            "columnName": "providerServerId",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "createdAt",
+            "columnName": "createdAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "updatedAt",
+            "columnName": "updatedAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "dnsMode",
+            "columnName": "dnsMode",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "dnsSecureType",
+            "columnName": "dnsSecureType",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "dnsSecureEndpoint",
+            "columnName": "dnsSecureEndpoint",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "dnsRules",
+            "columnName": "dnsRules",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        }
+      }
+    ],
+    "setupQueries": [
+      "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '64249af01bc2e896513a9a7e7676191a')"
+    ]
+  }
+}

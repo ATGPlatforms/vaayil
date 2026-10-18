@@ -1,0 +1,8 @@
+{
+  "uniqueId": "go",
+  "name": "Go",
+  "developers": [{ "name": "The Go Authors" }],
+  "description": "The Go standard library and runtime, with golang.org/x/crypto, x/net and x/sys, compiled into the native tunnel backend (libwg-go.so).",
+  "website": "https://go.dev/",
+  "licenses": ["bsd_3_clause_go"]
+}

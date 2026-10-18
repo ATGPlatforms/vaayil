@@ -1,0 +1,44 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+    <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Package visibility (Android 11+): without a queries declaration getInstalledPackages()
+         sees almost nothing beyond this app, leaving the split-tunnel picker empty. The
+         launcher-intent query makes every app with a launcher entry visible to
+         InstalledAppsSource; system components without one stay hidden. -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.LAUNCHER" />
+        </intent>
+    </queries>
+    <!-- allowBackup="false" already disables every pre-Android-12 backup path, so the
+         fullBackupContent fallback lint asks for alongside dataExtractionRules would never
+         be consulted. -->
+    <application
+        android:name="dev.vaayil.app.VaayilApplication"
+        android:allowBackup="false"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        tools:ignore="DataExtractionRules"
+        android:taskAffinity=""
+        android:label="Vaayil"
+        android:icon="@mipmap/ic_launcher"
+        android:theme="@style/Theme.Vaayil">
+        <activity
+            android:name="dev.vaayil.app.MainActivity"
+            android:exported="true"
+            android:launchMode="singleTask">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+        <!-- Keep the GoBackend service component (GoBackend starts it explicitly while setting
+             the tunnel state up) but replace the AAR declaration wholesale: no intent-filter, so
+             the system only ever binds VpnTunnelService for always-on. -->
+        <service
+            android:name="com.wireguard.android.backend.GoBackend$VpnService"
+            android:exported="false"
+            android:permission="android.permission.BIND_VPN_SERVICE"
+            tools:node="replace" />
+    </application>
+</manifest>

@@ -1,0 +1,8 @@
+{
+  "uniqueId": "androidx.datastore:datastore-preferences-external-protobuf",
+  "name": "Preferences External Protobuf",
+  "developers": [{ "name": "The Android Open Source Project" }],
+  "description": "Repackaged proto-lite dependency for use by datastore preferences",
+  "website": "https://developer.android.com/jetpack/androidx/releases/datastore#1.1.6",
+  "licenses": ["bsd_3_clause_protobuf"]
+}

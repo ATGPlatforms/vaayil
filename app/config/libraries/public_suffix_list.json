@@ -1,0 +1,7 @@
+{
+  "uniqueId": "public-suffix-list",
+  "name": "Public Suffix List",
+  "description": "The Public Suffix List, compiled from https://publicsuffix.org/list/public_suffix_list.dat and bundled by OkHttp as okhttp3/internal/publicsuffix/publicsuffixes.gz.",
+  "website": "https://publicsuffix.org/",
+  "licenses": ["mpl_2_0_public_suffix_list"]
+}

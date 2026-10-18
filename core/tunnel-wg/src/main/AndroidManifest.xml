@@ -1,0 +1,26 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SYSTEM_EXEMPTED" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- UnderlyingNetworkProbe reads allNetworks to select the network for bootstrap and bypass DNS. -->
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <application>
+        <service
+            android:name="dev.vaayil.core.tunnel.wg.VpnTunnelService"
+            android:exported="false"
+            android:foregroundServiceType="systemExempted"
+            android:permission="android.permission.BIND_VPN_SERVICE">
+            <intent-filter>
+                <action android:name="android.net.VpnService" />
+            </intent-filter>
+        </service>
+        <!-- GoBackend.setStateInternal starts its own establishing service explicitly
+             (new Intent(context, GoBackend.VpnService.class)); it must be declared or
+             every setState(UP) throws. No intent-filter: VpnTunnelService is the app's
+             system-visible VpnService. -->
+        <service
+            android:name="com.wireguard.android.backend.GoBackend$VpnService"
+            android:exported="false"
+            android:permission="android.permission.BIND_VPN_SERVICE" />
+    </application>
+</manifest>

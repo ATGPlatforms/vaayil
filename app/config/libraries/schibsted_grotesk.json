@@ -1,0 +1,8 @@
+{
+  "uniqueId": "SchibstedGrotesk",
+  "name": "Schibsted Grotesk",
+  "developers": [{ "name": "The Schibsted-Grotesk Project Authors" }],
+  "description": "Neo-grotesk typeface; the latin weights 400-700 are bundled in Vaayil as its type system.",
+  "website": "https://github.com/schibsted/schibsted-grotesk",
+  "licenses": ["ofl_1_1"]
+}

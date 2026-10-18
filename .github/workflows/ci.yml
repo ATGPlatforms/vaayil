@@ -1,0 +1,105 @@
+name: CI
+on:
+  pull_request:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      # actions/checkout v4.4.0
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      # actions/setup-java v5.7.0 (the v4 deprecation AGENTS.md flagged)
+      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961
+        with: { distribution: temurin, java-version: "17" }
+      # gradle/actions/setup-gradle v4.4.4
+      - uses: gradle/actions/setup-gradle@748248ddd2a24f49513d8f472f81c3a07d4d50e1
+      # :third-party:wireguard-tunnel builds libwg-go.so with this NDK and CMake.
+      - run: '"$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "ndk;27.0.12077973" "cmake;3.22.1"'
+      # actions/cache v4.3.0 — the Go 1.24.3 download the vendored Makefile pins (tools/libwg-go/Makefile:
+      # GO_VERSION, GO_HASH_linux-amd64 and the $(GRADLE_USER_HOME)/caches/golang rule), the Go module cache and
+      # the Go build cache; keyed on the vendored go.sum and the Go version.
+      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830
+        with:
+          path: |
+            ~/.gradle/caches/golang
+            ~/go/pkg/mod
+            ~/.cache/go-build
+          key: go-${{ runner.os }}-1.24.3-${{ hashFiles('third-party/wireguard-tunnel/tools/libwg-go/go.sum') }}
+      - run: ./gradlew build
+      # captureRoboImage no-ops without the verify property — this step is what actually
+      # fails CI when a screenshot drifts from the committed references.
+      - run: ./gradlew :app:verifyRoborazziDebug
+  dco:
+    # Only pull requests carry commits to certify; a push to main still runs
+    # the build above.
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      # actions/checkout v4.4.0
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          # Full history: the script walks DCO_BASE..DCO_HEAD. Reading is all
+          # this job does, so no credential is persisted.
+          fetch-depth: 0
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha }}
+      - name: Check every commit for a DCO sign-off
+        shell: bash
+        env:
+          DCO_BASE: ${{ github.event.pull_request.base.sha }}
+          DCO_HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          # BEGIN DCO
+          # Every commit in the pull request must carry its author's own
+          # "Signed-off-by" trailer, per the Developer Certificate of Origin. The
+          # two event SHAs arrive through the environment only; nothing from the
+          # event is interpolated into this script.
+
+          require_full_sha() {
+            if [[ ! $2 =~ ^[0-9a-f]{40}$ ]]; then
+              echo "dco: $1 is not a full 40-character commit SHA" >&2
+              exit 1
+            fi
+          }
+
+          require_commit() {
+            if ! git rev-parse --verify --quiet "$2^{commit}" >/dev/null; then
+              echo "dco: $1 does not name a commit in this repository" >&2
+              exit 1
+            fi
+          }
+
+          require_full_sha DCO_BASE "$DCO_BASE"
+          require_full_sha DCO_HEAD "$DCO_HEAD"
+          require_commit DCO_BASE "$DCO_BASE"
+          require_commit DCO_HEAD "$DCO_HEAD"
+
+          if ! commits=$(git rev-list "$DCO_BASE..$DCO_HEAD"); then
+            echo "dco: could not enumerate the commits in $DCO_BASE..$DCO_HEAD" >&2
+            exit 1
+          fi
+          if [[ -z $commits ]]; then
+            echo "dco: $DCO_BASE..$DCO_HEAD holds no commits; refusing to verify nothing" >&2
+            exit 1
+          fi
+
+          status=0
+          for commit in $commits; do
+            if ! author=$(git log -1 --format='%an <%ae>' "$commit"); then
+              echo "dco: could not read the author of $commit" >&2
+              exit 1
+            fi
+            if ! trailers=$(git log -1 --format='%B' "$commit" | git interpret-trailers --parse); then
+              echo "dco: could not read the trailer block of $commit" >&2
+              exit 1
+            fi
+            if ! grep -Fxq -- "Signed-off-by: $author" <<<"$trailers"; then
+              echo "dco: commit $commit is missing its author's sign-off" >&2
+              status=1
+            fi
+          done
+          exit "$status"
+          # END DCO

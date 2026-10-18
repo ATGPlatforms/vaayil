@@ -1,0 +1,13 @@
+<resources>
+    <!-- windowLightNavigationBar exists only from API 27; minSdk is 26, so the light-bar
+         (dark glyph) promise lives in this -v27 overlay. Resource configs never merge:
+         this entry fully shadows values/themes.xml on API 27+, so the base style is
+         restated in full — dropping any base item here removes it on real devices. -->
+    <style name="Theme.Vaayil" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@color/vellum_canvas</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:windowLightNavigationBar">true</item>
+    </style>
+</resources>

@@ -1,0 +1,1 @@
+The first release of Vaayil: bring your own WireGuard tunnel by file, paste, QR code or manual entry; split tunneling; DNS over HTTPS and TLS with split DNS; Wi-Fi, mobile-data and boot automation; encrypted backups. All features are free, with no trial limit or in-app purchases.
