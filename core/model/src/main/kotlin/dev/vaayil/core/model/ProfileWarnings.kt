@@ -76,7 +76,7 @@ private fun Profile.addressesMissRoutedFamilies(): Boolean {
 private fun isIpv6Entry(entry: String): Boolean = entry.substringBefore('/').contains(':')
 
 /** A CIDR block with host bits cleared, so equal entries share one block and containment is exact. */
-private class CidrBlock(val network: BigInteger, val bits: Int, val prefix: Int) {
+internal class CidrBlock(val network: BigInteger, val bits: Int, val prefix: Int) {
     val size: BigInteger = BigInteger.ONE.shiftLeft(bits - prefix)
 
     fun contains(other: CidrBlock): Boolean =
@@ -90,7 +90,7 @@ private class CidrBlock(val network: BigInteger, val bits: Int, val prefix: Int)
  * bytes, which agree with the spelling because [isIpLiteral] refuses the mapped and dotted-tail
  * forms.
  */
-private fun parseBlock(entry: String): CidrBlock? {
+internal fun parseBlock(entry: String): CidrBlock? {
     val addr = entry.substringBefore('/')
     if (!isIpLiteral(addr)) return null
     val prefix = entry.substringAfter('/').toIntOrNull() ?: return null
