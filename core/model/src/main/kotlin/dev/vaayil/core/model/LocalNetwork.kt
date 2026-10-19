@@ -5,8 +5,8 @@ import java.net.InetAddress
 
 /**
  * The blocks a local-network switch keeps out of the tunnel: the private, link-local and
- * multicast ranges of both families, in the order the routes are listed. `100.64.0.0/10` (carrier
- * NAT) is not local: it is routable and belongs in the tunnel.
+ * multicast ranges of both families, in route order. `100.64.0.0/10` is not one of them: the
+ * profile's Allowed IPs keep routing it.
  */
 val LOCAL_NETWORK_RANGES: List<String> = listOf(
     "10.0.0.0/8",
@@ -41,7 +41,8 @@ private val LOCAL_BLOCKS: List<CidrBlock> = LOCAL_NETWORK_RANGES.map {
  * route already in the list covers it — a network the profile never routed stays outside the
  * tunnel, and a family the Allowed IPs don't route gains no route.
  *
- * Every returned route has its host bits cleared, as the route builder requires.
+ * Every returned route has its host bits cleared, as the route builder requires, and prints in
+ * full: IPv4 dotted, IPv6 as its eight groups (never compressed, never folded into IPv4).
  */
 fun localNetworkRoutes(
     allowedIps: List<String>,
