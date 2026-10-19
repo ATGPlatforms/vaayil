@@ -160,13 +160,18 @@ suspend fun buildSecureUpstream(
             // sees the address (the same normalisation dohEndpointProblem applies).
             val host = uri.host!!.removePrefix("[").removeSuffix("]")
             if (isIpLiteral(host)) {
-                DohUpstream(ok, endpoint)
+                DohUpstream(ok, endpoint, endpointAddresses = listOf(host))
             } else {
                 val ips = bootstrapPin(host, bootstrapResolve)
-                DohUpstream(ok, endpoint, pinnedDns = object : okhttp3.Dns {
-                    override fun lookup(hostname: String): List<InetAddress> =
-                        ips.map(InetAddress::getByName) // literal strings only: no DNS here
-                })
+                DohUpstream(
+                    ok,
+                    endpoint,
+                    pinnedDns = object : okhttp3.Dns {
+                        override fun lookup(hostname: String): List<InetAddress> =
+                            ips.map(InetAddress::getByName) // literal strings only: no DNS here
+                    },
+                    endpointAddresses = ips,
+                )
             }
         }
     }

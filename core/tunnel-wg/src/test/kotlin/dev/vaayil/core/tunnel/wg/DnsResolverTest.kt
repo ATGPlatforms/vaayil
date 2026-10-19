@@ -338,6 +338,47 @@ class DnsResolverTest {
         session.close()
     }
 
+    @Test
+    fun `a secure session carries its server's addresses`() = runTest {
+        val secure = object : dev.vaayil.core.dns.DnsUpstream {
+            override suspend fun query(queryWire: ByteArray): ByteArray? = null
+            override val endpointAddresses: List<String> = listOf("192.0.2.53")
+            override fun close() = Unit
+        }
+        val controller = DnsResolverController(
+            scope = backgroundScope,
+            protect = { { true } },
+            protectDatagram = { { true } },
+            underlying = { UnderlyingRoute(listOf(InetAddress.getByName("127.0.0.1"))) },
+            ok = OkHttpClient(),
+            secureUpstream = { secure },
+        )
+        val session = controller.build(secureDotProfile("192.0.2.53:853"))
+        try {
+            assertEquals(listOf("192.0.2.53"), session.secureEndpointAddresses)
+        } finally {
+            session.close()
+        }
+    }
+
+    @Test
+    fun `a tunnel-DNS session carries no secure addresses`() = runTest {
+        val controller = DnsResolverController(
+            scope = backgroundScope,
+            protect = { { true } },
+            protectDatagram = { { true } },
+            underlying = { UnderlyingRoute(listOf(InetAddress.getByName("127.0.0.1"))) },
+            ok = OkHttpClient(),
+            secureUpstream = { error("a tunnel-DNS profile builds no secure upstream") },
+        )
+        val session = controller.build(validProfile().copy(dns = DnsPolicy(mode = DnsMode.TUNNEL)))
+        try {
+            assertEquals(emptyList<String>(), session.secureEndpointAddresses)
+        } finally {
+            session.close()
+        }
+    }
+
     // ---- D1 bootstrap: hostname secure endpoints resolve ONCE at establishment via the
     // underlying resolvers over protected sockets; IP literals skip it; failures are loud.
 

@@ -712,6 +712,64 @@ class BootstrapTest {
     }
 
     @Test
+    fun `a DoT server reports the address it dials`() = runBlocking {
+        val upstream = buildSecureUpstream(
+            type = SecureDnsType.DOT,
+            endpoint = "192.0.2.53:853",
+            ok = OkHttpClient(),
+        ) { error("no lookup for a literal") }
+        try {
+            assertEquals(listOf("192.0.2.53"), upstream.endpointAddresses)
+        } finally {
+            upstream.close()
+        }
+    }
+
+    @Test
+    fun `a DoT hostname reports its pinned addresses`() = runBlocking {
+        val upstream = buildSecureUpstream(
+            type = SecureDnsType.DOT,
+            endpoint = "dns.example",
+            ok = OkHttpClient(),
+            bootstrapResolve = { listOf("192.0.2.53", "2001:db8::53") },
+        )
+        try {
+            assertEquals(listOf("192.0.2.53", "2001:db8::53"), upstream.endpointAddresses)
+        } finally {
+            upstream.close()
+        }
+    }
+
+    @Test
+    fun `a DoH literal reports its address without brackets`() = runBlocking {
+        val upstream = buildSecureUpstream(
+            type = SecureDnsType.DOH,
+            endpoint = "https://[2001:db8::53]/dns-query",
+            ok = OkHttpClient(),
+        ) { error("no lookup for a literal") }
+        try {
+            assertEquals(listOf("2001:db8::53"), upstream.endpointAddresses)
+        } finally {
+            upstream.close()
+        }
+    }
+
+    @Test
+    fun `a DoH hostname reports its pinned addresses`() = runBlocking {
+        val upstream = buildSecureUpstream(
+            type = SecureDnsType.DOH,
+            endpoint = "https://dns.example/dns-query",
+            ok = OkHttpClient(),
+            bootstrapResolve = { listOf("192.0.2.53", "2001:db8::53") },
+        )
+        try {
+            assertEquals(listOf("192.0.2.53", "2001:db8::53"), upstream.endpointAddresses)
+        } finally {
+            upstream.close()
+        }
+    }
+
+    @Test
     fun `buildSecureUpstream rejects blank endpoints loudly`() = runBlocking {
         val err = runCatching {
             buildSecureUpstream(

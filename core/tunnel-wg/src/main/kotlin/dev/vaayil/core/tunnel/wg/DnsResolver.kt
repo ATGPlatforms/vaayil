@@ -246,15 +246,21 @@ class DnsResolverController(
 
             val secureRaw: DnsUpstream?
             val secureUdp: DnsUpstream?
+            val secureAddresses: List<String>
             if (dns.mode == DnsMode.SECURE) {
                 // D1: the secure channel lives in the same re-arm wrapper as the bypass
                 // layer — on first failure (e.g. a network switch killed the pinned dial)
                 // the rebuild re-runs buildSecureUpstream, which re-resolves the hostname
                 // endpoint through a FRESH underlying-DNS probe and re-pins the session.
-                secureRaw = ReprobingUpstream(secureUpstream(dns)) { secureUpstream(dns) }
+                // The first upstream's addresses are what the tunnel must route to its
+                // server; the wrapper is transparent to the tunnel's own bookkeeping.
+                val first = secureUpstream(dns)
+                secureAddresses = first.endpointAddresses
+                secureRaw = ReprobingUpstream(first) { secureUpstream(dns) }
                 secureUdp = CachingUpstream(secureRaw, cache)
                 built += secureUdp
             } else {
+                secureAddresses = emptyList()
                 secureRaw = null
                 secureUdp = null
             }
@@ -302,6 +308,7 @@ class DnsResolverController(
                     isAllowedSource = { source -> source.isLoopbackAddress || source in ownAddresses },
                 ),
                 owned = built.toList(),
+                secureEndpointAddresses = secureAddresses,
             )
         } catch (e: Exception) {
             built.forEach { runCatching { it.close() } } // never leak half-built channels
@@ -543,6 +550,8 @@ class ResolverSession internal constructor(
     val profileId: String,
     private val responder: DnsResponder,
     private val owned: List<DnsUpstream>,
+    /** The addresses the secure DNS server dials (empty without secure DNS), for the tunnel's host routes. */
+    val secureEndpointAddresses: List<String> = emptyList(),
 ) : DnsAnswerer by responder, Closeable {
 
     /** The session's answer epoch: cancelled, quiesced or closed with the session; [activate] replaces it. */
