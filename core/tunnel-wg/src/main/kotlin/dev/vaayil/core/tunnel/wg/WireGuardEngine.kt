@@ -4,6 +4,8 @@ import android.content.Context
 import com.wireguard.android.backend.Backend
 import com.wireguard.android.backend.GoBackend
 import com.wireguard.android.backend.Tunnel
+import com.wireguard.config.Config
+import com.wireguard.config.InetNetwork
 import dev.vaayil.core.dns.DatagramPipe
 import dev.vaayil.core.dns.SecureDnsBootstrapException
 import dev.vaayil.core.model.Profile
@@ -14,6 +16,7 @@ import dev.vaayil.core.tunnel.api.TunnelError
 import dev.vaayil.core.tunnel.api.TunnelNotice
 import dev.vaayil.core.tunnel.api.TunnelStats
 import dev.vaayil.core.tunnel.api.TunnelStatus
+import dev.vaayil.wgtunnel.VpnRoutes
 import java.net.InetAddress
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.NonCancellable
@@ -168,8 +171,11 @@ class WireGuardEngine(
                 // (GoBackend.setStateInternal: VPN_NOT_AUTHORIZED). Read once: the guard after setState relies on
                 // it (Plan ruling 10).
                 val permitted = vpnPermitted()
+                // The staged resolver's secure endpoint addresses, for the routes the local-network switch trims:
+                // empty when nothing intercepts or the VPN permission is missing.
+                var secureEndpointAddresses: List<String> = emptyList()
                 if (permitted) {
-                    val problem = try {
+                    val stage = try {
                         stageResolver(profile, dnsPlan, dnsEpoch)
                     } catch (e: CancellationException) {
                         // The caller died during the build, before anything was staged. A fresh connect already
@@ -182,6 +188,7 @@ class WireGuardEngine(
                         }
                         throw e
                     }
+                    val problem = stage.problem
                     if (problem != null) {
                         // The class name only: a bootstrap failure's message names the endpoint host.
                         android.util.Log.w(
@@ -206,6 +213,7 @@ class WireGuardEngine(
                         )
                         return@withLock startOutcome(_status.value, profile.id)
                     }
+                    secureEndpointAddresses = stage.secureEndpointAddresses
                 }
                 if (previousTunnel != null) _status.value = TunnelStatus(ConnectionPhase.CONNECTING, profile.id, null)
                 try {
@@ -215,8 +223,15 @@ class WireGuardEngine(
                     val newTunnel = withContext(Dispatchers.IO) {
                         val installed = installedApps()
                         val resolved = SplitTunnelResolver.resolve(policy, installed, context.packageName)
-                        val config = try {
-                            WgConfigMapper.toBackendConfig(profile, resolved, dnsPlan)
+                        val config: Config
+                        val routes: List<InetNetwork>?
+                        try {
+                            config = WgConfigMapper.toBackendConfig(profile, resolved, dnsPlan)
+                            // Both parse the profile's text, so one unusable-profile handling covers the routes too:
+                            // a profile the mapper refuses must fail the start the same way whichever parse sees it.
+                            routes = WgConfigMapper.vpnRoutes(
+                                profile, policy.allowLocalNetwork, secureEndpointAddresses,
+                            )
                         } catch (e: com.wireguard.config.BadConfigException) {
                             // Enum names only: getText() and the message can carry key material.
                             android.util.Log.w("WireGuardEngine", "backend refused the profile's config: ${e.section} ${e.location} ${e.reason}")
@@ -226,7 +241,7 @@ class WireGuardEngine(
                             android.util.Log.w("WireGuardEngine", "backend could not parse a ${e.parsingClass.simpleName} in the profile's config")
                             throw UnusableProfileException(e)
                         }
-                        val t = EngineTunnel(profile.name)
+                        val t = EngineTunnel(profile.name, routes)
                         val state = backend.setState(t, Tunnel.State.UP, config)
                         // C4: setState returns the state it applied; anything but UP (without throwing) is a
                         // failed start — the published-tunnel paths below must not run for a dead tunnel.
@@ -291,15 +306,16 @@ class WireGuardEngine(
     /**
      * B1 §6.5 steps 2-4: builds the resolver for [profile] when [plan] intercepts, makes sure the DNS channel is
      * open, then stages the new resolver (null for a plain profile) with the previous one kept aside. Returns the
-     * failure, or null once staged. Nothing is staged on failure, and a resolver built before the failure is
-     * closed. A timeout inside the build is a failure; a real cancellation propagates.
+     * failure, or null and the staged session's secure endpoint addresses once staged. Nothing is staged on failure,
+     * and a resolver built before the failure is closed. A timeout inside the build is a failure; a real cancellation
+     * propagates.
      *
      * [expectedEpoch] is the deactivation ticket [start] captured: a revoke that deactivated the resolver while
      * this build ran makes the stage a no-op (A1). The candidate is closed, no error is reported — the start goes
      * on, so its late UP simply drops DNS until teardown — and the commit or rollback that follows finds nothing
      * staged.
      */
-    private suspend fun stageResolver(profile: Profile, plan: DnsPlan, expectedEpoch: Long): Exception? {
+    private suspend fun stageResolver(profile: Profile, plan: DnsPlan, expectedEpoch: Long): ResolverStage {
         var built: ResolverSession? = null
         return try {
             if (plan.intercept) built = dns.build(profile)
@@ -308,18 +324,18 @@ class WireGuardEngine(
                 // The revoke won: staging now would resurrect the session it retired. Closing the candidate is
                 // all that is left — no error, so the start settles the way any late UP does.
                 built?.close()
-                return null
+                return ResolverStage(null)
             }
-            null
+            ResolverStage(null, built?.secureEndpointAddresses.orEmpty())
         } catch (e: TimeoutCancellationException) {
             built?.close()
-            e
+            ResolverStage(e)
         } catch (e: CancellationException) {
             built?.close()
             throw e
         } catch (e: Exception) {
             built?.close()
-            e
+            ResolverStage(e)
         }
     }
 
@@ -497,7 +513,15 @@ class WireGuardEngine(
 
     suspend fun profileLookupFor(id: String): Profile? = profileLookup(id)
 
-    private inner class EngineTunnel(private val tunnelName: String) : Tunnel {
+    /**
+     * A start's tunnel handle. [routes] are the interface routes the local-network switch trimmed, or null to let
+     * GoBackend route the peers' Allowed IPs as before ([VpnRoutes]).
+     */
+    private inner class EngineTunnel(
+        private val tunnelName: String,
+        private val routes: List<InetNetwork>?,
+    ) : Tunnel, VpnRoutes {
+        override fun getVpnRoutes(): List<InetNetwork>? = routes
         override fun getName(): String = tunnelName
         override fun onStateChange(newState: Tunnel.State) {
             // GoBackend reports DOWN for our own setState calls (the mutex is held: expected)
@@ -554,6 +578,15 @@ class WireGuardEngine(
 /** Shown when the backend refuses to build a profile's config (F17); never the library's exception text. */
 internal const val UNUSABLE_PROFILE_MESSAGE =
     "This profile has a setting the tunnel can't use. Open it in the editor to see which one."
+
+/**
+ * What [WireGuardEngine.stageResolver] leaves behind: the failure, or null and the staged session's secure endpoint
+ * addresses, which the local-network switch keeps reachable with host routes. Every failure path carries no addresses.
+ */
+private data class ResolverStage(
+    val problem: Exception?,
+    val secureEndpointAddresses: List<String> = emptyList(),
+)
 
 /** The backend refused to build this profile's config: a row saved before a validation rule existed. */
 private class UnusableProfileException(cause: Exception) : Exception(cause)

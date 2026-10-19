@@ -1,5 +1,6 @@
 package dev.vaayil.core.tunnel.wg
 
+import com.wireguard.config.InetNetwork
 import dev.vaayil.core.model.DnsMode
 import dev.vaayil.core.model.DnsPolicy
 import dev.vaayil.core.model.DnsSplitRule
@@ -10,10 +11,14 @@ import dev.vaayil.core.model.SplitTunnelMode
 import dev.vaayil.core.model.RESOLVER_V4
 import dev.vaayil.core.model.SecureDnsType
 import dev.vaayil.core.model.SplitTunnelPolicy
+import dev.vaayil.core.model.localNetworkRoutes
+import java.math.BigInteger
 import java.util.Optional
 import kotlin.test.Test
+import kotlin.test.assertContains
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /**
@@ -203,5 +208,55 @@ class WgConfigMapperTest {
         // throw, it falls back to the colon check it used before.
         assertEquals(WgConfigMapper.Family.V6, WgConfigMapper.familyOf("fe80::1%25wlan0/64"))
         assertEquals(WgConfigMapper.Family.V4, WgConfigMapper.familyOf("1.2.3/24"))
+    }
+
+    @Test
+    fun `vpnRoutes is null with the switch off`() {
+        assertNull(WgConfigMapper.vpnRoutes(profile(), false, listOf("10.64.0.53")))
+    }
+
+    @Test
+    fun `vpnRoutes trims the routes and leaves the AllowedIPs alone`() {
+        // The profile loses the local ranges from its routes, but the peer's cryptokey routing keeps them: both
+        // family rules and GoBackend's kill-switch rule still read the AllowedIPs.
+        assertEquals(
+            localNetworkRoutes(
+                listOf("0.0.0.0/0", "::/0"),
+                listOf("10.0.0.2/32", "fd00::2/128"),
+                listOf("1.1.1.1", "9.9.9.9"),
+            ).map(InetNetwork::parse),
+            WgConfigMapper.vpnRoutes(profile(), true, emptyList()),
+        )
+        val peerAllowedIps: Set<InetNetwork> = WgConfigMapper.toBackendConfig(profile(), null).peers.single().allowedIps
+        assertEquals(listOf("0.0.0.0/0", "::/0").map(InetNetwork::parse).toSet(), peerAllowedIps)
+    }
+
+    @Test
+    fun `every route has its host bits cleared`() {
+        // Builder.addRoute throws "Bad address" for a route that keeps host bits.
+        val routes = requireNotNull(
+            WgConfigMapper.vpnRoutes(
+                profile(allowedIps = listOf("0.0.0.0/0", "192.168.1.7/24", "::/0")),
+                true,
+                emptyList(),
+            ),
+        )
+        assertTrue(routes.isNotEmpty())
+        for (route in routes) {
+            val bits = route.address.address.size * 8
+            assertTrue(
+                BigInteger(1, route.address.address).mod(BigInteger.ONE.shiftLeft(bits - route.mask)) ==
+                    BigInteger.ZERO,
+                "$route keeps host bits",
+            )
+        }
+    }
+
+    @Test
+    fun `a secure server's address gets a host route`() {
+        val routes = requireNotNull(
+            WgConfigMapper.vpnRoutes(profile(dnsServers = emptyList()), true, listOf("10.64.0.53")),
+        )
+        assertContains(routes, InetNetwork.parse("10.64.0.53/32"))
     }
 }

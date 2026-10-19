@@ -78,7 +78,8 @@ The maintainer's private docs live in the companion repo `vaayil-dev`, checked o
 ## Module map
 
 ```
-core/model        pure domain: Profile, DnsPolicy, AutoConnectRules, validation   (pure JVM)
+core/model        pure domain: Profile, DnsPolicy, AutoConnectRules, local-network
+                  routes, validation                                              (pure JVM)
 core/config       wg-quick parse/serialize                                        (pure JVM)
 core/tunnel-api   TunnelEngine seam + status/stats/error types, handshakeState    (pure JVM)
 core/dns          in-tunnel resolver: rule matcher, upstreams (plain/DoT/DoH),
@@ -102,7 +103,8 @@ app               single APK: MainActivity, RootNav (bottom-nav tabs + pushed ro
                   VellumTopBar/VellumBottomBar, QR dialog, AppContainer, theme, screenshots
 third-party/wireguard-tunnel
                   wireguard-android's tunnel module, vendored at 1.0.20260102:
-                  GoBackend (+ resolver host route, handle reset), DnsIntercept,
+                  GoBackend (+ resolver host route, handle reset, VpnRoutes
+                  hand-over), DnsIntercept,
                   libwg-go.so built from source with the dnsintercept filter      (Android lib)
 ```
 
@@ -321,6 +323,19 @@ app -> core/model, core/ui, core/config, core/tunnel-api, core/data, core/automa
   predicate.
 - An inclusive split-tunnel policy with no installed app is never applied: the VM refuses to save
   it and `SplitTunnelResolver` returns no restriction (everything tunnels).
+- The local-network switch is app-wide, as `SplitTunnelSelections.allowLocalNetwork`, stored with
+  the split-tunnel rules and in backups (additive, still version 4). When it is on,
+  `WgConfigMapper.vpnRoutes` (`localNetworkRoutes` and `LOCAL_NETWORK_RANGES` in `:core:model`)
+  hands GoBackend, through `dev.vaayil.wgtunnel.VpnRoutes`, the AllowedIPs minus the local ranges.
+  It keeps each interface subnet, and a host route for each DNS server (the profile's, plus the
+  secure server's literal or pinned addresses), wherever a trimmed entry covered them; GoBackend
+  still adds the resolver host routes. The AllowedIPs, the peer config and the exported `.conf`
+  never change. Both family rules read the AllowedIPs, so an IPv4-only profile keeps IPv6 blocked.
+  The routes are fixed when the tunnel comes up: after a network change, a secure server
+  re-resolved to a different local address skips the tunnel, still encrypted, until the next
+  connect. A flip saves even while an empty Inclusive list holds the app rules back, and it
+  restarts the tunnel like any rule change. Under Always-on with Block connections without VPN,
+  Android blocks those connections (API 36 checked).
 - Every Profile id is validated (`[A-Za-z0-9_-]{1,64}`) and Uri-encoded into routes; restore
   normalises legacy fields and confirms once before writing in one transaction. Export writes only
   the profiles it can read and says how many (C9, `BackupViewModel.reportExport`): "Encrypted
@@ -372,11 +387,12 @@ app -> core/model, core/ui, core/config, core/tunnel-api, core/data, core/automa
 - The three core Preferences stores (`vaayil_settings`, `vaayil_automation`, `vaayil_split_tunnel`)
   reset a corrupt file to defaults through `ReplaceFileCorruptionHandler`, with one WARN, instead of
   crash-looping every start (B5): pointers cleared, automation off, the external-control token
-  gone, both split-tunnel lists empty. `:app`'s `vaayil_flags` does the same (C11): onboarding runs
-  again and the one-time notification ask is owed again. `AppContainer.init`'s one-time upgrades run
-  in order as named `StartupStep`s through `runStartupSteps` (`AppStartup.kt`): `warm`,
-  `rescueLegacySplitTunnelRules`, `reEncryptAtRest`, `wipeLegacyFlags`. A failing step logs its
-  name and exception class and start-up continues; `CancellationException` is rethrown.
+  gone, both split-tunnel lists empty, Allow local network off. `:app`'s `vaayil_flags` does the
+  same (C11): onboarding runs again and the one-time notification ask is owed again.
+  `AppContainer.init`'s one-time upgrades run in order as named `StartupStep`s through
+  `runStartupSteps` (`AppStartup.kt`): `warm`, `rescueLegacySplitTunnelRules`, `reEncryptAtRest`,
+  `wipeLegacyFlags`. A failing step logs its name and exception class and start-up continues;
+  `CancellationException` is rethrown.
 
 ## Design system (normative for UI work)
 
