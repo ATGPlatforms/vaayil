@@ -30,8 +30,10 @@ object BackupCodec {
     )
 
     /**
-     * v4 carries both mode sets ([excluded]/[included]). `packages` is the v3-and-earlier
-     * field — a single set tied to [mode]; kept defaulted so old envelopes still decode.
+     * v4 carries both mode sets ([excluded]/[included]) and the Allow local network switch.
+     * `packages` is the v3-and-earlier field — a single set tied to [mode]; kept defaulted so old
+     * envelopes still decode. [allowLocalNetwork] is additive: the envelope stays version 4 so
+     * older builds read it, and they ignore the field (the switch reads as off there).
      */
     @Serializable
     data class BackupSplitTunnel(
@@ -39,6 +41,7 @@ object BackupCodec {
         val packages: Set<String> = emptySet(),
         val excluded: Set<String> = emptySet(),
         val included: Set<String> = emptySet(),
+        val allowLocalNetwork: Boolean = false,
     )
 
     @Serializable
@@ -96,6 +99,7 @@ object BackupCodec {
                 mode = selections.mode.name,
                 excluded = selections.excluded,
                 included = selections.included,
+                allowLocalNetwork = selections.allowLocalNetwork,
             ),
         )
         return json.encodeToString(envelope)
@@ -146,13 +150,15 @@ object BackupCodec {
         val splitTunnel = envelope.splitTunnel?.let { st ->
             val mode = SplitTunnelMode.valueOf(st.mode)
             if (envelope.version >= 4) {
-                SplitTunnelSelections(mode, st.excluded, st.included)
+                SplitTunnelSelections(mode, st.excluded, st.included, st.allowLocalNetwork)
             } else {
                 // v3 and earlier stored one set, tied to the active mode only.
                 if (mode == SplitTunnelMode.EXCLUDE) {
-                    SplitTunnelSelections(mode, excluded = st.packages)
+                    SplitTunnelSelections(
+                        mode, excluded = st.packages, allowLocalNetwork = st.allowLocalNetwork)
                 } else {
-                    SplitTunnelSelections(mode, included = st.packages)
+                    SplitTunnelSelections(
+                        mode, included = st.packages, allowLocalNetwork = st.allowLocalNetwork)
                 }
             }
         }

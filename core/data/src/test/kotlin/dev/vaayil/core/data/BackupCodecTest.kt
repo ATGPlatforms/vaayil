@@ -79,6 +79,26 @@ class BackupCodecTest {
         )
     }
 
+    @Test
+    fun `Allow local network round-trips in a version 4 envelope`() {
+        val selections = SplitTunnelSelections(
+            SplitTunnelMode.EXCLUDE, excluded = setOf("com.a"), allowLocalNetwork = true)
+        val json = BackupCodec.encode(emptyList(), selections)
+        assertTrue(json.contains("\"allowLocalNetwork\":true"), "encoded backup must carry the switch: $json")
+        assertTrue(json.contains("\"version\":4"), "encoded backup must declare version 4: $json")
+        assertEquals(selections, BackupCodec.decode(json).splitTunnel)
+    }
+
+    @Test
+    fun `a version 4 envelope without the switch restores it off`() {
+        val json =
+            """{"version":4,"profiles":[],"splitTunnel":{"mode":"EXCLUDE","excluded":["com.a"],"included":[]}}"""
+        assertEquals(
+            SplitTunnelSelections(SplitTunnelMode.EXCLUDE, excluded = setOf("com.a")),
+            BackupCodec.decode(json).splitTunnel,
+        )
+    }
+
     @Test fun `encode then decode preserves profiles`() {
         val content = BackupCodec.decode(
             BackupCodec.encode(listOf(profile(), profile("p2")), SplitTunnelSelections.INITIAL))

@@ -28,7 +28,16 @@ data class PeerConfig(
 
 enum class SplitTunnelMode { EXCLUDE, INCLUDE }
 
-data class SplitTunnelPolicy(val mode: SplitTunnelMode, val packages: Set<String>)
+/**
+ * App-wide split-tunnel policy. [allowLocalNetwork] keeps connections to local address ranges off
+ * the tunnel: only the routes handed to the VPN builder change, never the profile's AllowedIPs or
+ * its exported config.
+ */
+data class SplitTunnelPolicy(
+    val mode: SplitTunnelMode,
+    val packages: Set<String>,
+    val allowLocalNetwork: Boolean = false,
+)
 
 enum class DnsMode { TUNNEL, SECURE }
 

@@ -97,6 +97,30 @@ class SplitTunnelRulesStoreTest {
         )
     }
 
+    @Test
+    fun `Allow local network defaults to off`() = runTest {
+        val store = SplitTunnelRulesStore(context)
+        assertFalse(store.snapshotSelections().allowLocalNetwork)
+        assertFalse(store.snapshot().allowLocalNetwork)
+    }
+
+    @Test
+    fun `Allow local network persists with the rules`() = runTest {
+        val selections = SplitTunnelSelections(
+            SplitTunnelMode.EXCLUDE, excluded = setOf("com.a"), included = setOf("com.b"),
+            allowLocalNetwork = true)
+        SplitTunnelRulesStore(context).setSelections(selections)
+        assertEquals(selections, SplitTunnelRulesStore(context).snapshotSelections())
+    }
+
+    @Test
+    fun `set writes the policy's Allow local network`() = runTest {
+        val store = SplitTunnelRulesStore(context)
+        val policy = SplitTunnelPolicy(SplitTunnelMode.INCLUDE, setOf("com.a"), allowLocalNetwork = true)
+        store.set(policy)
+        assertEquals(policy, store.snapshot())
+    }
+
     /** Minimal pre-migration profiles table: everything the rescue reads. */
     private fun openLegacyDb() =
         context.openOrCreateDatabase("vaayil.db", Context.MODE_PRIVATE, null).also { db ->

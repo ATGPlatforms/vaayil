@@ -312,7 +312,12 @@ internal fun restoreSummaryRows(p: RestorePrompt): List<Pair<String, String>> = 
     p.rules?.let { rules ->
         val n = rules.active.packages.size
         val mode = if (rules.mode == SplitTunnelMode.EXCLUDE) "Exclusive" else "Inclusive"
-        add("Split tunnel" to "Replaced by the snapshot's: $mode, $n app${if (n == 1) "" else "s"}")
+        val local = if (rules.allowLocalNetwork) "on" else "off"
+        add(
+            "Split tunnel" to
+                "Replaced by the snapshot's: $mode, $n app${if (n == 1) "" else "s"}, " +
+                "Allow local network $local",
+        )
     }
 }
 

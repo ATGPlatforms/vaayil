@@ -69,6 +69,7 @@ class CoreStoreCorruptionTest {
         assertFalse(rules.externalControlEnabled)
         assertNull(rules.externalControlToken)
         assertEquals(SplitTunnelSelections.INITIAL, split.snapshotSelections())
+        assertFalse(split.snapshotSelections().allowLocalNetwork)
         assertEquals(SplitTunnelPolicy(SplitTunnelMode.EXCLUDE, emptySet()), split.snapshot())
         assertFalse(split.hasStoredValue())
 
