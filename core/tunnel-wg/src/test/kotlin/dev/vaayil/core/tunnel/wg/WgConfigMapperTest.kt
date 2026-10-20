@@ -259,4 +259,14 @@ class WgConfigMapperTest {
         )
         assertContains(routes, InetNetwork.parse("10.64.0.53/32"))
     }
+
+    @Test
+    fun `the profile's own local dns servers keep their host routes`() {
+        // With the switch on, a private DNS server's host route is what keeps its lookups inside the tunnel.
+        val routes = requireNotNull(
+            WgConfigMapper.vpnRoutes(profile(dnsServers = listOf("10.64.0.1", "fc00:bbbb::1")), true, emptyList()),
+        )
+        assertContains(routes, InetNetwork.parse("10.64.0.1/32"))
+        assertContains(routes, InetNetwork.parse("fc00:bbbb::1/128"))
+    }
 }
