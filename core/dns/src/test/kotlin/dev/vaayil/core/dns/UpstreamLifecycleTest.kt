@@ -419,7 +419,8 @@ class UpstreamLifecycleTest {
         MockWebServer().use { server ->
             server.useHttps(handshake.sslSocketFactory(), false)
             val responses = LinkedBlockingQueue<MockResponse>()
-            responses += dnsResponse(aQuery(1)).setBodyDelay(5, TimeUnit.SECONDS) // in flight until the query is cancelled
+            // Kept under 5 s: MockWebServer's close() waits at most 5 s for the thread holding the body back.
+            responses += dnsResponse(aQuery(1)).setBodyDelay(3, TimeUnit.SECONDS) // in flight until the query is cancelled
             responses += dnsResponse(aQuery(2))
             server.dispatcher = object : Dispatcher() {
                 override fun dispatch(request: RecordedRequest): MockResponse =
@@ -458,8 +459,9 @@ class UpstreamLifecycleTest {
         MockWebServer().use { server ->
             server.useHttps(handshake.sslSocketFactory(), false)
             val responses = LinkedBlockingQueue<MockResponse>()
-            // The headers arrive at once; the body only after 5 s.
-            responses += dnsResponse(aQuery(1)).setBodyDelay(5, TimeUnit.SECONDS)
+            // The headers arrive at once; the body only after 3 s — still under 5 s, because MockWebServer's
+            // close() waits at most 5 s for the thread holding the body back.
+            responses += dnsResponse(aQuery(1)).setBodyDelay(3, TimeUnit.SECONDS)
             responses += dnsResponse(aQuery(2))
             server.dispatcher = object : Dispatcher() {
                 override fun dispatch(request: RecordedRequest): MockResponse =
