@@ -36,14 +36,15 @@ private val LOCAL_BLOCKS: List<CidrBlock> = LOCAL_NETWORK_RANGES.map {
  *
  * Interface and DNS routes are then restored, because trimming the routes is not meant to cut the
  * device off from its own interface or name server: each interface address keeps a route to its
- * subnet, and each DNS address a host route (`/32`, or `/128` for a literal with a colon). A
- * candidate is added only when it lies inside a local range that a trimmed entry covered and no
- * route already in the list covers it — a network the profile never routed stays outside the
- * tunnel, and a family the Allowed IPs don't route gains no route.
+ * subnet, and each DNS address a host route (`/32`, or `/128` for a literal with a colon). What
+ * comes back is the part trimming took out: a candidate inside a local range comes back whole, and
+ * a subnet wider than a local range gets back each local range inside it. Each is added only when
+ * a trimmed entry covered it and no route already in the list covers it — a network the profile
+ * never routed stays outside the tunnel, and a family the Allowed IPs don't route gains no route.
  *
  * Every block this function computes has its host bits cleared, as the route builder requires,
  * and prints through one formatter: IPv4 dotted, IPv6 however the platform's `InetAddress` prints
- * it (all eight groups on the JVM, compressed on Android). An entry that passes through as it is
+ * it (all eight groups on the JVM, compressed on Android). An entry that is not a strict literal
  * keeps the profile's own text.
  */
 fun localNetworkRoutes(
@@ -83,10 +84,17 @@ fun localNetworkRoutes(
     val candidates = interfaceAddresses.mapNotNull(::parseBlock)
         .sortedWith(compareBy({ it.bits }, { it.network })) + dnsAddresses.mapNotNull(::dnsHostBlock)
     for (candidate in candidates) {
-        val local = LOCAL_BLOCKS.any { it.bits == candidate.bits && it.contains(candidate) }
-        val wasTrimmed = trimmed.any { it.bits == candidate.bits && it.contains(candidate) }
-        val alreadyRouted = covered.any { it.bits == candidate.bits && it.contains(candidate) }
-        if (local && wasTrimmed && !alreadyRouted) add(candidate)
+        val insideLocal = LOCAL_BLOCKS.any { it.bits == candidate.bits && it.contains(candidate) }
+        val keeps = if (insideLocal) {
+            listOf(candidate)
+        } else {
+            LOCAL_BLOCKS.filter { it.bits == candidate.bits && candidate.contains(it) }
+        }
+        for (keep in keeps) {
+            val wasTrimmed = trimmed.any { it.bits == keep.bits && it.contains(keep) }
+            val alreadyRouted = covered.any { it.bits == keep.bits && it.contains(keep) }
+            if (wasTrimmed && !alreadyRouted) add(keep)
+        }
     }
     return routes
 }

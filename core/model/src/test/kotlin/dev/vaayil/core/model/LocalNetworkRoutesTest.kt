@@ -78,6 +78,21 @@ class LocalNetworkRoutesTest {
     }
 
     @Test
+    fun `an interface subnet wider than a local range keeps the range inside it`() {
+        assertEquals(v4Default + "172.16.0.0/12", routes(listOf("0.0.0.0/0"), iface = listOf("172.16.1.2/8")))
+    }
+
+    @Test
+    fun `an interface subnet that is partly local gets back only its local part`() {
+        assertEquals(v4Default + "10.0.0.0/8", routes(listOf("0.0.0.0/0"), iface = listOf("10.1.2.3/7")))
+    }
+
+    @Test
+    fun `a wide interface subnet gains nothing that no trimmed entry covered`() {
+        assertEquals(listOf("192.169.0.0/16"), routes(listOf("192.168.0.0/15"), iface = listOf("172.16.1.2/8")))
+    }
+
+    @Test
     fun `a private DNS server gets a host route`() {
         assertEquals(
             v4Default + "10.64.0.1/32",
