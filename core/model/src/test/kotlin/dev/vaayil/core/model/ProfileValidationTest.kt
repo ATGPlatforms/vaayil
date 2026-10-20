@@ -374,4 +374,16 @@ class ProfileValidationTest {
         )
         assertEquals(emptyList(), p.validate())
     }
+
+    @Test
+    fun `isValidProfileId accepts the id alphabet and nothing else`() {
+        assertTrue(isValidProfileId("p1"))
+        assertTrue(isValidProfileId("A-b_9"))
+        assertTrue(isValidProfileId("a".repeat(64)))
+        assertFalse(isValidProfileId(""))
+        assertFalse(isValidProfileId("a".repeat(65)))
+        assertFalse(isValidProfileId("a b"))
+        assertFalse(isValidProfileId("a/b"))
+        assertFalse(isValidProfileId("é"))
+    }
 }

@@ -32,6 +32,13 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+        <!-- The launcher shortcut's trampoline: invisible, no task of its own, no intent filter. -->
+        <activity
+            android:name="dev.vaayil.app.quick.QuickShortcutActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:noHistory="true"
+            android:theme="@android:style/Theme.NoDisplay" />
         <!-- Keep the GoBackend service component (GoBackend starts it explicitly while setting
              the tunnel state up) but replace the AAR declaration wholesale: no intent-filter, so
              the system only ever binds VpnTunnelService for always-on. -->
