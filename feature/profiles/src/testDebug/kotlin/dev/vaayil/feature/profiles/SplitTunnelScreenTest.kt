@@ -43,6 +43,7 @@ class SplitTunnelScreenTest {
 
     private fun setContent(
         onMode: (SplitTunnelMode) -> Unit = {},
+        onAllowLocalNetwork: (Boolean) -> Unit = {},
         onRouteAll: () -> Unit = {},
         onBypassAll: () -> Unit = {},
     ) {
@@ -54,11 +55,17 @@ class SplitTunnelScreenTest {
                     onToggle = {},
                     onQuery = {},
                     onShowSystem = {},
+                    onAllowLocalNetwork = onAllowLocalNetwork,
                     onRouteAll = onRouteAll,
                     onBypassAll = onBypassAll,
                 )
             }
         }
+    }
+
+    /** Scrolls the tab's one lazy list until [text] is composed. */
+    private fun scrollToText(text: String) {
+        compose.onNode(hasScrollAction()).performScrollToNode(hasText(text))
     }
 
     @Test
@@ -75,6 +82,7 @@ class SplitTunnelScreenTest {
         var routed = false
         var bypassed = false
         setContent(onRouteAll = { routed = true }, onBypassAll = { bypassed = true })
+        scrollToText("Route All")
         compose.onNodeWithText("Route All").performClick()
         compose.onNodeWithText("Bypass All").performClick()
         compose.waitForIdle()
@@ -93,12 +101,73 @@ class SplitTunnelScreenTest {
                     state = SplitTunnelUiState(),
                     onMode = {}, onToggle = {}, onQuery = {},
                     onShowSystem = { shown = it }, onRouteAll = {}, onBypassAll = {},
+                    onAllowLocalNetwork = {},
                 )
             }
         }
+        scrollToText("Show system apps")
         compose.onNodeWithText("Show system apps").performClick()
         compose.waitForIdle()
         assertEquals(true, shown)
+    }
+
+    @Test
+    fun `the Allow local network row toggles the switch callback`() {
+        var allowed: Boolean? = null
+        setContent(onAllowLocalNetwork = { allowed = it })
+        compose.onNodeWithText("Allow local network").performClick()
+        compose.waitForIdle()
+        assertEquals(true, allowed)
+    }
+
+    @Test
+    fun `the exclusive hint names the local network only while the switch is on`() {
+        val allow = mutableStateOf(false)
+        compose.setContent {
+            MaterialTheme {
+                SplitTunnelScreen(
+                    state = SplitTunnelUiState(mode = SplitTunnelMode.EXCLUDE, allowLocalNetwork = allow.value),
+                    onMode = {},
+                    onToggle = {},
+                    onQuery = {},
+                    onShowSystem = {},
+                    onRouteAll = {},
+                    onBypassAll = {},
+                    onAllowLocalNetwork = { allow.value = it },
+                )
+            }
+        }
+        val off = "Everything travels through the encrypted tunnel except the apps you select."
+        val on = "Everything travels through the tunnel except the apps you select and your local network."
+        compose.onNodeWithText(off).assertIsDisplayed()
+        compose.onNodeWithText(on).assertDoesNotExist()
+        compose.onNodeWithText("Allow local network").performClick()
+        compose.waitForIdle()
+        compose.onNodeWithText(on).assertIsDisplayed()
+        compose.onNodeWithText(off).assertDoesNotExist()
+    }
+
+    @Test
+    fun `the inclusive hint ignores the switch`() {
+        compose.setContent {
+            MaterialTheme {
+                SplitTunnelScreen(
+                    state = SplitTunnelUiState(mode = SplitTunnelMode.INCLUDE, allowLocalNetwork = true),
+                    onMode = {},
+                    onToggle = {},
+                    onQuery = {},
+                    onShowSystem = {},
+                    onRouteAll = {},
+                    onBypassAll = {},
+                    onAllowLocalNetwork = {},
+                )
+            }
+        }
+        compose.onNodeWithText("Only the apps you select travel through the tunnel; everything else stays outside.")
+            .assertIsDisplayed()
+        compose.onNodeWithText(
+            "Everything travels through the tunnel except the apps you select and your local network.",
+        ).assertDoesNotExist()
     }
 
     @Test
@@ -113,9 +182,11 @@ class SplitTunnelScreenTest {
                     onShowSystem = {},
                     onRouteAll = {},
                     onBypassAll = {},
+                    onAllowLocalNetwork = {},
                 )
             }
         }
+        scrollToText("Loading apps…")
         compose.onNodeWithText("Loading apps…").assertIsDisplayed()
         compose.onNodeWithText("No apps match.").assertDoesNotExist()
     }
@@ -132,9 +203,11 @@ class SplitTunnelScreenTest {
                     onShowSystem = {},
                     onRouteAll = {},
                     onBypassAll = {},
+                    onAllowLocalNetwork = {},
                 )
             }
         }
+        scrollToText("No apps match.")
         compose.onNodeWithText("No apps match.").assertIsDisplayed()
     }
 
@@ -144,6 +217,7 @@ class SplitTunnelScreenTest {
             MaterialTheme {
                 SplitTunnelScreen(
                     state = SplitTunnelUiState(mode = SplitTunnelMode.INCLUDE, includeListEmpty = true),
+                    onAllowLocalNetwork = {},
                     onMode = {}, onToggle = {}, onQuery = {}, onShowSystem = {}, onRouteAll = {}, onBypassAll = {},
                 )
             }
@@ -166,6 +240,7 @@ class SplitTunnelScreenTest {
                 SplitTunnelScreen(
                     state = SplitTunnelUiState(),
                     onMode = {}, onToggle = {}, onQuery = { queries += it },
+                    onAllowLocalNetwork = {},
                     onShowSystem = {}, onRouteAll = {}, onBypassAll = {},
                 )
             }
@@ -195,6 +270,7 @@ class SplitTunnelScreenTest {
                         onShowSystem = {},
                         onRouteAll = {},
                         onBypassAll = {},
+                        onAllowLocalNetwork = {},
                         iconLoader = AppIconLoader { _, _ -> null },
                     )
                 }

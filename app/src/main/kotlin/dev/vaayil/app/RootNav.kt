@@ -586,6 +586,7 @@ private fun SplitTunnelTab(container: AppContainer, nav: NavHostController) {
                 },
                 onRouteAll = vm::routeAll,
                 onBypassAll = vm::bypassAll,
+                onAllowLocalNetwork = vm::setAllowLocalNetwork,
             )
         }
     }
