@@ -353,6 +353,11 @@ Warning and error cards use their semantic surfaces with a
 `warning-mark`/`error-mark` seam; warning body text is `on-warning`, never
 the mark.
 
+### Quick Settings tile
+The system shade styles the tile; only its icon (the V mark, a 24dp
+one-colour vector) and its copy are Vaayil's. The label is the profile's name,
+or "Vaayil" on a secure lock screen; the subtitle is the state text.
+
 ### Motion
 Press and film transitions are **instant tone swaps** in the shipped code; the 90ms / 200ms figures recorded in
 `DESIGN.json` describe design intent, not shipped timing. Two things animate, both as state feedback. The hero
