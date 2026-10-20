@@ -75,6 +75,7 @@ class QuickTileService : TileService() {
 
     override fun onStartListening() {
         super.onStartListening()
+        listening?.cancel()
         listening = scope.launch {
             controls.state.filterNotNull().collect { render(it) }
         }

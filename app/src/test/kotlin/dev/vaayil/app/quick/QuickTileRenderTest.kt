@@ -19,10 +19,17 @@ import dev.vaayil.core.tunnel.api.ConnectionPhase
 import dev.vaayil.core.tunnel.api.HandshakeState
 import dev.vaayil.core.tunnel.api.TunnelStatus
 import dev.vaayil.core.tunnel.wg.ConnectionRegistry
+import java.util.concurrent.atomic.AtomicBoolean
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -119,28 +126,49 @@ class QuickTileRenderTest {
     @Test
     @Config(sdk = [35])
     fun `listening renders the hub's state`() {
-        runBlocking {
-            container.profiles.save(profile("p1", "Home"))
-            ActiveProfileStore(app).setLastConnected("p1")
-        }
+        seedHomeLastConnected()
 
         service.onStartListening()
 
-        runBlocking {
-            val deadline = System.currentTimeMillis() + 5_000
-            while (System.currentTimeMillis() < deadline &&
-                (service.qsTile.label?.toString() != "Home" ||
-                    service.qsTile.subtitle?.toString() != "Disconnected")
-            ) {
-                shadowOf(Looper.getMainLooper()).idle()
-                delay(20)
-            }
-            shadowOf(Looper.getMainLooper()).idle()
-            assertEquals("Home", service.qsTile.label?.toString())
-            assertEquals("Disconnected", service.qsTile.subtitle?.toString())
-        }
+        awaitTile("Home", "Disconnected")
 
         service.onStopListening()
+    }
+
+    @Test
+    @Config(sdk = [35])
+    fun `a repeated listen leaves one collector`() {
+        seedHomeLastConnected()
+        service.onStartListening()
+        service.onStartListening()
+        awaitTile("Home", "Disconnected")
+
+        service.onStopListening()
+
+        val sawConnecting = AtomicBoolean(false)
+        val watcherScope = CoroutineScope(Dispatchers.Default)
+        watcherScope.launch {
+            container.quickControls.state.filterNotNull().collect { state ->
+                if (state.stateText == "Connecting") sawConnecting.set(true)
+            }
+        }
+        ConnectionRegistry.status.value = TunnelStatus(ConnectionPhase.CONNECTING, "p1", null)
+        try {
+            runBlocking {
+                val deadline = System.currentTimeMillis() + 5_000
+                while (!sawConnecting.get() && System.currentTimeMillis() < deadline) {
+                    shadowOf(Looper.getMainLooper()).idle()
+                    delay(20)
+                }
+                assertTrue("the hub never presented CONNECTING", sawConnecting.get())
+                shadowOf(Looper.getMainLooper()).idle()
+            }
+            assertEquals("Home", service.qsTile.label?.toString())
+            assertEquals("Disconnected", service.qsTile.subtitle?.toString())
+        } finally {
+            watcherScope.cancel()
+            ConnectionRegistry.status.value = TunnelStatus.idle
+        }
     }
 
     private fun connected(): QuickState = presentQuickState(
@@ -164,6 +192,30 @@ class QuickTileRenderTest {
             lastConnectedId = null,
         ),
     )
+
+    private fun seedHomeLastConnected() {
+        runBlocking {
+            container.profiles.save(profile("p1", "Home"))
+            ActiveProfileStore(app).setLastConnected("p1")
+        }
+    }
+
+    /** Idles the main looper until the tile shows [label] and [subtitle]; fails after 5 s. */
+    private fun awaitTile(label: String, subtitle: String) {
+        runBlocking {
+            val deadline = System.currentTimeMillis() + 5_000
+            while (System.currentTimeMillis() < deadline &&
+                (service.qsTile.label?.toString() != label ||
+                    service.qsTile.subtitle?.toString() != subtitle)
+            ) {
+                shadowOf(Looper.getMainLooper()).idle()
+                delay(20)
+            }
+            shadowOf(Looper.getMainLooper()).idle()
+            assertEquals(label, service.qsTile.label?.toString())
+            assertEquals(subtitle, service.qsTile.subtitle?.toString())
+        }
+    }
 
     /** A 32-byte key (base64) that passes the repository's write validation. */
     private val key = "A".repeat(43) + "="
