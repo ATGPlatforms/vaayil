@@ -25,12 +25,15 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.runBlocking
 import okhttp3.Call
 import okhttp3.EventListener
+import okhttp3.ResponseBody.Companion.asResponseBody
 import okhttp3.mockwebserver.Dispatcher
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
 import okhttp3.mockwebserver.RecordedRequest
 import okhttp3.tls.HandshakeCertificates
 import okio.Buffer
+import okio.ForwardingSource
+import okio.buffer
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -439,6 +442,59 @@ class UpstreamLifecycleTest {
                 query.cancel()
                 // Well below DohUpstream's own 4 s call timeout, so this can only be the query's cancellation.
                 assertTrue("the in-flight call was cancelled", canceled.await(2, TimeUnit.SECONDS))
+                assertNull(runCatching { query.await() }.getOrNull())
+                waitFor("the cancelled call left the dispatcher") { upstream.client.dispatcher.runningCallsCount() == 0 }
+                // Cancellation cancelled the call, not the reusable upstream.
+                assertNotNull(upstream.query(aQuery(2)))
+            } finally {
+                scope.cancel()
+            }
+        }
+    }
+
+    @Test(timeout = 60_000)
+    fun `cancelled query cancels doh while its reply body is still arriving`() = runBlocking {
+        val handshake = tlsHandshake("localhost")
+        MockWebServer().use { server ->
+            server.useHttps(handshake.sslSocketFactory(), false)
+            val responses = LinkedBlockingQueue<MockResponse>()
+            // The headers arrive at once; the body only after 5 s.
+            responses += dnsResponse(aQuery(1)).setBodyDelay(5, TimeUnit.SECONDS)
+            responses += dnsResponse(aQuery(2))
+            server.dispatcher = object : Dispatcher() {
+                override fun dispatch(request: RecordedRequest): MockResponse =
+                    responses.poll() ?: MockResponse().setResponseCode(500)
+            }
+            server.start()
+            val readingBody = CountDownLatch(1)
+            val canceled = CountDownLatch(1)
+            val base = tlsClient(handshake).newBuilder()
+                .eventListener(object : EventListener() {
+                    override fun canceled(call: Call) {
+                        canceled.countDown()
+                    }
+                })
+                .addNetworkInterceptor { chain ->
+                    // Opens the latch once the query has the headers and starts reading the body.
+                    val response = chain.proceed(chain.request())
+                    val body = response.body!!
+                    val source = object : ForwardingSource(body.source()) {
+                        override fun read(sink: Buffer, byteCount: Long): Long {
+                            readingBody.countDown()
+                            return super.read(sink, byteCount)
+                        }
+                    }.buffer()
+                    response.newBuilder().body(source.asResponseBody(body.contentType(), body.contentLength())).build()
+                }
+                .build()
+            val upstream = DohUpstream(base, dnsUrl(server))
+            val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+            try {
+                val query = scope.async { upstream.query(aQuery(1)) }
+                assertTrue("the query is reading the reply body", readingBody.await(5, TimeUnit.SECONDS))
+                query.cancel()
+                // Well below DohUpstream's own 4 s call timeout, so this can only be the query's cancellation.
+                assertTrue("the call reading its body was cancelled", canceled.await(2, TimeUnit.SECONDS))
                 assertNull(runCatching { query.await() }.getOrNull())
                 waitFor("the cancelled call left the dispatcher") { upstream.client.dispatcher.runningCallsCount() == 0 }
                 // Cancellation cancelled the call, not the reusable upstream.

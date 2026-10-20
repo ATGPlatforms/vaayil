@@ -486,19 +486,19 @@ class DohUpstream(ok: OkHttpClient, private val url: String, pinnedDns: okhttp3.
         if (!closure.register(call)) return@withContext null
         try {
             runCatching {
-                executeCall(call).use { resp ->
-                    if (!resp.isSuccessful) return@withContext null
-                    val body = resp.body ?: return@withContext null
-                    val type = body.contentType() ?: return@withContext null
+                executeCall(call) { resp ->
+                    if (!resp.isSuccessful) return@executeCall null
+                    val body = resp.body ?: return@executeCall null
+                    val type = body.contentType() ?: return@executeCall null
                     // OkHttp lower-cases type and subtype; media types are case-insensitive (RFC 9110 §8.3.1, D8).
-                    if (type.type != "application" || type.subtype != "dns-message") return@withContext null
+                    if (type.type != "application" || type.subtype != "dns-message") return@executeCall null
                     val declared = body.contentLength()
-                    if (declared > MAX_BODY_BYTES) return@withContext null
+                    if (declared > MAX_BODY_BYTES) return@executeCall null
                     val source = body.source()
                     if (declared < 0) {
                         // Unknown length: pull at most cap+1 bytes (or EOF) and refuse anything longer (D8).
                         source.request(MAX_BODY_BYTES + 1)
-                        if (source.buffer.size > MAX_BODY_BYTES) return@withContext null
+                        if (source.buffer.size > MAX_BODY_BYTES) return@executeCall null
                     }
                     source.readByteArray()
                 }
@@ -509,20 +509,23 @@ class DohUpstream(ok: OkHttpClient, private val url: String, pinnedDns: okhttp3.
     }
 
     /**
-     * A1: [call]'s blocking execute stays on this thread (the caller is on [Dispatchers.IO]), inside a bridge that
-     * lets this answer's cancellation reach it: the continuation is armed with [Call.cancel] BEFORE execute, so a
-     * staged, deactivated or revoked answer stops its own HTTP call at once — and only its own, because the OkHttp
-     * dispatcher and its connection pool are shared. The upstream itself stays open: a later query runs from a fresh
-     * Job. A continuation that a cancellation already completed ignores the late resume.
+     * A1: [call]'s blocking execute and the [read] of its reply body stay on this thread (the caller is on
+     * [Dispatchers.IO]), inside a bridge that lets this answer's cancellation reach the call: the continuation is
+     * armed with [Call.cancel] BEFORE execute and stays armed until the reply has been read and closed, so a
+     * staged, deactivated or revoked answer stops its own HTTP call at once — whether it is waiting for the headers
+     * or still reading the body — and only its own, because the OkHttp dispatcher and its connection pool are
+     * shared. The upstream itself stays open: a later query runs from a fresh Job. A continuation that a
+     * cancellation already completed ignores the late resume.
      */
-    private suspend fun executeCall(call: Call): Response = suspendCancellableCoroutine { cont ->
-        cont.invokeOnCancellation { call.cancel() }
-        try {
-            cont.resume(call.execute())
-        } catch (e: IOException) {
-            cont.resumeWithException(e)
+    private suspend fun <T> executeCall(call: Call, read: (Response) -> T): T =
+        suspendCancellableCoroutine { cont ->
+            cont.invokeOnCancellation { call.cancel() }
+            try {
+                cont.resume(call.execute().use(read))
+            } catch (e: IOException) {
+                cont.resumeWithException(e)
+            }
         }
-    }
 
     override fun close() {
         closure.close() // A1: closed first, then this upstream's in-flight calls are cancelled
