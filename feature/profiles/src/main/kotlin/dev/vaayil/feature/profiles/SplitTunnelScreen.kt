@@ -77,8 +77,8 @@ import kotlinx.coroutines.withContext
  * are app-wide — they apply to whichever profile is connected, not to one config.
  *
  * The whole tab is ONE `LazyColumn` (device review 2026-09-21, C8): the header items
- * (title, intro, mode segment, hints, search, counts, filter) scroll away with the
- * content, and app rows sit directly on the bare canvas with their 60dp-inset
+ * (title, intro, the Allow local network row, mode segment, hints, search, counts, filter)
+ * scroll away with the content, and app rows sit directly on the bare canvas with their 60dp-inset
  * hairlines — there is no list card, so nothing clips at a card edge and the list
  * owns the whole screen once scrolled. [imePadding] keeps the search field and its
  * results above the IME under edge-to-edge (the Task-1 gap, orchestrator ruling R7c);

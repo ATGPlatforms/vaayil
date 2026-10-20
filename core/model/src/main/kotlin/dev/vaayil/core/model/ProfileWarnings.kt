@@ -26,7 +26,7 @@ fun Profile.warnings(): List<String> = buildList {
     val v6 = coveredAddressCount(allowedIps, ipv6 = true)
     val defaultRoute = allowedIps.any { parseBlock(it)?.prefix == 0 }
     // A near-full tunnel can still leave a family open (A4): GoBackend calls allowFamily for both
-    // families unless a single peer has a prefix-0 Allowed IP (GoBackend.java:332-334), so without
+    // families unless a single peer has a prefix-0 Allowed IP (its setStateInternal kill-switch rule), so without
     // a `/0` entry Android's unreachable route never holds the missing family, and a family that
     // keeps a partial route stays open for the rest either way. Only a valid `/0` plus a family
     // with no entries of its own fails that family closed. Warn when one family's union reaches

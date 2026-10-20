@@ -62,7 +62,7 @@ Each keeps its SPDX header and carries one `Modified by Vaayil:` line in it.
   negative `wgTurnOn` result resets the tunnel handle to -1 before the throw. In `setStateInternal`, the "Tunnel
   already up" guard treats only -1 as no tunnel, and the throw comes before `currentTunnel` is set, so a kept -2
   would turn every later start into a silent no-op.
-  The routes `setStateInternal` adds come from `dev.vaayil.wgtunnel.VpnRoutes.routesFor`: the tunnel's own list
+  The peer routes `setStateInternal` adds come from `dev.vaayil.wgtunnel.VpnRoutes.routesFor`: the tunnel's own list
   when it has one (Allow local network), and every peer's AllowedIPs otherwise. The kill-switch rule
   (`sawDefaultRoute`, then `allowFamily`) still reads every peer's AllowedIPs.
 

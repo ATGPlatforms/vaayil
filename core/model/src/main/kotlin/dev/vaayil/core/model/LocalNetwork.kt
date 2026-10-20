@@ -5,7 +5,7 @@ import java.net.InetAddress
 
 /**
  * The blocks a local-network switch keeps out of the tunnel: the private, link-local and
- * multicast ranges of both families, in route order. `100.64.0.0/10` is not one of them: the
+ * multicast ranges of both families, IPv4 first. `100.64.0.0/10` is not one of them: the
  * profile's Allowed IPs keep routing it.
  */
 val LOCAL_NETWORK_RANGES: List<String> = listOf(
@@ -34,15 +34,17 @@ private val LOCAL_BLOCKS: List<CidrBlock> = LOCAL_NETWORK_RANGES.map {
  * network over the tunnel even with the switch on. An entry that contains local ranges is split
  * into the fewest blocks that cover it minus those ranges, in ascending address order.
  *
- * The tunnel's own endpoints are then restored, because trimming the routes is not meant to cut the
+ * Interface and DNS routes are then restored, because trimming the routes is not meant to cut the
  * device off from its own interface or name server: each interface address keeps a route to its
  * subnet, and each DNS address a host route (`/32`, or `/128` for a literal with a colon). A
  * candidate is added only when it lies inside a local range that a trimmed entry covered and no
  * route already in the list covers it — a network the profile never routed stays outside the
  * tunnel, and a family the Allowed IPs don't route gains no route.
  *
- * Every returned route has its host bits cleared, as the route builder requires, and prints in
- * full: IPv4 dotted, IPv6 as its eight groups (never compressed, never folded into IPv4).
+ * Every block this function computes has its host bits cleared, as the route builder requires,
+ * and prints through one formatter: IPv4 dotted, IPv6 however the platform's `InetAddress` prints
+ * it (all eight groups on the JVM, compressed on Android). An entry that passes through as it is
+ * keeps the profile's own text.
  */
 fun localNetworkRoutes(
     allowedIps: List<String>,

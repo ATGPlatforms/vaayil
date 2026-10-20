@@ -1,7 +1,7 @@
 /*
  * Copyright © 2017-2025 WireGuard LLC. All Rights Reserved.
  * SPDX-License-Identifier: Apache-2.0
- * Modified by Vaayil: a host route to a DNS server that is a DNS-intercept resolver address; a negative wgTurnOn result resets the tunnel handle to -1 before the throw; the routes come from VpnRoutes.routesFor, while the kill-switch rule still reads the AllowedIPs.
+ * Modified by Vaayil: a host route to a DNS server that is a DNS-intercept resolver address; a negative wgTurnOn result resets the tunnel handle to -1 before the throw; the peer routes come from VpnRoutes.routesFor, while the kill-switch rule still reads the AllowedIPs.
  */
 
 package com.wireguard.android.backend;

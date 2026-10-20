@@ -17,7 +17,12 @@ import java.util.List;
  * when it can compute the routes itself; a tunnel that does not, or that returns null, keeps the AllowedIPs.
  */
 public interface VpnRoutes {
-    /** The routes to hand VpnService.Builder instead of the peers' AllowedIPs; null means the AllowedIPs. */
+    /**
+     * The routes to hand VpnService.Builder instead of the peers' AllowedIPs; null means the AllowedIPs. Every
+     * network must have its host bits clear, because Builder.addRoute throws otherwise. Return the same list on
+     * every call for one tunnel object: GoBackend calls this again when it brings back the previous tunnel after a
+     * failed switch.
+     */
     @Nullable
     List<InetNetwork> getVpnRoutes();
 

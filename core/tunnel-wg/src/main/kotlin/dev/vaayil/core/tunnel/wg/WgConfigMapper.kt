@@ -26,7 +26,7 @@ object WgConfigMapper {
         // Fail closed per address family (T-1): Android installs an "unreachable" default route
         // for a family only when the interface carries NO address, route or DNS server of that
         // family AND GoBackend did not call allowFamily for it. GoBackend calls allowFamily for
-        // both families unless a single peer has a prefix-0 Allowed IP (GoBackend.java:332-334),
+        // both families unless a single peer has a prefix-0 Allowed IP (its setStateInternal kill-switch rule),
         // so dropping a family's own addresses and servers here closes that family only in that
         // shape; a family that keeps a partial route stays open for what its AllowedIPs do not
         // carry either way, and Profile.warnings() warns about that bypass. A profile whose

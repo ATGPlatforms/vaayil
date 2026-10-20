@@ -252,8 +252,9 @@ class DnsResolverController(
                 // layer — on first failure (e.g. a network switch killed the pinned dial)
                 // the rebuild re-runs buildSecureUpstream, which re-resolves the hostname
                 // endpoint through a FRESH underlying-DNS probe and re-pins the session.
-                // The first upstream's addresses are what the tunnel must route to its
-                // server; the wrapper is transparent to the tunnel's own bookkeeping.
+                // The first upstream's addresses feed the tunnel's host routes; they are read
+                // here because the wrapper reports none. They are a build-time snapshot: a
+                // rebuild that re-resolves the server leaves the tunnel's routes as they were.
                 val first = secureUpstream(dns)
                 secureAddresses = first.endpointAddresses
                 secureRaw = ReprobingUpstream(first) { secureUpstream(dns) }
@@ -550,7 +551,11 @@ class ResolverSession internal constructor(
     val profileId: String,
     private val responder: DnsResponder,
     private val owned: List<DnsUpstream>,
-    /** The addresses the secure DNS server dials (empty without secure DNS), for the tunnel's host routes. */
+    /**
+     * The secure DNS server's addresses when this session was built (empty without secure DNS), for the tunnel's
+     * host routes. They are a snapshot: a rebuild of the secure upstream, which looks the server up again, doesn't
+     * update them.
+     */
     val secureEndpointAddresses: List<String> = emptyList(),
 ) : DnsAnswerer by responder, Closeable {
 

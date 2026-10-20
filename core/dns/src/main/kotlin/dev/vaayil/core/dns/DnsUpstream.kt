@@ -39,9 +39,9 @@ interface DnsUpstream {
     /** Returns the response wire message, or null on upstream failure. */
     suspend fun query(queryWire: ByteArray): ByteArray?
     /**
-     * The server addresses this upstream dials, for the tunnel's routes: a secure DNS server can itself sit
-     * at a local address, and the tunnel keeps a host route for every address its resolver dials so that
-     * server stays reachable through the tunnel. Empty when the upstream dials nothing or does not know.
+     * The server addresses this upstream dials. For the secure DNS server, the engine passes them on so that, when
+     * Allow local network trims the tunnel's routes, a server at a local address keeps a host route through the
+     * tunnel. Empty when the upstream dials nothing or does not know.
      */
     val endpointAddresses: List<String> get() = emptyList()
     /**

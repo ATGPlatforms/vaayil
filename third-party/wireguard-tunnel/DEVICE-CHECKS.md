@@ -102,7 +102,7 @@ it is done.
 ## Allow local network routes
 
 `VpnRoutes` and the GoBackend loop that reads it also run only on a device. Run these items whenever either
-changes, and at every re-vendor. Use `intcheck-v4` (AllowedIPs `0.0.0.0/0, ::/0`) with item 1's bypass rule in
+changes, and at every re-vendor. Use `intcheck-v4` (AllowedIPs `0.0.0.0/0, ::/0`) with check 1's bypass rule in
 place, so that the resolver intercepts. Read the VPN network's routes from `adb shell dumpsys connectivity` (the VPN
 network's `LinkProperties`, its `Routes:` list).
 
@@ -112,8 +112,8 @@ network's `LinkProperties`, its `Routes:` list).
 2. **Switch on.** Turn it on, and the tunnel restarts. No tunnel route covers `10.0.0.0/8`, `172.16.0.0/12`,
    `192.168.0.0/16`, `169.254.0.0/16`, `224.0.0.0/3`, `fc00::/7`, `fe80::/10` or `ff00::/8`, apart from the host
    routes for the interface address `10.0.0.2/32` and the resolver's `10.111.222.3/32`, plus one for the profile's
-   DNS server when its address is local. `100.64.0.0/10` is still covered, by `64.0.0.0/2`. The name from item 1's
-   bypass rule still resolves. Turn the switch off again, and item 1's routes come back.
+   DNS server when its address is local. `100.64.0.0/10` is still covered, by `64.0.0.0/2`. The name from check 1's
+   bypass rule still resolves. Turn the switch off again, and the routes listed under Switch off come back.
 
 ## Known limitations
 

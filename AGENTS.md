@@ -191,7 +191,7 @@ app -> core/model, core/ui, core/config, core/tunnel-api, core/data, core/automa
   - The sampler polls every second until the first handshake, for at most 30 s.
 - Hostname DoH/DoT endpoints are bootstrap-resolved through the underlying network's resolver at
   tunnel start and pinned; a failed query on the secure channel (a network switch is the usual
-  cause) rebuilds it, which re-runs the lookup (`ReprobingUpstream`, `DnsResolver.kt:254`). The
+  cause) rebuilds it, which re-runs the lookup (`ReprobingUpstream` in `DnsResolver.kt`). The
   editor's hint says so (C9): "A hostname DNS server is looked up through your current network's
   resolver when the tunnel comes up, and again after a network change or a failure." Secure DNS
   rides the tunnel; only bootstrap and bypass sockets are protected.
@@ -326,8 +326,9 @@ app -> core/model, core/ui, core/config, core/tunnel-api, core/data, core/automa
 - The local-network switch is app-wide, as `SplitTunnelSelections.allowLocalNetwork`, stored with
   the split-tunnel rules and in backups (additive, still version 4). When it is on,
   `WgConfigMapper.vpnRoutes` (`localNetworkRoutes` and `LOCAL_NETWORK_RANGES` in `:core:model`)
-  hands GoBackend, through `dev.vaayil.wgtunnel.VpnRoutes`, the AllowedIPs minus the local ranges.
-  It keeps each interface subnet, and a host route for each DNS server (the profile's, plus the
+  hands GoBackend, through `dev.vaayil.wgtunnel.VpnRoutes`, the AllowedIPs with the local ranges
+  cut out of every entry that covers them; an entry inside a local range stays routed. It keeps
+  each interface subnet, and a host route for each DNS server (the profile's, plus the
   secure server's literal or pinned addresses), wherever a trimmed entry covered them; GoBackend
   still adds the resolver host routes. The AllowedIPs, the peer config and the exported `.conf`
   never change. Both family rules read the AllowedIPs, so an IPv4-only profile keeps IPv6 blocked.
@@ -335,7 +336,7 @@ app -> core/model, core/ui, core/config, core/tunnel-api, core/data, core/automa
   re-resolved to a different local address skips the tunnel, still encrypted, until the next
   connect. A flip saves even while an empty Inclusive list holds the app rules back, and it
   restarts the tunnel like any rule change. Under Always-on with Block connections without VPN,
-  Android blocks those connections (API 36 checked).
+  Android blocks the connections that skip the tunnel (API 34 and 36 checked).
 - Every Profile id is validated (`[A-Za-z0-9_-]{1,64}`) and Uri-encoded into routes; restore
   normalises legacy fields and confirms once before writing in one transaction. Export writes only
   the profiles it can read and says how many (C9, `BackupViewModel.reportExport`): "Encrypted

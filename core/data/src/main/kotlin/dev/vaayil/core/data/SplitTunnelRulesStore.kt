@@ -70,7 +70,10 @@ class SplitTunnelRulesStore(private val context: Context) {
         }
     }
 
-    /** Writes the policy's set into its mode's slot, preserving the other mode's slot. */
+    /**
+     * Writes the policy's set into its mode's slot, preserving the other mode's slot. It stores the
+     * policy's Allow local network flag too, so a policy built without the flag turns the switch off.
+     */
     suspend fun set(policy: SplitTunnelPolicy) {
         // Mode first, THEN the slot pick: withActive-before-copy would file the set
         // under the old mode and flip the mode out from under it.
