@@ -42,7 +42,7 @@ class SplitTunnelViewModel(
     // The full dual-mode selections; the store is the source of truth and echoes land here.
     private var current = SplitTunnelSelections.INITIAL
 
-    // The last echo the store sent. Comparing an echo's app rules with the previous echo's
+    // The last echo the store sent. Comparing an echo with the previous one, the switch aside,
     // tells a flag-only write apart from any other change, so such an echo never wipes an
     // unsaved or refused app edit.
     private var stored: SplitTunnelSelections? = null
@@ -52,11 +52,7 @@ class SplitTunnelViewModel(
             selections.collect { sel ->
                 val previous = stored
                 stored = sel
-                if (previous != null &&
-                    previous.mode == sel.mode &&
-                    previous.excluded == sel.excluded &&
-                    previous.included == sel.included
-                ) {
+                if (previous != null && previous.copy(allowLocalNetwork = sel.allowLocalNetwork) == sel) {
                     // The app rules did not move, so this echo can only carry the local-network
                     // switch: keep the app edit the tab is showing, saved or refused.
                     current = current.copy(allowLocalNetwork = sel.allowLocalNetwork)
