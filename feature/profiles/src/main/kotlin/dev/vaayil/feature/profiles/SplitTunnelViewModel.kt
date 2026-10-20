@@ -18,6 +18,7 @@ data class SplitTunnelUiState(
     val query: String = "",
     val showSystem: Boolean = false,
     val includeListEmpty: Boolean = false,
+    val allowLocalNetwork: Boolean = false,
     val loading: Boolean = false,
 )
 
@@ -41,18 +42,38 @@ class SplitTunnelViewModel(
     // The full dual-mode selections; the store is the source of truth and echoes land here.
     private var current = SplitTunnelSelections.INITIAL
 
+    // The last echo the store sent. Comparing an echo's app rules with the previous echo's
+    // tells a flag-only write apart from any other change, so such an echo never wipes an
+    // unsaved or refused app edit.
+    private var stored: SplitTunnelSelections? = null
+
     init {
         viewModelScope.launch {
             selections.collect { sel ->
-                current = sel
-                _state.value = _state.value.copy(
-                    mode = sel.mode,
-                    selectedPackages = sel.active.packages,
-                    // Derived from what the store now holds, not only from refused edits: a restore
-                    // can write an inclusive policy with an empty list, and the engine applies no
-                    // restriction for it (S2), so the tab must say why.
-                    includeListEmpty = sel.mode == SplitTunnelMode.INCLUDE && sel.included.isEmpty(),
-                )
+                val previous = stored
+                stored = sel
+                if (previous != null &&
+                    previous.mode == sel.mode &&
+                    previous.excluded == sel.excluded &&
+                    previous.included == sel.included
+                ) {
+                    // The app rules did not move, so this echo can only carry the local-network
+                    // switch: keep the app edit the tab is showing, saved or refused.
+                    current = current.copy(allowLocalNetwork = sel.allowLocalNetwork)
+                    _state.value = _state.value.copy(allowLocalNetwork = sel.allowLocalNetwork)
+                } else {
+                    current = sel
+                    _state.value = _state.value.copy(
+                        mode = sel.mode,
+                        selectedPackages = sel.active.packages,
+                        // Derived from what the store now holds, not only from refused edits: a
+                        // restore can write an inclusive policy with an empty list, and the engine
+                        // applies no restriction for it (S2), so the tab must say why.
+                        includeListEmpty =
+                            sel.mode == SplitTunnelMode.INCLUDE && sel.included.isEmpty(),
+                        allowLocalNetwork = sel.allowLocalNetwork,
+                    )
+                }
             }
         }
     }
@@ -74,6 +95,13 @@ class SplitTunnelViewModel(
         val selected = _state.value.selectedPackages
         val updated = if (pkg in selected) selected - pkg else selected + pkg
         setSelection(updated)
+    }
+
+    /** The switch is independent of the app rules, so a refused app edit never blocks it. */
+    fun setAllowLocalNetwork(allow: Boolean) {
+        current = current.copy(allowLocalNetwork = allow)
+        _state.value = _state.value.copy(allowLocalNetwork = allow)
+        scheduleSave()
     }
 
     fun setQuery(query: String) {
@@ -110,6 +138,15 @@ class SplitTunnelViewModel(
             // previously saved rules stay in force and the tab shows why. Cancelling first also
             // discards an edit still inside the debounce window, which the user has superseded.
             _state.value = _state.value.copy(includeListEmpty = true)
+            val storedRules = stored
+            if (storedRules != null && toSave.allowLocalNetwork != storedRules.allowLocalNetwork) {
+                // The switch does not depend on the app rules, so it still saves, with the rules
+                // the store last accepted: the same debounced path as any other rule change.
+                saveJob = viewModelScope.launch {
+                    delay(500)
+                    save(storedRules.copy(allowLocalNetwork = toSave.allowLocalNetwork))
+                }
+            }
             return
         }
         _state.value = _state.value.copy(includeListEmpty = false)
