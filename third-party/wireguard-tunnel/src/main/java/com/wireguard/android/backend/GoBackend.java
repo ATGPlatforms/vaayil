@@ -1,7 +1,7 @@
 /*
  * Copyright © 2017-2025 WireGuard LLC. All Rights Reserved.
  * SPDX-License-Identifier: Apache-2.0
- * Modified by Vaayil: a host route to a DNS server that is a DNS-intercept resolver address; a negative wgTurnOn result resets the tunnel handle to -1 before the throw.
+ * Modified by Vaayil: a host route to a DNS server that is a DNS-intercept resolver address; a negative wgTurnOn result resets the tunnel handle to -1 before the throw; the peer routes come from VpnRoutes.routesFor, while the kill-switch rule still reads the AllowedIPs.
  */
 
 package com.wireguard.android.backend;
@@ -25,6 +25,7 @@ import com.wireguard.crypto.KeyFormatException;
 import com.wireguard.util.NonNullForAll;
 
 import dev.vaayil.wgtunnel.DnsIntercept;
+import dev.vaayil.wgtunnel.VpnRoutes;
 
 import java.net.InetAddress;
 import java.util.Collections;
@@ -324,9 +325,10 @@ public final class GoBackend implements Backend {
                 for (final InetNetwork addr : peer.getAllowedIps()) {
                     if (addr.getMask() == 0)
                         sawDefaultRoute = true;
-                    builder.addRoute(addr.getAddress(), addr.getMask());
                 }
             }
+            for (final InetNetwork addr : VpnRoutes.routesFor(tunnel, config))
+                builder.addRoute(addr.getAddress(), addr.getMask());
 
             // "Kill-switch" semantics
             if (!(sawDefaultRoute && config.getPeers().size() == 1)) {

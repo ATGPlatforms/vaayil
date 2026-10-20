@@ -161,4 +161,85 @@ class SplitTunnelViewModelTest {
         assertTrue(saved.isEmpty())
         assertTrue(vm.state.value.includeListEmpty)
     }
+
+    @Test
+    fun `the switch hydrates from the store`() = runTest(dispatcher) {
+        selections.value = SplitTunnelSelections.INITIAL.copy(allowLocalNetwork = true)
+        val vm = vm()
+        assertTrue(vm.state.value.allowLocalNetwork)
+    }
+
+    @Test
+    fun `flipping the switch saves it with the app rules unchanged`() = runTest(dispatcher) {
+        selections.value = SplitTunnelSelections(SplitTunnelMode.EXCLUDE, excluded = setOf("com.a"))
+        val vm = vm()
+        vm.setAllowLocalNetwork(true)
+        advanceUntilIdle()
+        assertEquals(
+            listOf(
+                SplitTunnelSelections(
+                    SplitTunnelMode.EXCLUDE, excluded = setOf("com.a"), allowLocalNetwork = true)),
+            saved,
+        )
+    }
+
+    @Test
+    fun `a flip during a refused inclusive edit saves the flag with the stored rules`() = runTest(dispatcher) {
+        selections.value = SplitTunnelSelections(SplitTunnelMode.EXCLUDE, excluded = setOf("com.a"))
+        val vm = vm()
+        vm.setMode(SplitTunnelMode.INCLUDE) // refused: an inclusive policy with no apps is never saved
+        vm.setAllowLocalNetwork(true)
+        advanceUntilIdle()
+        // The refused app edit stays on screen, but the switch itself is a valid change and saves
+        // with the rules the store last accepted.
+        assertEquals(
+            listOf(
+                SplitTunnelSelections(
+                    SplitTunnelMode.EXCLUDE, excluded = setOf("com.a"), allowLocalNetwork = true)),
+            saved,
+        )
+        assertEquals(SplitTunnelMode.INCLUDE, vm.state.value.mode)
+        assertTrue(vm.state.value.includeListEmpty)
+        assertTrue(vm.state.value.allowLocalNetwork)
+    }
+
+    @Test
+    fun `a refused edit with the flag flipped back saves nothing`() = runTest(dispatcher) {
+        selections.value = SplitTunnelSelections(SplitTunnelMode.EXCLUDE, excluded = setOf("com.a"))
+        val vm = vm()
+        vm.setMode(SplitTunnelMode.INCLUDE)
+        vm.setAllowLocalNetwork(true)
+        vm.setAllowLocalNetwork(false)
+        advanceUntilIdle()
+        assertTrue(saved.isEmpty())
+    }
+
+    @Test
+    fun `a flag-only change from the store keeps a refused edit and carries the new flag`() = runTest(dispatcher) {
+        selections.value = SplitTunnelSelections(SplitTunnelMode.EXCLUDE, excluded = setOf("com.a"))
+        val vm = vm()
+        vm.setMode(SplitTunnelMode.INCLUDE) // refused: an inclusive policy with no apps is never saved
+        // Another writer, such as a restore, changes only the switch while the refused edit is on screen.
+        selections.value =
+            SplitTunnelSelections(SplitTunnelMode.EXCLUDE, excluded = setOf("com.a"), allowLocalNetwork = true)
+        advanceUntilIdle()
+        assertTrue(vm.state.value.allowLocalNetwork)
+        assertEquals(SplitTunnelMode.INCLUDE, vm.state.value.mode)
+        assertTrue(vm.state.value.includeListEmpty)
+        assertTrue(saved.isEmpty())
+        // The next valid edit saves with the store's new flag, not the one the tab started with.
+        vm.togglePackage("com.b")
+        advanceUntilIdle()
+        assertEquals(
+            listOf(
+                SplitTunnelSelections(
+                    SplitTunnelMode.INCLUDE,
+                    excluded = setOf("com.a"),
+                    included = setOf("com.b"),
+                    allowLocalNetwork = true,
+                ),
+            ),
+            saved,
+        )
+    }
 }

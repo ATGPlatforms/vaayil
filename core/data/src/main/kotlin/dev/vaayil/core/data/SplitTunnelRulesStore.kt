@@ -4,6 +4,7 @@ import android.content.Context
 import android.util.Log
 import androidx.datastore.core.handlers.ReplaceFileCorruptionHandler
 import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.stringPreferencesKey
@@ -43,6 +44,7 @@ class SplitTunnelRulesStore(private val context: Context) {
     private val modeKey = stringPreferencesKey("split_mode")
     private val excludedKey = stringSetPreferencesKey("split_excluded")
     private val includedKey = stringSetPreferencesKey("split_included")
+    private val allowLocalNetworkKey = booleanPreferencesKey("split_allow_local_network")
     // Pre-dual-set era: read once for migration, never written.
     private val legacyModeKey = stringPreferencesKey("split_tunnel_mode")
     private val legacyPackagesKey = stringSetPreferencesKey("split_tunnel_packages")
@@ -62,16 +64,24 @@ class SplitTunnelRulesStore(private val context: Context) {
             prefs[modeKey] = selections.mode.name
             prefs[excludedKey] = selections.excluded
             prefs[includedKey] = selections.included
+            prefs[allowLocalNetworkKey] = selections.allowLocalNetwork
             prefs.remove(legacyModeKey)
             prefs.remove(legacyPackagesKey)
         }
     }
 
-    /** Writes the policy's set into its mode's slot, preserving the other mode's slot. */
+    /**
+     * Writes the policy's set into its mode's slot, preserving the other mode's slot. It stores the
+     * policy's Allow local network flag too, so a policy built without the flag turns the switch off.
+     */
     suspend fun set(policy: SplitTunnelPolicy) {
         // Mode first, THEN the slot pick: withActive-before-copy would file the set
         // under the old mode and flip the mode out from under it.
-        setSelections(snapshotSelections().copy(mode = policy.mode).withActive(policy.packages))
+        setSelections(
+            snapshotSelections()
+                .copy(mode = policy.mode, allowLocalNetwork = policy.allowLocalNetwork)
+                .withActive(policy.packages),
+        )
     }
 
     /** Absence means the store was never written — the window [rescueLegacySplitTunnelRules] closes.
@@ -97,18 +107,20 @@ class SplitTunnelRulesStore(private val context: Context) {
         val mode = (this[modeKey] ?: this[legacyModeKey])
             ?.let { runCatching { SplitTunnelMode.valueOf(it) }.getOrNull() }
             ?: SplitTunnelMode.EXCLUDE
+        val allowLocalNetwork = this[allowLocalNetworkKey] ?: false
         val excluded = this[excludedKey]
         val included = this[includedKey]
         if (excluded == null && included == null) {
             // Legacy single-set era: the stored set belongs to the stored mode's slot.
             val packages = this[legacyPackagesKey] ?: emptySet()
             return if (mode == SplitTunnelMode.EXCLUDE) {
-                SplitTunnelSelections(mode, excluded = packages)
+                SplitTunnelSelections(mode, excluded = packages, allowLocalNetwork = allowLocalNetwork)
             } else {
-                SplitTunnelSelections(mode, included = packages)
+                SplitTunnelSelections(mode, included = packages, allowLocalNetwork = allowLocalNetwork)
             }
         }
-        return SplitTunnelSelections(mode, excluded.orEmpty(), included.orEmpty())
+        return SplitTunnelSelections(
+            mode, excluded.orEmpty(), included.orEmpty(), allowLocalNetwork = allowLocalNetwork)
     }
 }
 

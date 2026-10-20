@@ -320,6 +320,10 @@ strip: on while the tunnel is connecting or connected, and a tap turns it off.
 It follows a saved row's large-text rule: beside the header text while that
 fits, otherwise on its own end-aligned line under it (J6, 2026-10-16).
 
+The Split Tunnel tab opens with the Allow local network switch row, above the
+Exclusive/Inclusive segment: a `body` label, then `body-small` `on-surface-variant` lines,
+each at most two lines long. The whole row is the toggle.
+
 ### Navigation
 Settings opens with Protection, followed by Automation and About. Vaayil is free;
 Settings has no License section, trial status or payment controls. The existing films,

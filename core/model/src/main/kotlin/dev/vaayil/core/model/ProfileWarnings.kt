@@ -26,7 +26,7 @@ fun Profile.warnings(): List<String> = buildList {
     val v6 = coveredAddressCount(allowedIps, ipv6 = true)
     val defaultRoute = allowedIps.any { parseBlock(it)?.prefix == 0 }
     // A near-full tunnel can still leave a family open (A4): GoBackend calls allowFamily for both
-    // families unless a single peer has a prefix-0 Allowed IP (GoBackend.java:332-334), so without
+    // families unless a single peer has a prefix-0 Allowed IP (its setStateInternal kill-switch rule), so without
     // a `/0` entry Android's unreachable route never holds the missing family, and a family that
     // keeps a partial route stays open for the rest either way. Only a valid `/0` plus a family
     // with no entries of its own fails that family closed. Warn when one family's union reaches
@@ -76,7 +76,7 @@ private fun Profile.addressesMissRoutedFamilies(): Boolean {
 private fun isIpv6Entry(entry: String): Boolean = entry.substringBefore('/').contains(':')
 
 /** A CIDR block with host bits cleared, so equal entries share one block and containment is exact. */
-private class CidrBlock(val network: BigInteger, val bits: Int, val prefix: Int) {
+internal class CidrBlock(val network: BigInteger, val bits: Int, val prefix: Int) {
     val size: BigInteger = BigInteger.ONE.shiftLeft(bits - prefix)
 
     fun contains(other: CidrBlock): Boolean =
@@ -90,7 +90,7 @@ private class CidrBlock(val network: BigInteger, val bits: Int, val prefix: Int)
  * bytes, which agree with the spelling because [isIpLiteral] refuses the mapped and dotted-tail
  * forms.
  */
-private fun parseBlock(entry: String): CidrBlock? {
+internal fun parseBlock(entry: String): CidrBlock? {
     val addr = entry.substringBefore('/')
     if (!isIpLiteral(addr)) return null
     val prefix = entry.substringAfter('/').toIntOrNull() ?: return null

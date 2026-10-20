@@ -289,9 +289,15 @@ class BackupViewModelTest {
             listOf(
                 "Added" to "2 profiles",
                 "Overwritten" to "1 existing profile with the same id",
-                "Split tunnel" to "Replaced by the snapshot's: Exclusive, 1 app",
+                "Split tunnel" to "Replaced by the snapshot's: Exclusive, 1 app, Allow local network off",
             ),
             full,
+        )
+        val switchOn = restoreSummaryRows(
+            RestorePrompt(profiles = 1, replacing = 0, rules = selections.copy(allowLocalNetwork = true)))
+        assertEquals(
+            "Split tunnel" to "Replaced by the snapshot's: Exclusive, 1 app, Allow local network on",
+            switchOn.last(),
         )
         val noAdditions = restoreSummaryRows(RestorePrompt(profiles = 4, replacing = 4, rules = null))
         assertEquals(listOf("Overwritten" to "4 existing profiles with the same id"), noAdditions)

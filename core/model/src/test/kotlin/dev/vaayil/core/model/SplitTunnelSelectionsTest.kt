@@ -2,6 +2,7 @@ package dev.vaayil.core.model
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 
 class SplitTunnelSelectionsTest {
     @Test
@@ -28,5 +29,15 @@ class SplitTunnelSelectionsTest {
                 SplitTunnelMode.EXCLUDE, excluded = setOf("com.x"), included = setOf("com.b")),
             excludeMode.withActive(setOf("com.x")),
         )
+    }
+
+    @Test
+    fun `active carries Allow local network in both modes`() {
+        val selections = SplitTunnelSelections(
+            SplitTunnelMode.EXCLUDE, excluded = setOf("com.a"), included = setOf("com.b"),
+            allowLocalNetwork = true)
+        assertTrue(selections.active.allowLocalNetwork)
+        assertTrue(selections.copy(mode = SplitTunnelMode.INCLUDE).active.allowLocalNetwork)
+        assertTrue(selections.withActive(setOf("com.c")).allowLocalNetwork)
     }
 }

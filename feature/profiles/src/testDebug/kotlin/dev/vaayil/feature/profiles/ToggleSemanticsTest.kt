@@ -9,12 +9,14 @@ import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.hasContentDescription
+import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.isSelectable
 import androidx.compose.ui.test.isToggleable
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performScrollToNode
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import dev.vaayil.core.model.InterfaceConfig
 import dev.vaayil.core.model.PeerConfig
@@ -76,11 +78,13 @@ class ToggleSemanticsTest {
                     onShowSystem = {},
                     onRouteAll = {},
                     onBypassAll = {},
+                    onAllowLocalNetwork = {},
                 )
             }
         }
-        compose.onNode(hasText("Maps") and isToggleable())
-            .performScrollTo().assertIsOff()
+        compose.onNode(hasScrollAction())
+            .performScrollToNode(hasText("Maps") and isToggleable())
+        compose.onNode(hasText("Maps") and isToggleable()).assertIsOff()
         // The row AND its switch used to be separately clickable — two focus stops. A
         // label-less toggleable Switch (the F9 two-stop regression) must never come back
         // inside the row: one focus stop per app means the only toggleable carries the text.

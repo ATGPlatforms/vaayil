@@ -7,6 +7,7 @@ BRING YOUR OWN TUNNEL
 
 SPLIT TUNNELING
 • Choose the apps that bypass the tunnel, or the only apps that use it. Changes apply right away.
+• Allow local network keeps printers, cast devices and other devices on your local network reachable while you're connected.
 
 ENCRYPTED DNS
 • DNS over HTTPS and DNS over TLS through an in-tunnel resolver.

@@ -39,6 +39,12 @@ interface DnsUpstream {
     /** Returns the response wire message, or null on upstream failure. */
     suspend fun query(queryWire: ByteArray): ByteArray?
     /**
+     * The server addresses this upstream dials. For the secure DNS server, the engine passes them on so that, when
+     * Allow local network trims the tunnel's routes, a server at a local address keeps a host route through the
+     * tunnel. Empty when the upstream dials nothing or does not know.
+     */
+    val endpointAddresses: List<String> get() = emptyList()
+    /**
      * Releases this upstream. A1: closure is final and immediate — after it, no query of this upstream creates a
      * socket, dials, writes, dispatches an HTTP call or rebuilds, in-flight attempts included, and an attempt still
      * blocked in a receive ends when its resource closes.
@@ -267,6 +273,9 @@ class DotUpstream(
     /** Test seam (A1): production creates a fresh [Socket] per dial attempt. */
     private val socketFactory: () -> Socket = { Socket() },
 ) : DnsUpstream {
+    /** The addresses [connect] dials: the pinned bootstrap result, or [host] itself for a literal. */
+    override val endpointAddresses: List<String> get() = dialAddresses.ifEmpty { listOf(host) }
+
     private val mutex = Mutex()
     private var session: SSLSocket? = null
 
@@ -280,7 +289,7 @@ class DotUpstream(
     }
 
     private fun connect(context: CoroutineContext): SSLSocket {
-        val targets = if (dialAddresses.isEmpty()) listOf(host) else dialAddresses
+        val targets = endpointAddresses
         val perTarget = maxOf(500, connectBudgetMs / targets.size)
         var last: Exception? = null
         for (target in targets) { // D4: a dead first pinned address is not fatal, and cannot eat the whole budget
@@ -452,7 +461,13 @@ class ReprobingUpstream(
     }
 }
 
-class DohUpstream(ok: OkHttpClient, private val url: String, pinnedDns: okhttp3.Dns? = null) : DnsUpstream { // RFC 8484 POST application/dns-message
+class DohUpstream(
+    ok: OkHttpClient,
+    private val url: String,
+    pinnedDns: okhttp3.Dns? = null,
+    /** The addresses the endpoint resolves to: the bootstrap pin, or the literal itself. */
+    override val endpointAddresses: List<String> = emptyList(),
+) : DnsUpstream { // RFC 8484 POST application/dns-message
     private val pinnedHost = url.toHttpUrlOrNull()?.host
     internal val client = ok.newBuilder()
         .callTimeout(4, TimeUnit.SECONDS)

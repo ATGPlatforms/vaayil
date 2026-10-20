@@ -75,6 +75,11 @@ limit, no in-app purchases and no ads, and Vaayil is free software under
   choose, or only the ones you choose.
 - **One set of rules** for whichever profile is connected. A change applies as soon as
   you save it: a running tunnel restarts to pick it up.
+- **Allow local network:** printers, cast devices and other devices on your local network stay
+  reachable while you're connected. Connections to private, link-local and multicast addresses
+  skip the tunnel, except the range of the profile's Address and its DNS servers. To reach
+  another private address through the tunnel, such as your VPN server's, add its range to the
+  profile's Allowed IPs.
 
 ### Encrypted DNS and split DNS
 
@@ -101,6 +106,7 @@ limit, no in-app purchases and no ads, and Vaayil is free software under
 - Vaayil works with Android's **Always-on VPN** and **Block connections without VPN**,
   and walks you through turning them on. With both on, Android blocks apps' connections
   whenever the tunnel is down, and apps you exclude in Split Tunnel can't connect at all.
+  Devices on your local network can't be reached either, even with Allow local network on.
 - One limit is Android's own: it doesn't block DNS lookups. While the tunnel is down, and
   for apps you exclude, the network you're on can still see the names apps look up.
   Vaayil's guide says so too.

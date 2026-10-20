@@ -99,6 +99,22 @@ it is done.
 8. **Disconnect and delete.** Disconnect the scratch profile, delete it, and confirm the app returns to its normal
    state (no tunnel, no notification). Repeat for `intcheck-v6`.
 
+## Allow local network routes
+
+`VpnRoutes` and the GoBackend loop that reads it also run only on a device. Run these items whenever either
+changes, and at every re-vendor. Use `intcheck-v4` (AllowedIPs `0.0.0.0/0, ::/0`) with check 1's bypass rule in
+place, so that the resolver intercepts. Read the VPN network's routes from `adb shell dumpsys connectivity` (the VPN
+network's `LinkProperties`, its `Routes:` list).
+
+1. **Switch off.** With Allow local network off (the Split Tunnel tab), the tunnel's routes are `0.0.0.0/0`,
+   `::/0`, the resolver's host route `10.111.222.3/32` and the host route `10.0.0.2/32` that Android adds for the
+   interface address.
+2. **Switch on.** Turn it on, and the tunnel restarts. No tunnel route covers `10.0.0.0/8`, `172.16.0.0/12`,
+   `192.168.0.0/16`, `169.254.0.0/16`, `224.0.0.0/3`, `fc00::/7`, `fe80::/10` or `ff00::/8`, apart from the host
+   routes for the interface address `10.0.0.2/32` and the resolver's `10.111.222.3/32`, plus one for the profile's
+   DNS server when its address is local. `100.64.0.0/10` is still covered, by `64.0.0.0/2`. The name from check 1's
+   bypass rule still resolves. Turn the switch off again, and the routes listed under Switch off come back.
+
 ## Known limitations
 
 - **Android 8.x (API 26–27) and answers over 8 KiB.** The DNS channel carries at most 8,192 bytes per answer,

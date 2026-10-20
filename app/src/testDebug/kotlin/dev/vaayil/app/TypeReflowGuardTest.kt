@@ -137,6 +137,7 @@ class TypeReflowGuardTest {
                         onShowSystem = {},
                         onRouteAll = {},
                         onBypassAll = {},
+                        onAllowLocalNetwork = {},
                     )
                 }
             }
@@ -150,6 +151,46 @@ class TypeReflowGuardTest {
         // rewording was allowed for.
         compose.assertLinesAtMost("Everything travels through the encrypted tunnel except the apps you select.", 2)
         compose.assertLinesAtMost("Saving restarts the tunnel; traffic can leave it for a moment.", 2)
+    }
+
+    @Test
+    fun splitTunnelLocalNetworkTypeReflows() {
+        // The switch row sits above the segment, so its label, each supporting line and the
+        // switch-on Exclusive hint share the same w360dp budget as the rest of the tab.
+        compose.setContent {
+            VaayilTheme.Content {
+                CompositionLocalProvider(LocalReducedMotion provides true) {
+                    SplitTunnelScreen(
+                        state = SplitTunnelUiState(
+                            mode = SplitTunnelMode.EXCLUDE,
+                            selectedPackages = setOf("com.example.app1"),
+                            apps = (1..6).map { i -> AppInfo("com.example.app$i", "App $i") },
+                            allowLocalNetwork = true,
+                        ),
+                        onMode = {},
+                        onToggle = {},
+                        onQuery = {},
+                        onShowSystem = {},
+                        onRouteAll = {},
+                        onBypassAll = {},
+                        onAllowLocalNetwork = {},
+                    )
+                }
+            }
+        }
+        compose.waitForIdle()
+        compose.assertNoTextClipped("on the Split Tunnel tab with Allow local network at w360dp")
+        compose.assertLinesAtMost("Allow local network", 1)
+        compose.assertLinesAtMost(
+            "Printers, cast devices and other devices on your local network stay reachable.",
+            2,
+        )
+        compose.assertLinesAtMost("Connections to them skip the tunnel, on public Wi-Fi too.", 2)
+        compose.assertLinesAtMost("With Block connections without VPN on, Android still blocks them.", 2)
+        compose.assertLinesAtMost(
+            "Everything travels through the tunnel except the apps you select and your local network.",
+            2,
+        )
     }
 
     @Test
@@ -167,6 +208,7 @@ class TypeReflowGuardTest {
                         onShowSystem = {},
                         onRouteAll = {},
                         onBypassAll = {},
+                        onAllowLocalNetwork = {},
                     )
                 }
             }

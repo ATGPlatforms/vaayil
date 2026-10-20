@@ -453,6 +453,7 @@ class StoreAssetsTest {
                 onShowSystem = {},
                 onRouteAll = {},
                 onBypassAll = {},
+                onAllowLocalNetwork = {},
                 iconLoader = demoIconLoader,
             )
         }

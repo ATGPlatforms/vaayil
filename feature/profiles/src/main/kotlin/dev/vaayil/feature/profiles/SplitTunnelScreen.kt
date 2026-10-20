@@ -12,12 +12,14 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -75,8 +77,8 @@ import kotlinx.coroutines.withContext
  * are app-wide — they apply to whichever profile is connected, not to one config.
  *
  * The whole tab is ONE `LazyColumn` (device review 2026-09-21, C8): the header items
- * (title, intro, mode segment, hints, search, counts, filter) scroll away with the
- * content, and app rows sit directly on the bare canvas with their 60dp-inset
+ * (title, intro, the Allow local network row, mode segment, hints, search, counts, filter)
+ * scroll away with the content, and app rows sit directly on the bare canvas with their 60dp-inset
  * hairlines — there is no list card, so nothing clips at a card edge and the list
  * owns the whole screen once scrolled. [imePadding] keeps the search field and its
  * results above the IME under edge-to-edge (the Task-1 gap, orchestrator ruling R7c);
@@ -92,6 +94,7 @@ fun SplitTunnelScreen(
     onShowSystem: (Boolean) -> Unit,
     onRouteAll: () -> Unit,
     onBypassAll: () -> Unit,
+    onAllowLocalNetwork: (Boolean) -> Unit,
     listState: LazyListState = rememberLazyListState(),
     iconLoader: AppIconLoader = rememberDefaultAppIconLoader(),
 ) {
@@ -107,6 +110,13 @@ fun SplitTunnelScreen(
                     "active connection — every profile uses the same split tunneling.",
             )
         }
+        item(key = "local-network") {
+            AllowLocalNetworkRow(
+                checked = state.allowLocalNetwork,
+                onChecked = onAllowLocalNetwork,
+                modifier = Modifier.padding(bottom = 12.dp),
+            )
+        }
         item(key = "mode") {
             Column {
                 PillSegmented(
@@ -115,10 +125,13 @@ fun SplitTunnelScreen(
                     onSelect = { index -> onMode(if (index == 0) SplitTunnelMode.EXCLUDE else SplitTunnelMode.INCLUDE) },
                 )
                 Text(
-                    if (state.mode == SplitTunnelMode.EXCLUDE) {
-                        "Everything travels through the encrypted tunnel except the apps you select."
-                    } else {
-                        "Only the apps you select travel through the tunnel; everything else stays outside."
+                    when {
+                        state.mode != SplitTunnelMode.EXCLUDE ->
+                            "Only the apps you select travel through the tunnel; everything else stays outside."
+                        state.allowLocalNetwork ->
+                            "Everything travels through the tunnel except the apps you select and your local network."
+                        else ->
+                            "Everything travels through the encrypted tunnel except the apps you select."
                     },
                     style = MaterialTheme.typography.bodySmall,
                     color = VellumColors.OnSurfaceVariant,
@@ -321,6 +334,66 @@ private fun SystemAppsRow(selected: Boolean, onToggle: (Boolean) -> Unit, modifi
             modifier = Modifier.weight(1f),
         )
         Switch(checked = selected, onCheckedChange = null, colors = vellumSwitchColors())
+    }
+}
+
+/**
+ * The app-wide local-network routing switch, above the mode segment: the whole row is the
+ * toggle target (one focus stop, like Settings' switch rows) and the label and its
+ * supporting lines sit beside the M3 switch.
+ */
+@Composable
+private fun AllowLocalNetworkRow(
+    checked: Boolean,
+    onChecked: (Boolean) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val interactionSource = remember { MutableInteractionSource() }
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .heightIn(min = 48.dp)
+            .toggleable(
+                value = checked,
+                interactionSource = interactionSource,
+                indication = null,
+                role = Role.Switch,
+                onValueChange = onChecked,
+            )
+            .padding(vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                "Allow local network",
+                style = MaterialTheme.typography.bodyMedium,
+                color = VellumColors.OnSurface,
+            )
+            Text(
+                "Printers, cast devices and other devices on your local network stay reachable.",
+                style = MaterialTheme.typography.bodySmall,
+                color = VellumColors.OnSurfaceVariant,
+            )
+            Text(
+                "Connections to them skip the tunnel, on public Wi-Fi too.",
+                style = MaterialTheme.typography.bodySmall,
+                color = VellumColors.OnSurfaceVariant,
+            )
+            Text(
+                "With Block connections without VPN on, Android still blocks them.",
+                style = MaterialTheme.typography.bodySmall,
+                color = VellumColors.OnSurfaceVariant,
+            )
+        }
+        Spacer(Modifier.width(12.dp))
+        Switch(
+            checked = checked,
+            onCheckedChange = null,
+            colors = vellumSwitchColors(),
+            // M3 Switch applies the minimum touch size only when it carries the callback;
+            // restate it so handing taps to the row keeps the row's height unchanged.
+            modifier = Modifier.minimumInteractiveComponentSize(),
+        )
     }
 }
 

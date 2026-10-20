@@ -43,6 +43,7 @@ class SplitTunnelScreenshotTest {
                         onShowSystem = {},
                         onRouteAll = {},
                         onBypassAll = {},
+                        onAllowLocalNetwork = {},
                         iconLoader = AppIconLoader { _, _ -> null },
                     )
                 }
@@ -66,6 +67,11 @@ class SplitTunnelScreenshotTest {
     @Test
     @Config(qualifiers = "w360dp-h800dp")
     fun phoneExclusive() = capture("split-tunnel-exclusive-w360dp", exclusive)
+
+    @Test
+    @Config(qualifiers = "w360dp-h800dp")
+    fun phoneExclusiveLocalNetwork() =
+        capture("split-tunnel-exclusive-local-network-w360dp", exclusive.copy(allowLocalNetwork = true))
 
     @Test
     @Config(qualifiers = "w360dp-h800dp")

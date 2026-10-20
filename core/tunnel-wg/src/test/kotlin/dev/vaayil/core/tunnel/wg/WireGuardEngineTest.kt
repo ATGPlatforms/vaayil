@@ -15,6 +15,7 @@ import com.wireguard.android.backend.Statistics
 import com.wireguard.android.backend.TestStatistics
 import com.wireguard.android.backend.Tunnel
 import com.wireguard.config.Config as WgConfig
+import com.wireguard.config.InetNetwork
 import dev.vaayil.core.data.ActiveProfileStore
 import dev.vaayil.core.dns.DatagramPipe
 import dev.vaayil.core.dns.DnsUpstream
@@ -34,6 +35,7 @@ import dev.vaayil.core.tunnel.api.TunnelError
 import dev.vaayil.core.tunnel.api.TunnelNotice
 import dev.vaayil.core.tunnel.api.TunnelStats
 import dev.vaayil.core.tunnel.api.TunnelStatus
+import dev.vaayil.wgtunnel.VpnRoutes
 import java.io.IOException
 import java.net.InetAddress
 import java.util.concurrent.ConcurrentHashMap
@@ -57,6 +59,7 @@ import kotlinx.coroutines.withTimeout
 import okhttp3.OkHttpClient
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
@@ -477,6 +480,7 @@ class WireGuardEngineTest {
         statsIntervalMs: Long = 10_000,
         statsFastIntervalMs: Long = 1_000,
         serviceHold: ServiceHold = ServiceHold.None,
+        splitTunnelRules: suspend () -> SplitTunnelPolicy = { SplitTunnelPolicy(SplitTunnelMode.EXCLUDE, emptySet()) },
         endpointLookupProblem: suspend (String) -> String? = { null },
         openChannel: (List<InetAddress>) -> DatagramPipe = { FakePipe() },
         vpnPermitted: () -> Boolean = { true },
@@ -487,7 +491,7 @@ class WireGuardEngineTest {
         scope = CoroutineScope(SupervisorJob()),
         installedApps = { emptySet() },
         profileLookup = { id -> profiles.firstOrNull { it.id == id } },
-        splitTunnelRules = { SplitTunnelPolicy(SplitTunnelMode.EXCLUDE, emptySet()) },
+        splitTunnelRules = splitTunnelRules,
         dns = dns,
         openChannel = openChannel,
         vpnPermitted = vpnPermitted,
@@ -1735,6 +1739,69 @@ class WireGuardEngineTest {
             withTimeout(5_000) { engine.stats.first { it.generation > 0 } }
         }
         assertEquals(connected.generation, sample.generation)
+        engine.stop()
+    }
+
+    @Test
+    fun `with the switch off the tunnel hands GoBackend no route list`() = runTest {
+        val a = secureProfile("a", "Alpha")
+        val backend = FakeBackend()
+        val engine = engine(backend, controller(backgroundScope) { RecordingUpstream() }, a)
+        engine.start(a)
+        assertNull((backend.upTunnel as VpnRoutes).vpnRoutes)
+        engine.stop()
+    }
+
+    @Test
+    fun `with the switch on the tunnel carries the trimmed routes and the peer keeps its AllowedIPs`() = runTest {
+        val a = secureProfile("a", "Alpha")
+        val backend = FakeBackend()
+        val engine = engine(
+            backend, controller(backgroundScope) { RecordingUpstream() }, a,
+            splitTunnelRules = { SplitTunnelPolicy(SplitTunnelMode.EXCLUDE, emptySet(), allowLocalNetwork = true) },
+        )
+        engine.start(a)
+        val tunnel = backend.upTunnel as VpnRoutes
+        assertEquals(WgConfigMapper.vpnRoutes(a, true, emptyList()), tunnel.vpnRoutes)
+        assertEquals(
+            a.peer.allowedIps.map(InetNetwork::parse).toSet(),
+            backend.upConfigs.last()!!.peers.single().allowedIps,
+        )
+        engine.stop()
+    }
+
+    @Test
+    fun `an inclusive list with no installed app still applies the switch`() = runTest {
+        val a = secureProfile("a", "Alpha")
+        val backend = FakeBackend()
+        val engine = engine(
+            backend, controller(backgroundScope) { RecordingUpstream() }, a,
+            splitTunnelRules = {
+                SplitTunnelPolicy(SplitTunnelMode.INCLUDE, setOf("com.example.gone"), allowLocalNetwork = true)
+            },
+        )
+        engine.start(a)
+        assertTrue(backend.upConfigs.last()!!.`interface`.includedApplications.isEmpty())
+        assertNotNull((backend.upTunnel as VpnRoutes).vpnRoutes)
+        engine.stop()
+    }
+
+    @Test
+    fun `a secure DNS server on a local address keeps its host route`() = runTest {
+        val a = secureProfile("a", "Alpha")
+        val secure = object : DnsUpstream {
+            override suspend fun query(queryWire: ByteArray): ByteArray? = null
+            override val endpointAddresses: List<String> = listOf("10.64.0.53")
+            override fun close() = Unit
+        }
+        val backend = FakeBackend()
+        val engine = engine(
+            backend, controller(backgroundScope) { secure }, a,
+            splitTunnelRules = { SplitTunnelPolicy(SplitTunnelMode.EXCLUDE, emptySet(), allowLocalNetwork = true) },
+        )
+        engine.start(a)
+        val routes = (backend.upTunnel as VpnRoutes).vpnRoutes
+        assertTrue(InetNetwork.parse("10.64.0.53/32") in routes!!)
         engine.stop()
     }
 }

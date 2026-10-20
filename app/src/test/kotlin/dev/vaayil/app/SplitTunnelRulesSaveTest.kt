@@ -20,6 +20,7 @@ import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -82,6 +83,33 @@ class SplitTunnelRulesSaveTest {
         saveSplitTunnelRules(store, rules, restarts())
         assertNull(shadowOf(context as Application).nextStartedService) // still connecting: nothing yet
         assertEquals(rules, store.snapshotSelections()) // the saved values are in before the restart
+        ConnectionRegistry.status.value = TunnelStatus(ConnectionPhase.CONNECTED, "p1", null)
+        val intent = shadowOf(context as Application).nextStartedService
+        assertEquals(VpnTunnelService::class.java.name, intent.component?.className)
+        assertEquals(VpnTunnelService.ACTION_CONNECT, intent.action)
+        assertEquals("p1", intent.getStringExtra(VpnTunnelService.EXTRA_PROFILE_ID))
+    }
+
+    @Test
+    fun `flipping Allow local network while connected restarts the tunnel`() = runBlocking {
+        ConnectionRegistry.status.value = TunnelStatus(ConnectionPhase.CONNECTED, "p1", null)
+        val rules = SplitTunnelSelections(SplitTunnelMode.EXCLUDE, excluded = setOf("com.a"))
+        store.setSelections(rules)
+        saveSplitTunnelRules(store, rules.copy(allowLocalNetwork = true), restarts())
+        val intent = shadowOf(context as Application).nextStartedService
+        assertEquals(VpnTunnelService::class.java.name, intent.component?.className)
+        assertEquals(VpnTunnelService.ACTION_CONNECT, intent.action)
+        assertEquals("p1", intent.getStringExtra(VpnTunnelService.EXTRA_PROFILE_ID))
+        assertTrue(store.snapshotSelections().allowLocalNetwork)
+    }
+
+    @Test
+    fun `a flip while connecting restarts once the start is connected`() = runBlocking {
+        ConnectionRegistry.status.value = TunnelStatus(ConnectionPhase.CONNECTING, "p1", null)
+        val rules = SplitTunnelSelections(SplitTunnelMode.EXCLUDE, excluded = setOf("com.a"))
+        store.setSelections(rules)
+        saveSplitTunnelRules(store, rules.copy(allowLocalNetwork = true), restarts())
+        assertNull(shadowOf(context as Application).nextStartedService) // still connecting: nothing yet
         ConnectionRegistry.status.value = TunnelStatus(ConnectionPhase.CONNECTED, "p1", null)
         val intent = shadowOf(context as Application).nextStartedService
         assertEquals(VpnTunnelService::class.java.name, intent.component?.className)

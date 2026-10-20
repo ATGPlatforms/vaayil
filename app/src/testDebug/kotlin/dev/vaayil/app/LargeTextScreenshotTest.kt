@@ -241,6 +241,7 @@ class LargeTextScreenshotTest {
             onShowSystem = {},
             onRouteAll = {},
             onBypassAll = {},
+            onAllowLocalNetwork = {},
             iconLoader = AppIconLoader { _, _ -> null },
         )
     }
