@@ -2,4 +2,19 @@
 <resources>
     <!-- Vellum canvas (DESIGN.md §2): the warm paper ground the window paints. -->
     <color name="vellum_canvas">#FBFAF7</color>
+
+    <!-- The home-screen widget's palette (DESIGN.md §5): a mirror of the Vellum tokens,
+         pinned equal to them by QuickWidgetColorsTest. The launcher inflates these
+         resources, so they can't read VellumColors at runtime. -->
+    <color name="vellum_seam">#CEC2A9</color>
+    <color name="vellum_on_surface">#23221D</color>
+    <color name="vellum_on_surface_variant">#57544A</color>
+    <color name="vellum_primary">#3E5A42</color>
+    <color name="vellum_sage_mark">#4A7350</color>
+    <color name="vellum_on_field_active">#28402C</color>
+    <color name="vellum_idle_dot">#7C7264</color>
+    <color name="vellum_warning_mark">#B9762B</color>
+    <color name="vellum_on_warning">#5E4218</color>
+    <color name="vellum_error_mark">#A93A31</color>
+    <color name="vellum_on_error">#7B241C</color>
 </resources>

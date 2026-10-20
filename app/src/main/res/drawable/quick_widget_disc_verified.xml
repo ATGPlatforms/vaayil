@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Verified: the 40dp sage disc inside the 48dp touch target. -->
+<inset xmlns:android="http://schemas.android.com/apk/res/android"
+    android:inset="4dp">
+    <shape android:shape="oval">
+        <solid android:color="@color/vellum_primary" />
+    </shape>
+</inset>

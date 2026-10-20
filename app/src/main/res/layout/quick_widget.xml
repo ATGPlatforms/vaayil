@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The home-screen widget before its first push and in the picker's preview: "Vaayil" on
+     the idle disc with no state row. Task 9 adds the tap targets. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@android:id/background"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/quick_widget_background"
+    android:gravity="center_vertical"
+    android:orientation="horizontal"
+    android:paddingStart="8dp"
+    android:paddingEnd="12dp"
+    tools:ignore="HardcodedText">
+
+    <ImageView
+        android:id="@+id/quick_widget_disc"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:background="@drawable/quick_widget_disc_idle"
+        android:contentDescription="Vaayil"
+        android:padding="14dp"
+        android:src="@drawable/ic_quick_power_idle" />
+
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="8dp"
+        android:layout_weight="1"
+        android:orientation="vertical">
+
+        <TextView
+            android:id="@+id/quick_widget_name"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:ellipsize="end"
+            android:fontFamily="@font/schibsted_grotesk_semibold"
+            android:maxLines="1"
+            android:text="Vaayil"
+            android:textColor="@color/vellum_on_surface"
+            android:textSize="16sp" />
+
+        <LinearLayout
+            android:id="@+id/quick_widget_state_row"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:visibility="gone">
+
+            <ImageView
+                android:id="@+id/quick_widget_dot"
+                android:layout_width="7dp"
+                android:layout_height="7dp"
+                android:importantForAccessibility="no"
+                android:src="@drawable/quick_widget_dot_idle" />
+
+            <TextView
+                android:id="@+id/quick_widget_state"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="6dp"
+                android:ellipsize="end"
+                android:fontFamily="@font/schibsted_grotesk_medium"
+                android:maxLines="1"
+                android:textColor="@color/vellum_on_surface_variant"
+                android:textSize="12sp" />
+        </LinearLayout>
+    </LinearLayout>
+</LinearLayout>

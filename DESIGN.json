@@ -123,6 +123,14 @@
       "description": "112dp window to the bare board in a three-film seat; connected, the window fills sage.",
       "html": "<div class=\"ds-hero\"><button class=\"ds-hero-disc ds-hero-on\">ACTIVE</button></div>",
       "css": ".ds-hero { background: #ECE5D7; border-radius: 14px; padding: 40px; display: flex; justify-content: center; } .ds-hero-disc { width: 112px; height: 112px; border-radius: 999px; border: 1px solid #CEC2A9; background: #FBFAF7; color: #57544A; font: 600 15px/20px 'Schibsted Grotesk', sans-serif; letter-spacing: 0.01em; cursor: pointer; transition: background 260ms cubic-bezier(0.4, 0, 0.2, 1); } .ds-hero-on { background: #3E5A42; color: #FBFAF7; border-color: #3E5A42; box-shadow: 0 0 0 10px #ECE5D7, 0 0 0 10.5px #4A7350; }"
+    },
+    {
+      "name": "Home-Screen Widget",
+      "kind": "custom",
+      "refersTo": "home-widget",
+      "description": "3×1 canvas widget: a 48dp disc beside the name and a dot-led state line, inside one closed seam perimeter and no shadow.",
+      "html": "<div class=\"ds-widget\"><div class=\"ds-widget-disc\"></div><div class=\"ds-widget-text\"><div class=\"ds-widget-name\">Home</div><div class=\"ds-widget-state\"><span class=\"ds-widget-dot\"></span>Connected</div></div></div>",
+      "css": ".ds-widget { display: flex; align-items: center; box-sizing: border-box; width: 203px; height: 102px; padding: 0 12px 0 8px; background: #FBFAF7; border: 1px solid #CEC2A9; border-radius: 10px; } .ds-widget-disc { flex: none; width: 40px; height: 40px; margin: 4px; border-radius: 999px; background: #3E5A42; } .ds-widget-text { min-width: 0; margin-left: 8px; } .ds-widget-name { font: 600 16px/22px 'Schibsted Grotesk', sans-serif; color: #23221D; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } .ds-widget-state { display: flex; align-items: center; gap: 6px; font: 500 12px/16px 'Schibsted Grotesk', sans-serif; color: #28402C; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } .ds-widget-dot { flex: none; width: 7px; height: 7px; border-radius: 999px; background: #4A7350; }"
     }
   ],
   "narrative": {

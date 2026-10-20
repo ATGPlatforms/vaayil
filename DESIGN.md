@@ -254,6 +254,24 @@ shows a 2dp `error-mark` ring. The label under the glyph stays on one line and
 caps its font scale at 1.15, the largest that clears the window's round edge
 (F29).
 
+### Home-screen widget
+3×1 by default, resizable down to 2×1 and wider (D1). A 48dp disc view — a 40dp
+disc in a 4dp inset — sits beside the profile's name: verified fills it `primary`
+under a canvas `power` glyph; failed is a bare canvas window with a 2dp
+`error-mark` ring; idle, connecting and waiting keep the canvas window with the
+1dp seam. The name is title 16/600 `on-surface`, one line, ellipsized. The state
+line is a static 7dp dot 6dp before annotation-size text (12/500) in the tone's
+text colour: ACTIVE `sage-mark`/`on-field-active`, WARNING
+`warning-mark`/`on-warning`, IDLE `idle-dot`/`on-surface-variant`, ERROR
+`error-mark`/`on-error` — never a pill surface. The background is the bare canvas
+inside one closed 1dp `seam` perimeter: the system widget radius on API 31+, the
+card's 10dp below; no shadow. Its colours are XML resources (the launcher inflates
+them) pinned equal to their `VellumColors` tokens by `QuickWidgetColorsTest`.
+Before its first update, and in the picker's preview, the layout reads "Vaayil" on
+the idle disc with no state row. Limits: font scale 2.0 fits the default portrait
+size but not the one-row landscape size (51dp tall); at 3×1 "Waiting for
+handshake" ends in an ellipsis, and at 2×1 the longer state texts do too.
+
 ### Status pills, badges, dots
 32dp pills (radius 999) with a 7dp breathing dot: ACTIVE
 `field-active`/`on-field-active`/`sage-mark`; IDLE
