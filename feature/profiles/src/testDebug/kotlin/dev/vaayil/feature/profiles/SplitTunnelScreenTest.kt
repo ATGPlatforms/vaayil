@@ -6,11 +6,17 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsOff
+import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.isToggleable
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
@@ -118,6 +124,29 @@ class SplitTunnelScreenTest {
         compose.onNodeWithText("Allow local network").performClick()
         compose.waitForIdle()
         assertEquals(true, allowed)
+    }
+
+    @Test
+    fun `the Allow local network row is one toggleable focus stop`() {
+        val allow = mutableStateOf(false)
+        compose.setContent {
+            MaterialTheme {
+                SplitTunnelScreen(
+                    state = SplitTunnelUiState(allowLocalNetwork = allow.value),
+                    onMode = {}, onToggle = {}, onQuery = {}, onShowSystem = {},
+                    onRouteAll = {}, onBypassAll = {},
+                    onAllowLocalNetwork = { allow.value = it },
+                )
+            }
+        }
+        // The row is the toggle: its switch takes no clicks of its own, so the row is the only
+        // toggleable, it carries the label, and no label-less toggleable sits beside it.
+        val row = compose.onNode(isToggleable() and hasText("Allow local network"))
+        row.assertIsOff()
+        row.performClick()
+        row.assertIsOn()
+        compose.onAllNodes(isToggleable() and SemanticsMatcher.keyNotDefined(SemanticsProperties.Text))
+            .assertCountEquals(0)
     }
 
     @Test
