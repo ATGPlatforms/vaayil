@@ -57,6 +57,7 @@ internal class QuickControls(
     val commands: QuickTunnelCommands,
     val requests: QuickRequests,
     private val widgets: WidgetUpdater,
+    private val shortcuts: ShortcutUpdater,
 ) {
     /** The shared rendered state; null until the first input arrives. */
     val state: StateFlow<QuickState?> =
@@ -68,9 +69,15 @@ internal class QuickControls(
 
     fun launchDisconnect(): Job = scope.launch { commands.disconnect() }
 
-    /** D12: keeps every placed home-screen widget current for this hub's lifetime. */
+    /** D12: keeps every placed home-screen widget current and the launcher's shortcuts in step. */
     fun start() {
         widgets.launchIn(scope, state.filterNotNull())
+        shortcuts.launchIn(scope, inputs)
+    }
+
+    /** Re-runs the shortcut sync with the latest inputs; every app resume calls this. */
+    fun onAppResumed() {
+        shortcuts.onAppResumed()
     }
 
     /** A newly placed widget asks for the current views, even when the last push was the same. */

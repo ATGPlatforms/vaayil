@@ -129,6 +129,7 @@ fun RootNav(container: AppContainer) {
         needsGuard = { container.automationRules.snapshot().needsGuardService },
         start = container::startAutoConnectService,
     )
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { container.quickControls.onAppResumed() }
     Scaffold(
         snackbarHost = { SnackbarHost(snackbar) },
         bottomBar = {

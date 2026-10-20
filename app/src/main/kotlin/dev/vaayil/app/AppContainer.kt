@@ -11,8 +11,11 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.preferencesDataStore
 import dev.vaayil.app.quick.AppWidgetPusher
+import dev.vaayil.app.quick.CompatShortcutHost
 import dev.vaayil.app.quick.QuickControls
 import dev.vaayil.app.quick.QuickRequests
+import dev.vaayil.app.quick.QuickShortcutSync
+import dev.vaayil.app.quick.ShortcutUpdater
 import dev.vaayil.app.quick.WidgetUpdater
 import dev.vaayil.app.quick.quickInputs
 import dev.vaayil.core.automation.AutoConnectService
@@ -114,6 +117,7 @@ class AppContainer internal constructor(
         QuickTunnelCommands(appContext),
         QuickRequests(),
         WidgetUpdater(AppWidgetPusher(appContext)),
+        ShortcutUpdater(QuickShortcutSync(CompatShortcutHost(appContext)), profiles::storedIds),
     )
 
     /**
