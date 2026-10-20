@@ -100,9 +100,10 @@ class AppContainer internal constructor(
     private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     /**
-     * D12: the hub every quick surface reads. Construction does no I/O: the rendered state starts
-     * collecting only while a surface is subscribed, and the inputs are the process-wide registry
-     * and the same stores the rest of the app reads.
+     * D12: the hub every quick surface reads. Construction does no I/O: the inputs are collected
+     * once and shared by the long-lived readers, from `QuickControls.start()` on in production,
+     * and a failed read is logged and retried. The inputs are the process-wide registry and the
+     * same stores the rest of the app reads.
      */
     internal val quickControls = QuickControls(
         appScope,

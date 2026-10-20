@@ -1,6 +1,7 @@
 package dev.vaayil.app.quick
 
 import android.content.Context
+import android.util.Log
 import dev.vaayil.app.VaayilApplication
 import dev.vaayil.core.automation.QuickTunnelCommands
 import dev.vaayil.core.model.Profile
@@ -8,13 +9,17 @@ import dev.vaayil.core.tunnel.api.HandshakeState
 import dev.vaayil.core.tunnel.api.TunnelStatus
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.retryWhen
+import kotlinx.coroutines.flow.shareIn
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -48,8 +53,9 @@ internal fun quickInputs(
 
 /**
  * The hub every system-created quick surface reads: the Quick Settings tile, the widget and the
- * shortcut trampoline. Construction does no I/O; [state] collects only while a surface is
- * subscribed, and a surface that needs the present snapshot asks for it directly.
+ * shortcut trampoline. Construction does no I/O; the inputs are collected once and shared by the
+ * long-lived readers, from [start] on in production, and a surface that needs the present
+ * snapshot asks for it directly. A failed read is logged and retried.
  */
 internal class QuickControls(
     private val scope: CoroutineScope,
@@ -59,9 +65,18 @@ internal class QuickControls(
     private val widgets: WidgetUpdater,
     private val shortcuts: ShortcutUpdater,
 ) {
+    /** The one collection upstream of both readers; a stored read never ends it. */
+    private val live: SharedFlow<QuickInputs> = inputs
+        .retryWhen { cause, attempt ->
+            Log.w(TAG, "quick inputs failed: ${cause.javaClass.simpleName}", cause)
+            delay(minOf(30_000L, 1_000L shl attempt.coerceAtMost(5).toInt()))
+            true
+        }
+        .shareIn(scope, SharingStarted.WhileSubscribed(5_000, replayExpirationMillis = 0), replay = 1)
+
     /** The shared rendered state; null until the first input arrives. */
     val state: StateFlow<QuickState?> =
-        inputs.map(::presentQuickState).stateIn(scope, SharingStarted.WhileSubscribed(5_000), null)
+        live.map(::presentQuickState).stateIn(scope, SharingStarted.WhileSubscribed(5_000), null)
 
     suspend fun currentInputs(): QuickInputs = inputs.first()
 
@@ -72,7 +87,7 @@ internal class QuickControls(
     /** D12: keeps every placed home-screen widget current and the launcher's shortcuts in step. */
     fun start() {
         widgets.launchIn(scope, state.filterNotNull())
-        shortcuts.launchIn(scope, inputs)
+        shortcuts.launchIn(scope, live)
     }
 
     /** Re-runs the shortcut sync with the latest inputs; every app resume calls this. */
@@ -83,6 +98,10 @@ internal class QuickControls(
     /** A newly placed widget asks for the current views, even when the last push was the same. */
     suspend fun refreshWidgets() {
         widgets.refresh(currentState())
+    }
+
+    private companion object {
+        const val TAG = "QuickControls"
     }
 }
 
