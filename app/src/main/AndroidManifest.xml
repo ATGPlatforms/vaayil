@@ -66,6 +66,11 @@
                 android:name="android.appwidget.provider"
                 android:resource="@xml/quick_widget_info" />
         </receiver>
+        <!-- The widget disc's connect/disconnect: an explicit broadcast from this app's own
+             PendingIntents, so nothing else may send it. -->
+        <receiver
+            android:name="dev.vaayil.app.quick.QuickWidgetReceiver"
+            android:exported="false" />
         <!-- Keep the GoBackend service component (GoBackend starts it explicitly while setting
              the tunnel state up) but replace the AAR declaration wholesale: no intent-filter, so
              the system only ever binds VpnTunnelService for always-on. -->

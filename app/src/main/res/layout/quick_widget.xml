@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- The home-screen widget before its first push and in the picker's preview: "Vaayil" on
-     the idle disc with no state row. Task 9 adds the tap targets. -->
+     the idle disc with no state row. The views set its tap targets; the layout sets none. -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
     android:id="@android:id/background"

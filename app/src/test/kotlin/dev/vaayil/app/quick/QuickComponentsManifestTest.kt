@@ -55,6 +55,16 @@ class QuickComponentsManifestTest {
     }
 
     @Test
+    fun `the widget's click receiver is not exported`() {
+        val app = ApplicationProvider.getApplicationContext<Application>()
+        val info = app.packageManager.getReceiverInfo(
+            ComponentName(app, QuickWidgetReceiver::class.java),
+            0,
+        )
+        assertFalse(info.exported)
+    }
+
+    @Test
     fun `the widget info pins its size and update rules`() {
         val app = ApplicationProvider.getApplicationContext<Application>()
         val parser = app.resources.getXml(R.xml.quick_widget_info)

@@ -1,11 +1,13 @@
 package dev.vaayil.app.quick
 
 import android.app.Application
+import android.content.ComponentName
 import android.view.View
 import android.widget.FrameLayout
 import android.widget.TextView
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import dev.vaayil.app.MainActivity
 import dev.vaayil.app.R
 import dev.vaayil.core.tunnel.api.ConnectionPhase
 import dev.vaayil.core.tunnel.api.HandshakeState
@@ -13,6 +15,8 @@ import dev.vaayil.core.tunnel.api.TunnelStatus
 import dev.vaayil.core.tunnel.wg.ConnectionRegistry
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -23,7 +27,8 @@ import org.robolectric.annotation.Config
  * The widget's RemoteViews carry exactly the presenter's state: name, state text, the
  * tone's colour, the disc's description and the row that holds the dot and the state.
  * Applying every fixture state also proves the layout inflates through RemoteViews'
- * restricted class set.
+ * restricted class set. The disc's tap is the shown action's broadcast (or the app's
+ * launch intent), and the rest of the widget always opens the app.
  */
 @RunWith(AndroidJUnit4::class)
 @Config(sdk = [35], application = Application::class)
@@ -92,5 +97,45 @@ class QuickWidgetViewsTest {
         states().forEach { state ->
             quickWidgetViews(app, state).apply(app, FrameLayout(app))
         }
+    }
+
+    @Test
+    fun `the disc's tap carries the shown action`() {
+        val connect = presentQuickState(inputs(ConnectionPhase.DISCONNECTED, lastConnectedId = "p1"))
+        val connectTap = shadowOf(widgetClicks(app, connect).getValue(R.id.quick_widget_disc))
+        assertTrue(connectTap.isBroadcast)
+        assertTrue(connectTap.isImmutable)
+        assertEquals(
+            ComponentName(app, QuickWidgetReceiver::class.java),
+            connectTap.savedIntent.component,
+        )
+        assertEquals(QuickWidgetReceiver.ACTION_CONNECT, connectTap.savedIntent.action)
+        assertEquals(
+            "p1",
+            connectTap.savedIntent.getStringExtra(QuickWidgetReceiver.EXTRA_PROFILE_ID),
+        )
+
+        val disconnect = presentQuickState(inputs(ConnectionPhase.CONNECTED, HandshakeState.VERIFIED))
+        val disconnectTap = shadowOf(widgetClicks(app, disconnect).getValue(R.id.quick_widget_disc))
+        assertTrue(disconnectTap.isBroadcast)
+        assertTrue(disconnectTap.isImmutable)
+        assertEquals(QuickWidgetReceiver.ACTION_DISCONNECT, disconnectTap.savedIntent.action)
+        assertNull(disconnectTap.savedIntent.getStringExtra(QuickWidgetReceiver.EXTRA_PROFILE_ID))
+
+        val open = presentQuickState(
+            inputs(ConnectionPhase.DISCONNECTED, readable = emptyList(), storedCount = 0),
+        )
+        assertTrue(shadowOf(widgetClicks(app, open).getValue(R.id.quick_widget_disc)).isActivity)
+    }
+
+    @Test
+    fun `the rest of the widget opens the app`() {
+        val tap = shadowOf(
+            widgetClicks(app, presentQuickState(inputs(ConnectionPhase.CONNECTED)))
+                .getValue(android.R.id.background),
+        )
+
+        assertTrue(tap.isActivity)
+        assertEquals(ComponentName(app, MainActivity::class.java), tap.savedIntent.component)
     }
 }
