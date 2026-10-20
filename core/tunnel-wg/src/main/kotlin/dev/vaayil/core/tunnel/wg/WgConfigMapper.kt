@@ -63,8 +63,9 @@ object WgConfigMapper {
 
     /**
      * The routes for the tunnel's interface with the local-network switch on: the Allowed IPs with the local ranges
-     * cut out, plus the routes that keep the tunnel's own endpoints reachable ([localNetworkRoutes]). Null when the
-     * switch is off, so GoBackend routes the peers' Allowed IPs as it always has.
+     * cut out, plus the parts of the interface subnets and the DNS servers' host routes that the cut took out
+     * ([localNetworkRoutes]). Null when the switch is off, so GoBackend routes the peers' Allowed IPs as it
+     * always has.
      *
      * The Allowed IPs themselves never change: both per-family rules read them ([routedFamilies] and GoBackend's
      * kill-switch rule, which needs their `/0`), and they are the peer's cryptokey routing.

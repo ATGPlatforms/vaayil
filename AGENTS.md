@@ -191,10 +191,10 @@ app -> core/model, core/ui, core/config, core/tunnel-api, core/data, core/automa
   - The sampler polls every second until the first handshake, for at most 30 s.
 - Hostname DoH/DoT endpoints are bootstrap-resolved through the underlying network's resolver at
   tunnel start and pinned; a failed query on the secure channel (a network switch is the usual
-  cause) rebuilds it, which re-runs the lookup (`ReprobingUpstream` in `DnsResolver.kt`). The
-  editor's hint says so (C9): "A hostname DNS server is looked up through your current network's
-  resolver when the tunnel comes up, and again after a network change or a failure." Secure DNS
-  rides the tunnel; only bootstrap and bypass sockets are protected.
+  cause) rebuilds it, which re-runs the lookup (`ReprobingUpstream`, wrapped around the secure
+  upstream in `DnsResolver.kt`). The editor's hint says so (C9): "A hostname DNS server is looked up
+  through your current network's resolver when the tunnel comes up, and again after a network change
+  or a failure." Secure DNS rides the tunnel; only bootstrap and bypass sockets are protected.
 - "The underlying network" is ONE network (K2, S10): `selectUnderlying` (`:core:tunnel-wg`
   `UnderlyingNetwork.kt`) picks among non-VPN networks with INTERNET, FOREGROUND and
   NOT_RESTRICTED, VALIDATED first, then Ethernet > Wi-Fi > cellular. Only its DNS servers are
@@ -328,10 +328,11 @@ app -> core/model, core/ui, core/config, core/tunnel-api, core/data, core/automa
   `WgConfigMapper.vpnRoutes` (`localNetworkRoutes` and `LOCAL_NETWORK_RANGES` in `:core:model`)
   hands GoBackend, through `dev.vaayil.wgtunnel.VpnRoutes`, the AllowedIPs with the local ranges
   cut out of every entry that covers them; an entry inside a local range stays routed. It keeps
-  each interface subnet, and a host route for each DNS server (the profile's, plus the
-  secure server's literal or pinned addresses), wherever a trimmed entry covered them; GoBackend
-  still adds the resolver host routes. The AllowedIPs, the peer config and the exported `.conf`
-  never change. Both family rules read the AllowedIPs, so an IPv4-only profile keeps IPv6 blocked.
+  each interface subnet (for a subnet wider than a local range, the local ranges inside it), and a
+  host route for each DNS server (the profile's, plus the secure server's literal or pinned
+  addresses), wherever a trimmed entry covered them; GoBackend still adds the resolver host routes.
+  The AllowedIPs, the peer config and the exported `.conf` never change. Both family rules read the
+  AllowedIPs, so an IPv4-only profile keeps IPv6 blocked.
   The routes are fixed when the tunnel comes up: after a network change, a secure server
   re-resolved to a different local address skips the tunnel, still encrypted, until the next
   connect. A flip saves even while an empty Inclusive list holds the app rules back, and it
