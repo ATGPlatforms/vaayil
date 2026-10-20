@@ -106,8 +106,9 @@ changes, and at every re-vendor. Use `intcheck-v4` (AllowedIPs `0.0.0.0/0, ::/0`
 place, so that the resolver intercepts. Read the VPN network's routes from `adb shell dumpsys connectivity` (the VPN
 network's `LinkProperties`, its `Routes:` list).
 
-1. **Switch off.** With Allow local network off (the Split Tunnel tab), the tunnel's routes are `0.0.0.0/0`, `::/0`
-   and the resolver's host route `10.111.222.3/32`.
+1. **Switch off.** With Allow local network off (the Split Tunnel tab), the tunnel's routes are `0.0.0.0/0`,
+   `::/0`, the resolver's host route `10.111.222.3/32` and the host route `10.0.0.2/32` that Android adds for the
+   interface address.
 2. **Switch on.** Turn it on, and the tunnel restarts. No tunnel route covers `10.0.0.0/8`, `172.16.0.0/12`,
    `192.168.0.0/16`, `169.254.0.0/16`, `224.0.0.0/3`, `fc00::/7`, `fe80::/10` or `ff00::/8`, apart from the host
    routes for the interface address `10.0.0.2/32` and the resolver's `10.111.222.3/32`, plus one for the profile's
