@@ -106,8 +106,8 @@ internal class QuickControls(
 }
 
 /**
- * The seam a system-created component (the shortcut trampoline today, the tile, receiver and
- * widget provider later) uses to reach the process's container. Tests replace it.
+ * The seam a system-created component (the shortcut trampoline, the tile, the widget provider
+ * and its receiver) uses to reach the process's container. Tests replace it.
  */
 internal object QuickControlsAccess {
     @Volatile var forContext: (Context) -> QuickControls =

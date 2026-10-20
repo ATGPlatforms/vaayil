@@ -35,10 +35,12 @@ The maintainer's private docs live in the companion repo `vaayil-dev`, checked o
   (connect-on-boot, the guard service, Tasker) issue those intents only through
   `BackgroundTunnelCommands` (`:core:automation`, B1), and the Quick Settings tile and the
   home-screen widget through `QuickTunnelCommands` in the same module; a launcher shortcut only
-  reopens the app, where the manual connect gate runs. A CONNECT starts the service only with
-  VPN consent (`VpnService.prepare() == null`), and without it posts "Vaayil couldn't connect" /
-  "VPN permission is off. Open Vaayil and connect once to allow it." in the tunnel
-  notification's slot (42, the "VPN connection" channel); a DISCONNECT first bars the crash resume
+  reopens the app, where the manual connect gate runs. A CONNECT from a background sender or the
+  widget starts the service only with VPN consent (`VpnService.prepare() == null`), and without
+  it posts "Vaayil couldn't connect" / "VPN permission is off. Open Vaayil and connect once to
+  allow it." in the tunnel notification's slot (42, the "VPN connection" channel); a tile
+  connect without consent posts nothing, leaves a request and opens the app, where the manual
+  connect gate asks. A DISCONNECT first bars the crash resume
   (`CrashResumeGate.suppress()`, revoke included), clears ACTIVE (LAST kept) and joins a resume the service already
   accepted, then starts the service only while a tunnel is live (`EngineProvider.isTunnelLive()`). On API 34+ a
   `VpnTunnelService` start without consent crashes the
@@ -403,16 +405,18 @@ app -> core/model, core/ui, core/config, core/tunnel-api, core/data, core/automa
 - Quick controls (`:app` `dev.vaayil.app.quick`): the Quick Settings tile, the home-screen
   widget and the launcher's shortcuts share one hub, `QuickControls`; the tile and the widget
   render its `QuickState` presenter, and a tap does what its surface last showed — a tile tap
-  before the first render does nothing. A launcher Connect shortcut posts a request in memory
-  only (one slot of 30 s, `QUICK_REQUEST_TTL_MS`, replaced by a newer one and lost on process
-  death) and opens the app, where `QuickRequestEffect` runs it through the manual connect gate
-  (C7) while the screen is started; `MainActivity` never reads a tunnel request from its
-  intent. The trampoline activity, the widget's provider
-  and its receiver are `exported="false"`; the tile is exported only behind
+  before the first render does nothing. A launcher Connect shortcut, or a tile connect without
+  VPN consent, posts a request in memory only (one slot of 30 s, `QUICK_REQUEST_TTL_MS`,
+  replaced by a newer one and lost on process death) and opens the app, where
+  `QuickRequestEffect` runs it through the manual connect gate (C7) while the screen is started;
+  `MainActivity` never reads a tunnel request from its intent. The trampoline activity, the
+  widget's provider and its receiver are `exported="false"`; the tile is exported only behind
   `android.permission.BIND_QUICK_SETTINGS_TILE` (`QuickComponentsManifestTest` pins it). The
-  tile and the widget connect through `QuickTunnelCommands`, whose duplicate guard allows one
-  CONNECT until the status moves or 10 s pass (`QUICK_CONNECT_SETTLE_MS`); the entry's own
-  disconnect clears it. `prepare()` runs only on a connect (A5), never while rendering. Turning
+  tile and the widget connect through `QuickTunnelCommands`, whose duplicate guard, after one
+  CONNECT, skips another connect while the status still equals the one read just before that
+  send and less than 10 s (`QUICK_CONNECT_SETTLE_MS`) have passed, so a status that returned to
+  that value still holds the guard; the entry's own disconnect clears it. `prepare()` runs only
+  on a connect (A5), never while rendering. Turning
   Vaayil off from a locked phone asks for unlock on the tile at every API level and on the
   notification's Disconnect on API 31+; API 26–30 can't make a notification action ask, and
   that gap is accepted. After a process death the widget can keep stale views until Vaayil runs

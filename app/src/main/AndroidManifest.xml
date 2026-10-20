@@ -32,7 +32,8 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-        <!-- The launcher shortcut's trampoline: invisible, no task of its own, no intent filter. -->
+        <!-- The launcher shortcut's trampoline: invisible, finishes at once and leaves no task
+             behind, no intent filter. -->
         <activity
             android:name="dev.vaayil.app.quick.QuickShortcutActivity"
             android:exported="false"
@@ -53,8 +54,8 @@
                 android:name="android.service.quicksettings.TOGGLEABLE_TILE"
                 android:value="true" />
         </service>
-        <!-- The home-screen widget: the system sends APPWIDGET_UPDATE as the system UID, which
-             reaches a non-exported receiver. -->
+        <!-- The home-screen widget's provider. It stays private: only the system sends it widget
+             updates. -->
         <receiver
             android:name="dev.vaayil.app.quick.QuickWidgetProvider"
             android:exported="false"

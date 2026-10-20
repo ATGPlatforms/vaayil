@@ -11,10 +11,9 @@ import dev.vaayil.core.model.isValidProfileId
  * The launcher shortcut's trampoline: it drops one validated request in the process-wide
  * [QuickRequests] slot and reopens the app, then finishes.
  *
- * MainActivity is singleTask, so the reopen brings its task back as it was — an open editor keeps
- * its draft (F30) — instead of starting a second instance. The trampoline inherits the
- * application's empty task affinity, so it runs in a task of its own and leaves none behind.
- * `Theme.NoDisplay` requires the finish in [onCreate].
+ * MainActivity is singleTask, so the reopen returns to the app's existing task and an open editor
+ * keeps its draft (F30). The trampoline keeps the application's empty task affinity, so it never
+ * joins that task. `Theme.NoDisplay` requires the finish in [onCreate].
  */
 internal class QuickShortcutActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {

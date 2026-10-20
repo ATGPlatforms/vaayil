@@ -19,10 +19,11 @@ private const val TAG = "QuickRequestEffect"
 internal enum class QuickRequestOutcome { DROPPED, ALREADY_LIVE, GATED }
 
 /**
- * Turns a launcher shortcut's request into the same action a tap inside the app takes. A request
- * never overrides onboarding, never touches a live profile, and never connects one that cannot be
- * read. On a tab other than the dashboard the dashboard comes up first, so any consent dialog has
- * the disc behind it; a pushed route (an editor draft, F30) is left where it is.
+ * Turns a quick surface's request (a launcher shortcut, or the tile when a connect needs VPN
+ * consent) into the same action a tap inside the app takes. A request never overrides
+ * onboarding, never touches a live profile, and never connects one that cannot be read. On a tab
+ * other than the dashboard the dashboard comes up first, so any consent dialog has the disc
+ * behind it; a pushed route (an editor draft, F30) is left where it is.
  */
 internal suspend fun routeQuickRequest(
     profileId: String,

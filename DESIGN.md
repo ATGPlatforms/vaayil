@@ -255,7 +255,7 @@ caps its font scale at 1.15, the largest that clears the window's round edge
 (F29).
 
 ### Home-screen widget
-3×1 by default, resizable down to 2×1 and wider (D1). A 48dp disc view — a 40dp
+3×1 by default, resizable down to 2×1 and wider. A 48dp disc view — a 40dp
 disc in a 4dp inset — sits beside the profile's name: verified fills it `primary`
 under a canvas `power` glyph; failed is a bare canvas window with a 2dp
 `error-mark` ring; idle, connecting and waiting keep the canvas window with the

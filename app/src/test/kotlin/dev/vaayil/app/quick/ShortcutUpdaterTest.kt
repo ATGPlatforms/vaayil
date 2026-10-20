@@ -13,8 +13,7 @@ import org.junit.Test
 
 /**
  * The updater syncs once per distinct profile input and once per app resume, so a refused
- * publish can be retried. A throwing read is logged and leaves the collection running
- * (Review Focus 5).
+ * publish can be retried. A throwing read is logged and leaves the collection running.
  */
 class ShortcutUpdaterTest {
     /** Publishes in memory so a later sync sees its own result. */

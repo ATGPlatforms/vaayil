@@ -25,7 +25,7 @@ class QuickWidgetReceiver : BroadcastReceiver() {
                         Log.w(TAG, "widget action ${intent.action} failed: ${e.javaClass.simpleName}", e)
                     }
             } finally {
-                pending?.finish() // null when a test calls onReceive directly.
+                pending?.finish() // goAsync() returns null outside a real broadcast.
             }
         }
     }

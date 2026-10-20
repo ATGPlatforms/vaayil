@@ -14,9 +14,8 @@ enum class QuickConnectResult { SENT, SKIPPED, NEEDS_CONSENT, REFUSED }
 internal const val QUICK_CONNECT_SETTLE_MS = 10_000L
 
 /**
- * The quick controls' public entry to the tunnel commands: a Quick Settings tile, the widget and
- * the app shortcuts go through it instead of starting [dev.vaayil.core.tunnel.wg.VpnTunnelService]
- * themselves.
+ * The quick controls' public entry to the tunnel commands: a Quick Settings tile and the widget
+ * go through it instead of starting [dev.vaayil.core.tunnel.wg.VpnTunnelService] themselves.
  *
  * A connect sends one CONNECT through [BackgroundTunnelCommands] and arms a duplicate guard: while
  * the tunnel status still equals the snapshot taken just before that send, and less than
