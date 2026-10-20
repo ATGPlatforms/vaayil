@@ -182,10 +182,9 @@ Vaayil needs Android 8.0 (API 26) or newer, and a WireGuard configuration to con
 - **Obtainium:** add `https://github.com/ATGPlatforms/vaayil` in
   [Obtainium](https://github.com/ImranR98/Obtainium), and it installs each new release
   from GitHub.
-- **F-Droid:** submitted for inclusion
-  ([merge request](https://gitlab.com/fdroid/fdroiddata/-/merge_requests/53145)). The
-  F-Droid build is set up to be reproducible, so F-Droid can publish the same signed APK
-  as the GitHub release.
+- **F-Droid:** planned. F-Droid asks for three months of active development first, so
+  Vaayil will resubmit in early 2027. The F-Droid build is set up to be reproducible, so
+  F-Droid can publish the same signed APK as the GitHub release.
 - **Google Play:** planned.
 
 To check an APK before you install it, compare its signing certificate with Vaayil's:
