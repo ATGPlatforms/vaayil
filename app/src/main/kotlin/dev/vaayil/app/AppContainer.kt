@@ -10,8 +10,10 @@ import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.preferencesDataStore
+import dev.vaayil.app.quick.AppWidgetPusher
 import dev.vaayil.app.quick.QuickControls
 import dev.vaayil.app.quick.QuickRequests
+import dev.vaayil.app.quick.WidgetUpdater
 import dev.vaayil.app.quick.quickInputs
 import dev.vaayil.core.automation.AutoConnectService
 import dev.vaayil.core.automation.AutomationReceiver
@@ -84,7 +86,7 @@ class AppContainer internal constructor(
     constructor(appContext: Context) : this(
         appContext,
         { steps -> runStartupSteps(steps) },
-        { container -> container.initEngine() },
+        { container -> container.initEngine(); container.quickControls.start() },
     )
 
     val db = DataGraph.database(appContext)
@@ -111,6 +113,7 @@ class AppContainer internal constructor(
         ),
         QuickTunnelCommands(appContext),
         QuickRequests(),
+        WidgetUpdater(AppWidgetPusher(appContext)),
     )
 
     /**

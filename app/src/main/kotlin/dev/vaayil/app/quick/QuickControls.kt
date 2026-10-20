@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
@@ -55,6 +56,7 @@ internal class QuickControls(
     private val inputs: Flow<QuickInputs>,
     val commands: QuickTunnelCommands,
     val requests: QuickRequests,
+    private val widgets: WidgetUpdater,
 ) {
     /** The shared rendered state; null until the first input arrives. */
     val state: StateFlow<QuickState?> =
@@ -65,6 +67,16 @@ internal class QuickControls(
     suspend fun currentState(): QuickState = presentQuickState(currentInputs())
 
     fun launchDisconnect(): Job = scope.launch { commands.disconnect() }
+
+    /** D12: keeps every placed home-screen widget current for this hub's lifetime. */
+    fun start() {
+        widgets.launchIn(scope, state.filterNotNull())
+    }
+
+    /** A newly placed widget asks for the current views, even when the last push was the same. */
+    suspend fun refreshWidgets() {
+        widgets.refresh(currentState())
+    }
 }
 
 /**
