@@ -289,7 +289,7 @@ class DotUpstream(
     }
 
     private fun connect(context: CoroutineContext): SSLSocket {
-        val targets = if (dialAddresses.isEmpty()) listOf(host) else dialAddresses
+        val targets = endpointAddresses
         val perTarget = maxOf(500, connectBudgetMs / targets.size)
         var last: Exception? = null
         for (target in targets) { // D4: a dead first pinned address is not fatal, and cannot eat the whole budget
