@@ -207,28 +207,39 @@ fun BackupScreen(
 
     state.pendingRestore?.let { prompt ->
         ScrimDialog(onDismissRequest = vm::cancelRestore) {
-            Text(
-                "Restore this snapshot?",
-                style = MaterialTheme.typography.headlineLarge,
-                color = VellumColors.OnSurface,
-            )
-            Sheet(films = Films.Two, modifier = Modifier.fillMaxWidth()) {
-                restoreSummaryRows(prompt).forEach { (label, value) ->
-                    Row(modifier = Modifier.fillMaxWidth()) {
-                        VellumEyebrow(label)
-                        Spacer(Modifier.weight(1f))
-                        Text(
-                            value,
-                            style = monoTextStyle(),
-                            color = VellumColors.OnSurface,
-                            textAlign = TextAlign.End,
-                            modifier = Modifier.padding(start = 12.dp),
-                        )
+            // The prompt's longest form (added and overwritten profiles, replaced rules and the
+            // legacy-rule note) can outgrow a small screen at font scale 2.0. The text scrolls
+            // and the Cancel/Restore row stays below it, always in view; `fill = false` keeps
+            // the prompt's natural size whenever everything fits (Material 3 AlertDialog's shape).
+            Column(
+                modifier = Modifier
+                    .weight(1f, fill = false)
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                Text(
+                    "Restore this snapshot?",
+                    style = MaterialTheme.typography.headlineLarge,
+                    color = VellumColors.OnSurface,
+                )
+                Sheet(films = Films.Two, modifier = Modifier.fillMaxWidth()) {
+                    restoreSummaryRows(prompt).forEach { (label, value) ->
+                        Row(modifier = Modifier.fillMaxWidth()) {
+                            VellumEyebrow(label)
+                            Spacer(Modifier.weight(1f))
+                            Text(
+                                value,
+                                style = monoTextStyle(),
+                                color = VellumColors.OnSurface,
+                                textAlign = TextAlign.End,
+                                modifier = Modifier.padding(start = 12.dp),
+                            )
+                        }
                     }
                 }
-            }
-            restoreNotes(prompt).forEach { note ->
-                Text(note, style = MaterialTheme.typography.bodySmall, color = VellumColors.OnSurfaceVariant)
+                restoreNotes(prompt).forEach { note ->
+                    Text(note, style = MaterialTheme.typography.bodySmall, color = VellumColors.OnSurfaceVariant)
+                }
             }
             Row(
                 modifier = Modifier.fillMaxWidth(),

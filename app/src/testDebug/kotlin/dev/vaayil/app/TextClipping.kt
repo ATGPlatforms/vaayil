@@ -5,8 +5,9 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsNode
+import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.SemanticsNodeInteractionsProvider
-import androidx.compose.ui.test.onRoot
+import androidx.compose.ui.test.isRoot
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Density
@@ -35,8 +36,10 @@ fun AtFontScale(scale: Float, content: @Composable () -> Unit) {
     )
 }
 
-/** Every laid-out text in the unmerged tree (merged groups drop leaves). */
-fun SemanticsNodeInteractionsProvider.allTextLayouts(): List<LaidOutText> {
+/** Every laid-out text in [root]'s unmerged tree (merged groups drop leaves). */
+fun SemanticsNodeInteractionsProvider.allTextLayouts(
+    root: SemanticsMatcher = isRoot(),
+): List<LaidOutText> {
     val found = mutableListOf<LaidOutText>()
     fun walk(node: SemanticsNode) {
         val action = node.config.getOrElseNullable(SemanticsActions.GetTextLayoutResult) { null }?.action
@@ -46,7 +49,7 @@ fun SemanticsNodeInteractionsProvider.allTextLayouts(): List<LaidOutText> {
         }
         node.children.forEach { walk(it) }
     }
-    walk(onRoot(useUnmergedTree = true).fetchSemanticsNode())
+    walk(onNode(root, useUnmergedTree = true).fetchSemanticsNode())
     return found
 }
 
@@ -55,12 +58,14 @@ fun SemanticsNodeInteractionsProvider.allTextLayouts(): List<LaidOutText> {
  *  - cut at the bottom: the paragraph is taller than the node;
  *  - cut at the side: a text that may not wrap is wider than its node;
  *  - cut after its last line: the visible lines end before the text does (a `maxLines` cut);
- *  - off the screen: the node starts before or ends after the root's horizontal edges.
+ *  - off the screen: the node starts before or ends after [root]'s horizontal edges.
  * Ellipsized text is cut on purpose, so the side and last-line checks skip it.
  */
-fun SemanticsNodeInteractionsProvider.textClipProblems(): List<String> {
-    val rootWidth = onRoot(useUnmergedTree = true).fetchSemanticsNode().size.width
-    return allTextLayouts().mapNotNull { t ->
+fun SemanticsNodeInteractionsProvider.textClipProblems(
+    root: SemanticsMatcher = isRoot(),
+): List<String> {
+    val rootWidth = onNode(root, useUnmergedTree = true).fetchSemanticsNode().size.width
+    return allTextLayouts(root).mapNotNull { t ->
         val layout = t.layout
         val input = layout.layoutInput
         val paragraph = layout.multiParagraph
@@ -84,9 +89,12 @@ fun SemanticsNodeInteractionsProvider.textClipProblems(): List<String> {
     }
 }
 
-/** Fails listing every clipped text node; [where] names the screen state in the message. */
-fun SemanticsNodeInteractionsProvider.assertNoTextClipped(where: String) {
-    val problems = textClipProblems()
+/** Fails listing every clipped text node in [root]; [where] names the screen state. */
+fun SemanticsNodeInteractionsProvider.assertNoTextClipped(
+    where: String,
+    root: SemanticsMatcher = isRoot(),
+) {
+    val problems = textClipProblems(root)
     assertTrue("Clipped text $where:\n" + problems.joinToString("\n"), problems.isEmpty())
 }
 
