@@ -44,7 +44,7 @@ internal data class ShortcutPlan(
 /**
  * Reconciles the launcher's shortcuts with the profiles the app can read. At most four are
  * published, last-connected first and otherwise in the Profiles tab order. A pinned shortcut
- * whose row is gone is disabled; one whose row is stored but unreadable is left alone (D11),
+ * whose row is gone is disabled; one whose row is stored but unreadable is left alone,
  * so a key outage never erases the launcher's pins.
  */
 internal fun planShortcuts(

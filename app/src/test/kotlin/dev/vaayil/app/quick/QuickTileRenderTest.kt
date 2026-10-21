@@ -39,7 +39,7 @@ import org.robolectric.annotation.Config
 
 /**
  * The tile's copy and its API gates: the subtitle exists from API 29, the state description from
- * API 30, and below API 30 the content description carries the state itself (D2). A secure lock
+ * API 30, and below API 30 the content description carries the state itself. A secure lock
  * screen hides the profile's name.
  */
 @RunWith(AndroidJUnit4::class)

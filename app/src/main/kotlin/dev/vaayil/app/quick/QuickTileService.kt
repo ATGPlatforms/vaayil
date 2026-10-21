@@ -95,7 +95,7 @@ class QuickTileService : TileService() {
     /**
      * Applies [state] to the bound tile. Nothing is recorded while the tile is unbound, so
      * [shown] only ever holds a state the tile actually displayed. The subtitle exists from API
-     * 29 and the state description from API 30 (D2): below them, the content description carries
+     * 29 and the state description from API 30: below them, the content description carries
      * the state itself, because TalkBack has nowhere else to read it.
      */
     internal fun render(state: QuickState) {

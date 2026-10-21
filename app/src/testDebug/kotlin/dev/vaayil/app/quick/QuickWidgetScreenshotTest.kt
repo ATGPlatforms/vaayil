@@ -40,7 +40,7 @@ import org.robolectric.annotation.GraphicsMode
 
 /**
  * The home-screen widget's five visible faces (plus the no-profile one), rendered through
- * the same RemoteViews the launcher receives. D10: font scale 2.0 is checked at the default
+ * the same RemoteViews the launcher receives. Font scale 2.0 is checked at the default
  * portrait size (203×102dp); the one-row landscape size (51dp tall) at 1.0 only.
  */
 @RunWith(AndroidJUnit4::class)

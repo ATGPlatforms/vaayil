@@ -84,7 +84,7 @@ internal class QuickControls(
 
     fun launchDisconnect(): Job = scope.launch { commands.disconnect() }
 
-    /** D12: keeps every placed home-screen widget current and the launcher's shortcuts in step. */
+    /** Keeps every placed home-screen widget current and the launcher's shortcuts in step. */
     fun start() {
         widgets.launchIn(scope, state.filterNotNull())
         shortcuts.launchIn(scope, live)
