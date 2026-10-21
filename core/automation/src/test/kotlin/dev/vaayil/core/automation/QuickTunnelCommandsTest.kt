@@ -47,6 +47,9 @@ class QuickTunnelCommandsTest {
     /** The entry's clock: tests move it instead of sleeping. */
     private var now = 1_000L
 
+    /** The tally of settled connects the entry reads: tests move it instead of running the engine. */
+    private var settled = 0L
+
     private val nm: ShadowNotificationManager
         get() = shadowOf(app.getSystemService(NotificationManager::class.java))
 
@@ -68,6 +71,7 @@ class QuickTunnelCommandsTest {
         ConnectionRegistry.status,
         { ConnectionRegistry.status.value.phase.isLive },
         { now },
+        { settled },
     )
 
     private fun nextStart(): Intent? = shadowOf(app).nextStartedService
@@ -145,6 +149,36 @@ class QuickTunnelCommandsTest {
     }
 
     @Test
+    fun `a retry after a settled connect is sent even when the status reads the same`() {
+        ShadowVpnService.setPrepareResult(null)
+        ConnectionRegistry.status.value =
+            TunnelStatus(ConnectionPhase.FAILED, "p1", TunnelError.HandshakeTimeout)
+        val commands = entry(app)
+
+        assertEquals(QuickConnectResult.SENT, commands.connect("p1", noticeWithoutConsent = true))
+        settled++
+        assertEquals(QuickConnectResult.SENT, commands.connect("p1", noticeWithoutConsent = true))
+
+        assertNotNull(nextStart())
+        assertNotNull(nextStart())
+        assertNull("the retry started more than one service", nextStart())
+    }
+
+    @Test
+    fun `a tap while the sent connect is still in flight is skipped, even after a failure`() {
+        ShadowVpnService.setPrepareResult(null)
+        ConnectionRegistry.status.value =
+            TunnelStatus(ConnectionPhase.FAILED, "p1", TunnelError.HandshakeTimeout)
+        val commands = entry(app)
+
+        assertEquals(QuickConnectResult.SENT, commands.connect("p1", noticeWithoutConsent = true))
+        assertEquals(QuickConnectResult.SKIPPED, commands.connect("p1", noticeWithoutConsent = true))
+
+        assertNotNull(nextStart())
+        assertNull("the skipped tap started a service", nextStart())
+    }
+
+    @Test
     fun `a live tunnel skips without asking for consent`() {
         ConnectionRegistry.status.value = TunnelStatus(ConnectionPhase.CONNECTED, "p2", null)
         ShadowVpnService.setPrepareResult(Intent()) // missing consent: a live tunnel never asks
@@ -178,6 +212,7 @@ class QuickTunnelCommandsTest {
             ConnectionRegistry.status,
             { ConnectionRegistry.status.value.phase.isLive },
             { now },
+            { settled },
         )
         commands.disconnect()
 

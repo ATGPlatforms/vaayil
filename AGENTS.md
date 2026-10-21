@@ -412,10 +412,11 @@ app -> core/model, core/ui, core/config, core/tunnel-api, core/data, core/automa
   `MainActivity` never reads a tunnel request from its intent. The trampoline activity, the
   widget's provider and its receiver are `exported="false"`; the tile is exported only behind
   `android.permission.BIND_QUICK_SETTINGS_TILE` (`QuickComponentsManifestTest` pins it). The
-  tile and the widget connect through `QuickTunnelCommands`, whose duplicate guard, after one
-  CONNECT, skips another connect while the status still equals the one read just before that
-  send and less than 10 s (`QUICK_CONNECT_SETTLE_MS`) have passed, so a status that returned to
-  that value still holds the guard; the entry's own disconnect clears it. `prepare()` runs only
+  tile and the widget connect through `QuickTunnelCommands`, whose duplicate guard, after one CONNECT, skips
+  another connect only while no connect has settled since that send (`ConnectionRegistry.connectsSettled`, which
+  `TunnelControl.connect` bumps whenever a connect's work ends, whatever the outcome), the status still equals the
+  one read just before it, and less than 10 s (`QUICK_CONNECT_SETTLE_MS`) have passed; the entry's own disconnect
+  clears it. `prepare()` runs only
   on a connect (A5), never while rendering. Turning
   Vaayil off from a locked phone asks for unlock on the tile at every API level and on the
   notification's Disconnect on API 31+; API 26–30 can't make a notification action ask, and
