@@ -254,8 +254,8 @@ class SplitTunnelScreenTest {
         compose.onNodeWithText("Inclusive mode needs at least one app. Until you pick one, the previous rules stay in effect.")
             .assertIsDisplayed()
         // The note is always visible, whatever the mode (C9: saving restarts the tunnel,
-        // so the copy says traffic can leave it for a moment).
-        compose.onNodeWithText("Saving restarts the tunnel; traffic can leave it for a moment.")
+        // so the copy says connections can leave it briefly).
+        compose.onNodeWithText("Saving restarts the tunnel; connections can leave it briefly.")
             .assertIsDisplayed()
     }
 

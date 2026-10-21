@@ -138,7 +138,7 @@ fun SplitTunnelScreen(
                     modifier = Modifier.padding(top = 8.dp),
                 )
                 Text(
-                    "Saving restarts the tunnel; traffic can leave it for a moment.",
+                    "Saving restarts the tunnel; connections can leave it briefly.",
                     style = MaterialTheme.typography.bodySmall,
                     color = VellumColors.OnSurfaceVariant,
                     modifier = Modifier.padding(top = 4.dp),

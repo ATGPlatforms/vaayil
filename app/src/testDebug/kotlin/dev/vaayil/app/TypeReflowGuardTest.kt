@@ -150,7 +150,7 @@ class TypeReflowGuardTest {
         // C9's restart note renders on exactly 2 lines at w360dp — the budget its
         // rewording was allowed for.
         compose.assertLinesAtMost("Everything travels through the encrypted tunnel except the apps you select.", 2)
-        compose.assertLinesAtMost("Saving restarts the tunnel; traffic can leave it for a moment.", 2)
+        compose.assertLinesAtMost("Saving restarts the tunnel; connections can leave it briefly.", 2)
     }
 
     @Test

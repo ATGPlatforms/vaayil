@@ -5,10 +5,10 @@ import kotlin.test.assertEquals
 
 /** T-1 (spec U9) and A4: the address-family warnings are advice, never validation errors. */
 class ProfileWarningsTest {
-    private val mismatch = "This profile's addresses don't match its Allowed IPs, so it won't carry traffic."
+    private val mismatch = "This profile's addresses don't match its Allowed IPs, so it won't carry connections."
 
-    private val bypassV6 = "Some IPv6 traffic will bypass this tunnel. Add ::/0 to Allowed IPs to keep it in."
-    private val bypassV4 = "Some IPv4 traffic will bypass this tunnel. Add 0.0.0.0/0 to Allowed IPs to keep it in."
+    private val bypassV6 = "Some IPv6 connections will bypass this tunnel. Add ::/0 to Allowed IPs to keep them in."
+    private val bypassV4 = "Some IPv4 connections will bypass this tunnel. Add 0.0.0.0/0 to Allowed IPs to keep them in."
     private val dnsBypass = "DNS lookups will bypass this tunnel. Add a DNS server to keep them in."
 
     /**

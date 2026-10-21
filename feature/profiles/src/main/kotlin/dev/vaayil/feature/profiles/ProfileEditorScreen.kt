@@ -196,7 +196,7 @@ fun ProfileEditorScreen(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 QuickScopeChip(
-                    label = "Route all traffic",
+                    label = "Route everything",
                     selected = peer.allowedIps.containsAll(listOf("0.0.0.0/0", "::/0")),
                     onClick = {
                         onField { it.copy(peer = it.peer.copy(allowedIps = listOf("0.0.0.0/0", "::/0"))) }
@@ -272,7 +272,7 @@ fun ProfileEditorScreen(
             Text("Split DNS", style = MaterialTheme.typography.titleSmall)
             Text(
                 "Domains listed here get DNS answers from your network's default resolver instead of the tunnel " +
-                    "(or vice versa: tap a rule's resolver to switch it). Routing of the actual traffic is unchanged — this is DNS only.",
+                    "(or vice versa: tap a rule's resolver to switch it). Split DNS only chooses which resolver answers a lookup; it never changes how connections are routed.",
                 style = MaterialTheme.typography.bodySmall,
                 color = VellumColors.OnSurfaceVariant,
             )
