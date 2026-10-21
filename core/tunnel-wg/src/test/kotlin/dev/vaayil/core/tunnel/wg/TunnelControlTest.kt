@@ -7,6 +7,7 @@ import dev.vaayil.core.tunnel.api.ConnectionPhase
 import dev.vaayil.core.tunnel.api.TunnelStatus
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -199,6 +200,39 @@ class TunnelControlTest {
         cancelled.cancel()
         assertFalse(cancelled.start()) // a cancelled unstarted job never runs its op
         assertEquals(1, connectCalls)
+    }
+
+    @Test
+    fun `every connect whose op ran counts as settled, whatever its outcome`() = runTest {
+        val outcomes = ArrayDeque(listOf(StartOutcome.STARTED, StartOutcome.FAILED, StartOutcome.REFUSED))
+        var opRuns = 0
+        var settled = 0
+        val control = TunnelControl(
+            scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined + CoroutineExceptionHandler { _, _ -> }),
+            connectOp = { _, _, _ ->
+                opRuns += 1
+                outcomes.removeFirstOrNull() ?: throw IllegalStateException("scripted connect failure")
+            },
+            statusNow = { TunnelStatus.idle },
+            stopOp = {},
+            noteConnectSettled = { settled += 1 },
+        )
+        val app = ApplicationProvider.getApplicationContext<android.content.Context>()
+
+        control.connect(app, "p").join()
+        control.connect(app, "p").join()
+        control.connect(app, "p").join()
+        assertEquals(3, settled)
+
+        control.connect(app, "p").join()
+        assertEquals(4, settled) // a throwing op settles too
+
+        val lazy = control.connect(app, "p", start = CoroutineStart.LAZY)
+        lazy.cancel()
+        assertFalse(lazy.start())
+        assertEquals(4, settled) // a connect cancelled before it ran never counts
+        assertEquals(4, opRuns)
+
     }
 
     @OptIn(ExperimentalCoroutinesApi::class)

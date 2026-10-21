@@ -5,8 +5,6 @@ import android.app.Application
 import android.app.Notification
 import android.app.NotificationManager
 import android.content.ComponentName
-import android.content.Context
-import android.content.ContextWrapper
 import android.content.Intent
 import android.content.IntentFilter
 import android.location.LocationManager
@@ -110,25 +108,6 @@ class BackgroundTunnelCommandsTest {
     }
 
     // ----------------------------------------------------- J3 crash-resume fixtures
-
-    /** Counts the tunnel starts by method, so the caller's foreground choice is observable. */
-    private class RecordingStarts(context: Context) : ContextWrapper(context) {
-        val disconnectIntents = mutableListOf<Intent>()
-        var foregroundStarts = 0
-        var plainStarts = 0
-
-        override fun startForegroundService(service: Intent): ComponentName? {
-            if (service.action == VpnTunnelService.ACTION_DISCONNECT) disconnectIntents += service
-            foregroundStarts++
-            return super.startForegroundService(service)
-        }
-
-        override fun startService(service: Intent): ComponentName? {
-            if (service.action == VpnTunnelService.ACTION_DISCONNECT) disconnectIntents += service
-            plainStarts++
-            return super.startService(service)
-        }
-    }
 
     /**
      * This class's own extra cleanup, passed to the shared [restoreResumeFixture]: destroy the

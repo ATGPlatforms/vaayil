@@ -60,7 +60,8 @@ object TunnelNotifications {
             .setContentIntent(contentIntent)
             .setOnlyAlertOnce(true)
             .setOngoing(status.phase == ConnectionPhase.CONNECTED)
-            .addAction(0, "Disconnect", disconnect)
+            // On API 31+ a locked phone asks for unlock before the tunnel can be dropped; API 26–30 can't ask.
+            .addAction(NotificationCompat.Action.Builder(0, "Disconnect", disconnect).setAuthenticationRequired(true).build())
             .build()
     }
 

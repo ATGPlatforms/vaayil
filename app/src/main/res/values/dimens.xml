@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The widget's corner below API 31, where the system radius doesn't exist yet:
+         the card radius (DESIGN.md §2). -->
+    <dimen name="quick_widget_radius">10dp</dimen>
+</resources>

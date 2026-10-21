@@ -32,6 +32,46 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+        <!-- The launcher shortcut's trampoline: invisible, finishes at once and leaves no task
+             behind, no intent filter. -->
+        <activity
+            android:name="dev.vaayil.app.quick.QuickShortcutActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:noHistory="true"
+            android:theme="@android:style/Theme.NoDisplay" />
+        <!-- The Quick Settings tile: only the system's tile binder may bind it. -->
+        <service
+            android:name="dev.vaayil.app.quick.QuickTileService"
+            android:exported="true"
+            android:icon="@drawable/ic_quick_tile"
+            android:label="Vaayil"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.service.quicksettings.TOGGLEABLE_TILE"
+                android:value="true" />
+        </service>
+        <!-- The home-screen widget's provider. It stays private: only the system sends it widget
+             updates. -->
+        <receiver
+            android:name="dev.vaayil.app.quick.QuickWidgetProvider"
+            android:exported="false"
+            android:label="Vaayil">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/quick_widget_info" />
+        </receiver>
+        <!-- The widget disc's connect/disconnect: an explicit broadcast from this app's own
+             PendingIntents, so nothing else may send it. -->
+        <receiver
+            android:name="dev.vaayil.app.quick.QuickWidgetReceiver"
+            android:exported="false" />
         <!-- Keep the GoBackend service component (GoBackend starts it explicitly while setting
              the tunnel state up) but replace the AAR declaration wholesale: no intent-filter, so
              the system only ever binds VpnTunnelService for always-on. -->

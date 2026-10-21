@@ -108,7 +108,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-private val TAB_ROUTES = setOf("dashboard", "profiles", "split-tunnel", "backup")
+internal val TAB_ROUTES = setOf("dashboard", "profiles", "split-tunnel", "backup")
 
 @Composable
 fun RootNav(container: AppContainer) {
@@ -129,6 +129,7 @@ fun RootNav(container: AppContainer) {
         needsGuard = { container.automationRules.snapshot().needsGuardService },
         start = container::startAutoConnectService,
     )
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { container.quickControls.onAppResumed() }
     Scaffold(
         snackbarHost = { SnackbarHost(snackbar) },
         bottomBar = {
@@ -247,6 +248,17 @@ private fun RootNavGraph(
             }
         }
         composable("onboarding") { OnboardingRoute(container, nav) }
+    }
+    QuickRequestEffect(container.quickControls.requests, nav) { id, route ->
+        routeQuickRequest(
+            id,
+            route,
+            { ConnectionRegistry.status.value },
+            container.profiles::get,
+            { nav.navigateTab("dashboard") },
+            gate,
+            { profile -> noticeScope.launch { container.tunnelController.connect(profile) } },
+        )
     }
 }
 

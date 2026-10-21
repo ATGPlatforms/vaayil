@@ -10,8 +10,17 @@ import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.preferencesDataStore
+import dev.vaayil.app.quick.AppWidgetPusher
+import dev.vaayil.app.quick.CompatShortcutHost
+import dev.vaayil.app.quick.QuickControls
+import dev.vaayil.app.quick.QuickRequests
+import dev.vaayil.app.quick.QuickShortcutSync
+import dev.vaayil.app.quick.ShortcutUpdater
+import dev.vaayil.app.quick.WidgetUpdater
+import dev.vaayil.app.quick.quickInputs
 import dev.vaayil.core.automation.AutoConnectService
 import dev.vaayil.core.automation.AutomationReceiver
+import dev.vaayil.core.automation.QuickTunnelCommands
 import dev.vaayil.core.data.ActiveProfileStore
 import dev.vaayil.core.data.AutomationRulesStore
 import dev.vaayil.core.data.DataGraph
@@ -80,7 +89,7 @@ class AppContainer internal constructor(
     constructor(appContext: Context) : this(
         appContext,
         { steps -> runStartupSteps(steps) },
-        { container -> container.initEngine() },
+        { container -> container.initEngine(); container.quickControls.start() },
     )
 
     val db = DataGraph.database(appContext)
@@ -89,6 +98,28 @@ class AppContainer internal constructor(
     val splitTunnelRules = SplitTunnelRulesStore(appContext)
 
     private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
+    /**
+     * The hub every quick surface reads. Construction does no I/O: the inputs are collected
+     * once and shared by the long-lived readers, from `QuickControls.start()` on in production,
+     * and a failed read is logged and retried. The inputs are the process-wide registry and the
+     * same stores the rest of the app reads.
+     */
+    internal val quickControls = QuickControls(
+        appScope,
+        quickInputs(
+            ConnectionRegistry.status,
+            ConnectionRegistry.handshake,
+            profiles.observeProfiles(),
+            profiles.observeStoredCount(),
+            activeProfile.activeId,
+            activeProfile.lastConnectedId,
+        ),
+        QuickTunnelCommands(appContext),
+        QuickRequests(),
+        WidgetUpdater(AppWidgetPusher(appContext)),
+        ShortcutUpdater(QuickShortcutSync(CompatShortcutHost(appContext)), profiles::storedIds),
+    )
 
     /**
      * C4: settings saved while a tunnel is CONNECTING are applied when its start settles CONNECTED

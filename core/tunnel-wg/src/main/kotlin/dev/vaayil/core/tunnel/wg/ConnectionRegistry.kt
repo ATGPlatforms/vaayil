@@ -7,6 +7,7 @@ import dev.vaayil.core.tunnel.api.TunnelStats
 import dev.vaayil.core.tunnel.api.TunnelStatus
 import dev.vaayil.core.tunnel.api.handshakeState
 import dev.vaayil.core.tunnel.api.isLive
+import java.util.concurrent.atomic.AtomicLong
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.BufferOverflow
@@ -48,6 +49,16 @@ object ConnectionRegistry {
     val handshake = MutableStateFlow(HandshakeState.NONE)
 
     private var bridgeJob: Job? = null
+
+    private val settledConnectsCount = AtomicLong()
+
+    /**
+     * Connect starts that have settled in this process, whatever their outcome; the quick controls'
+     * duplicate guard reads it.
+     */
+    val connectsSettled: Long get() = settledConnectsCount.get()
+
+    internal fun noteConnectSettled() { settledConnectsCount.incrementAndGet() }
 
     private val _switchFailures = MutableSharedFlow<SwitchFailure>(
         replay = 0,

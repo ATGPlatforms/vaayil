@@ -67,6 +67,9 @@ private val BASE64_44 = Regex("^[A-Za-z0-9+/]{42}[AEIMQUYcgkosw048]=$") // canon
 private val HOSTNAME = Regex("^[A-Za-z0-9]([A-Za-z0-9\\-.]*[A-Za-z0-9])?$")
 private val PROFILE_ID = Regex("^[A-Za-z0-9_-]{1,64}$")
 
+/** Whether [id] is a valid profile id: 1-64 letters, digits, '-' or '_'. */
+fun isValidProfileId(id: String): Boolean = PROFILE_ID.matches(id)
+
 /** Strict dotted quad: four decimal octets 0..255. Purely syntactic. */
 private fun isIpv4Literal(s: String): Boolean {
     val parts = s.split('.')
@@ -262,7 +265,7 @@ private fun sameAddress(a: String, b: String): Boolean = when {
 
 fun Profile.validate(): List<String> {
     val errors = mutableListOf<String>()
-    if (!PROFILE_ID.matches(id)) errors += "Profile id must be 1-64 letters, digits, '-' or '_'."
+    if (!isValidProfileId(id)) errors += "Profile id must be 1-64 letters, digits, '-' or '_'."
     if (name.isBlank()) errors += "Profile name must not be empty."
     if (name.length > MAX_PROFILE_NAME_LENGTH) errors += "Profile name must be at most $MAX_PROFILE_NAME_LENGTH characters."
     if (name.any { it.isISOControl() }) errors += "Profile name must not contain control characters."

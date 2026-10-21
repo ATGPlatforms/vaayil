@@ -49,6 +49,14 @@ class ConnectionRegistryTest {
     }
 
     @Test
+    fun `connectsSettled counts every noteConnectSettled call`() {
+        val before = ConnectionRegistry.connectsSettled
+        ConnectionRegistry.noteConnectSettled()
+        ConnectionRegistry.noteConnectSettled()
+        assertEquals(before + 2, ConnectionRegistry.connectsSettled)
+    }
+
+    @Test
     fun `ensureChannel creates tunnel channel`() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         TunnelNotifications.ensureChannel(context)

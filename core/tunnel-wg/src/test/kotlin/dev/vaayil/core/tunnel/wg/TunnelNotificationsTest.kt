@@ -6,6 +6,7 @@ import android.app.PendingIntent
 import android.content.ComponentName
 import android.content.Intent
 import android.content.IntentFilter
+import androidx.core.app.NotificationCompat
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import dev.vaayil.core.tunnel.api.ConnectionPhase
@@ -107,6 +108,27 @@ class TunnelNotificationsTest {
             app, TunnelStatus(ConnectionPhase.DISCONNECTING, "p", null), HandshakeState.VERIFIED, "Home", null,
         )!!
         assertEquals("Vaayil is disconnecting", n.extras.getCharSequence(Notification.EXTRA_TITLE).toString())
+    }
+
+    @Test
+    fun `the Disconnect action asks for unlock and keeps its label and intent`() {
+        val starts = listOf(
+            TunnelStatus(ConnectionPhase.CONNECTED, "p", null) to HandshakeState.VERIFIED,
+            TunnelStatus(ConnectionPhase.CONNECTING, "p", null) to HandshakeState.NONE,
+        )
+        for ((status, handshake) in starts) {
+            val n = TunnelNotifications.buildNotification(app, status, handshake, "Home", null)!!
+            assertEquals(1, n.actions.size)
+            val a = NotificationCompat.getAction(n, 0)!!
+            assertTrue(a.isAuthenticationRequired)
+            assertEquals("Disconnect", a.title.toString())
+            val intent = shadowOf(a.actionIntent)
+            assertTrue(intent.isService)
+            assertTrue(intent.isImmutable)
+            assertEquals(1, intent.requestCode)
+            assertEquals(VpnTunnelService.ACTION_DISCONNECT, intent.savedIntent.action)
+            assertEquals(ComponentName(app, VpnTunnelService::class.java), intent.savedIntent.component)
+        }
     }
 
     @Test

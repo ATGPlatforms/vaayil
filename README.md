@@ -68,6 +68,8 @@ limit, no in-app purchases and no ads, and Vaayil is free software under
   last handshake. No invented speeds, latency figures or "fastest" badges.
 - **Always in reach:** a notification shows the tunnel's state and carries a Disconnect
   button.
+- **Quick controls:** a Quick Settings tile and a home-screen widget turn Vaayil on and off,
+  and the app icon's long-press menu connects any of up to four profiles.
 
 ### Split tunneling
 

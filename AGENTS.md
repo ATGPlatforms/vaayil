@@ -33,10 +33,14 @@ The maintainer's private docs live in the companion repo `vaayil-dev`, checked o
   (`ACTION_CONNECT`/`ACTION_DISCONNECT` + `EXTRA_PROFILE_ID`). Nothing outside
   `VpnTunnelService`/`EngineProvider` touches `WireGuardEngine`. Background senders
   (connect-on-boot, the guard service, Tasker) issue those intents only through
-  `BackgroundTunnelCommands` (`:core:automation`, B1): a CONNECT starts the service only with VPN
-  consent (`VpnService.prepare() == null`), and without it posts "Vaayil couldn't connect" /
-  "VPN permission is off. Open Vaayil and connect once to allow it." in the tunnel
-  notification's slot (42, the "VPN connection" channel); a DISCONNECT first bars the crash resume
+  `BackgroundTunnelCommands` (`:core:automation`, B1), and the Quick Settings tile and the
+  home-screen widget through `QuickTunnelCommands` in the same module; a launcher shortcut only
+  reopens the app, where the manual connect gate runs. A CONNECT from a background sender or the
+  widget starts the service only with VPN consent (`VpnService.prepare() == null`), and without
+  it posts "Vaayil couldn't connect" / "VPN permission is off. Open Vaayil and connect once to
+  allow it." in the tunnel notification's slot (42, the "VPN connection" channel); a tile
+  connect without consent posts nothing, leaves a request and opens the app, where the manual
+  connect gate asks. A DISCONNECT first bars the crash resume
   (`CrashResumeGate.suppress()`, revoke included), clears ACTIVE (LAST kept) and joins a resume the service already
   accepted, then starts the service only while a tunnel is live (`EngineProvider.isTunnelLive()`). On API 34+ a
   `VpnTunnelService` start without consent crashes the
@@ -91,7 +95,8 @@ core/data         Room + DataStore: ProfileRepository, ActiveProfileStore,
 core/tunnel-wg    WireGuardEngine over the vendored GoBackend, VpnTunnelService
                   seam, DnsResolverController, ResolverChannel, StatsSampler      (Android lib)
 core/automation   SsidWatcher, AutoConnectService (specialUse FGS), BootReceiver,
-                  AutomationReceiver (Tasker)                                     (Android lib)
+                  AutomationReceiver (Tasker), QuickTunnelCommands (quick
+                  controls)                                                       (Android lib)
 core/ui           Vellum primitives shared by all features: Sheet, StatusPill,
                   MicroBadge, vellumFieldColors, Sparkline,
                   VaayilLogoMark                                                (Android lib)
@@ -100,7 +105,9 @@ feature/*         Compose UI: profiles (profiles tab w/ connect switches + QR sh
                   tunnel (dashboard hero + telemetry), settings (automation,
                   backup/restore, onboarding, kill-switch guide)
 app               single APK: MainActivity, RootNav (bottom-nav tabs + pushed routes),
-                  VellumTopBar/VellumBottomBar, QR dialog, AppContainer, theme, screenshots
+                  VellumTopBar/VellumBottomBar, QR dialog, AppContainer, theme,
+                  screenshots, quick controls: tile, widget, shortcuts
+                  (`dev.vaayil.app.quick`)
 third-party/wireguard-tunnel
                   wireguard-android's tunnel module, vendored at 1.0.20260102:
                   GoBackend (+ resolver host route, handle reset, VpnRoutes
@@ -395,6 +402,32 @@ app -> core/model, core/ui, core/config, core/tunnel-api, core/data, core/automa
   `runStartupSteps` (`AppStartup.kt`): `warm`, `rescueLegacySplitTunnelRules`, `reEncryptAtRest`,
   `wipeLegacyFlags`. A failing step logs its name and exception class and start-up continues;
   `CancellationException` is rethrown.
+- Quick controls (`:app` `dev.vaayil.app.quick`): the Quick Settings tile, the home-screen
+  widget and the launcher's shortcuts share one hub, `QuickControls`; the tile and the widget
+  render its `QuickState` presenter, and a tap does what its surface last showed — a tile tap
+  before the first render does nothing. A launcher Connect shortcut, or a tile connect without
+  VPN consent, posts a request in memory only (one slot of 30 s, `QUICK_REQUEST_TTL_MS`,
+  replaced by a newer one and lost on process death) and opens the app, where
+  `QuickRequestEffect` runs it through the manual connect gate (C7) while the screen is started;
+  `MainActivity` never reads a tunnel request from its intent. The trampoline activity, the
+  widget's provider and its receiver are `exported="false"`; the tile is exported only behind
+  `android.permission.BIND_QUICK_SETTINGS_TILE` (`QuickComponentsManifestTest` pins it). The
+  tile and the widget connect through `QuickTunnelCommands`, whose duplicate guard, after one CONNECT, skips
+  another connect only while no connect has settled since that send (`ConnectionRegistry.connectsSettled`, which
+  `TunnelControl.connect` bumps whenever a connect's work ends, whatever the outcome), the status still equals the
+  one read just before it, and less than 10 s (`QUICK_CONNECT_SETTLE_MS`) have passed; the entry's own disconnect
+  clears it. `prepare()` runs only
+  on a connect (A5), never while rendering. Turning
+  Vaayil off from a locked phone asks for unlock on the tile at every API level and on the
+  notification's Disconnect on API 31+; API 26–30 can't make a notification action ask, and
+  that gap is accepted. After a process death the widget can keep stale views until Vaayil runs
+  again; its Disconnect then bars the crash resume and never connects. A deleted profile is one
+  with no stored row (B3), and during a key outage the shortcuts are left as they are. The
+  shortcuts do no usage reporting and are never long-lived. The widget and shortcut updaters
+  start only from `AppContainer`'s production initializer, after `initEngine()`; test
+  containers never start them. A widget refresh (after every widget tap and on every
+  APPWIDGET_UPDATE) pushes the hub's newest state, read under the updater's lock, so an earlier
+  read never lands over a newer push; before the hub's first state it reads the stores itself.
 
 ## Design system (normative for UI work)
 
@@ -404,7 +437,10 @@ app -> core/model, core/ui, core/config, core/tunnel-api, core/data, core/automa
   `Theme.kt` (app module) is the single Compose mapping of DESIGN.md — change the two in the
   same commit, never let them drift. Shared primitives live in `:core:ui` (`Vellum.kt` —
   `VellumColors`, `Schibsted`, `Films`/`LocalFilms`, `LocalReducedMotion` — plus `Sheet.kt`
-  and the surviving restyled components in `VellumComponents.kt`).
+  and the surviving restyled components in `VellumComponents.kt`). The home-screen widget's
+  RemoteViews take their colours from XML resources in `app/src/main/res/values/colors.xml`,
+  each pinned to its `VellumColors` value by `QuickWidgetColorsTest`; `Theme.kt` stays the
+  only Compose mapping.
 - **Dynamic color and dark themes are banned** ("The Daylight Is the Brand Rule"): do not
   re-add `dynamicColorScheme` or a dark scheme; the app renders the one light palette on
   every device, day or night. `VaayilTheme.Content(content)` has no dark parameter by

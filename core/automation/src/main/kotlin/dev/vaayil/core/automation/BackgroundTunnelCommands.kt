@@ -16,6 +16,9 @@ import dev.vaayil.core.tunnel.wg.VpnTunnelService
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.withContext
 
+/** B1's CONNECT admission: a start was issued, consent is missing, or the command threw. */
+internal enum class ConnectAdmission { STARTED, NO_CONSENT, REFUSED }
+
 /**
  * B1: the one admission point for the tunnel commands the background automation paths issue — the
  * Wi-Fi guard, connect-on-boot and Tasker. On Android 14+ a [VpnTunnelService] start without VPN
@@ -31,8 +34,13 @@ import kotlinx.coroutines.withContext
  */
 internal class BackgroundTunnelCommands(private val context: Context) {
 
-    /** Starts VpnTunnelService for [profileId] only with VPN consent; posts the notice without it. */
-    fun connect(profileId: String) {
+    /**
+     * Starts VpnTunnelService for [profileId] only with VPN consent. Without consent, [postNotice]
+     * posts the notice and the admission is [ConnectAdmission.NO_CONSENT]; a prepare or a start
+     * that threw is [ConnectAdmission.REFUSED]. Only [ConnectAdmission.STARTED] means a start was
+     * issued.
+     */
+    fun connect(profileId: String, postNotice: Boolean = true): ConnectAdmission {
         // The engine's own consent check (EngineProvider): prepare() returns null when the app is
         // already prepared. Its side effect — preparing Vaayil — happens immediately before a
         // connect that would take the VPN over anyway.
@@ -40,16 +48,18 @@ internal class BackgroundTunnelCommands(private val context: Context) {
             VpnService.prepare(context)
         } catch (e: Exception) {
             Log.w(TAG, "connect refused: prepare failed (${e.javaClass.simpleName})")
-            return
+            return ConnectAdmission.REFUSED
         }
         if (prepared != null) {
-            postMissingConsent()
-            return
+            if (postNotice) postMissingConsent()
+            return ConnectAdmission.NO_CONSENT
         }
-        try {
+        return try {
             context.startForegroundService(AutoConnectService.connectIntent(context, profileId))
+            ConnectAdmission.STARTED
         } catch (e: Exception) {
             Log.w(TAG, "connect start refused (${e.javaClass.simpleName})")
+            ConnectAdmission.REFUSED
         }
     }
 

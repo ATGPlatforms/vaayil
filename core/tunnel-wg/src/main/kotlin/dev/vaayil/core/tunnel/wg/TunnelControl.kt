@@ -32,13 +32,17 @@ class TunnelControl(
     private val failedSwitchOp: (String) -> SwitchFailure? = { null },
     /** C2: the engine's recorded restart refusal of a profile id, consumed once; null when none. */
     private val restartRefusalOp: (String) -> RestartRefusal? = { null },
+    /** Counts one connect whose work has ended, whatever the outcome; the quick controls' duplicate guard reads the count. */
+    private val noteConnectSettled: () -> Unit = {},
 ) {
     /**
      * Starts [profileId]; [onSettled] fires with the outcome once the start has fully settled,
      * regardless of whether the calling service instance is still alive (a dead instance simply
-     * ignores the trailing stopSelf). [admit] is the caller's last check before the engine is
-     * touched (J3: the crash resume passes the gate here); [start] builds the Job lazily so a
-     * refused resume is dropped before [connectOp] ever runs. Returns the connect's Job.
+     * ignores the trailing stopSelf). Each connect whose work ends — by returning or by throwing —
+     * counts as settled for the quick controls' duplicate guard. [admit] is the caller's last
+     * check before the engine is touched (J3: the crash resume passes the gate here); [start]
+     * builds the Job lazily so a refused resume is dropped before [connectOp] ever runs. Returns
+     * the connect's Job.
      */
     fun connect(
         context: Context,
@@ -47,7 +51,10 @@ class TunnelControl(
         admit: () -> Boolean = { true },
         onSettled: (StartOutcome, TunnelStatus) -> Unit = { _, _ -> },
     ): Job =
-        scope.launch(start = start) { onSettled(connectOp(context, profileId, admit), statusNow()) }
+        scope.launch(start = start) {
+            val outcome = try { connectOp(context, profileId, admit) } finally { noteConnectSettled() }
+            onSettled(outcome, statusNow())
+        }
 
     /**
      * Stops the engine; [onSettled] fires after the stop has fully completed. [after] is joined
@@ -91,6 +98,7 @@ class TunnelControl(
                 reconcileOp = { EngineProvider.engine?.reconcile() },
                 failedSwitchOp = { id -> EngineProvider.engine?.takeFailedSwitch(id) },
                 restartRefusalOp = { id -> EngineProvider.engine?.takeRestartRefusal(id) },
+                noteConnectSettled = ConnectionRegistry::noteConnectSettled,
             )
         }
     }
