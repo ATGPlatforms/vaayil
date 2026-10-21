@@ -26,9 +26,10 @@ internal val savedHome = Profile(
 )
 
 /**
- * The editor's slice of `RootNavGraph`: stand-ins for the tabs and the Import screen, and the
- * real [EditorEntry] under the real route, reading [savedHome] and the given import drafts.
- * Saving does nothing. Notices show in a snackbar host, as in the app.
+ * The editor's slice of `RootNavGraph`: stand-ins for the tabs, onboarding and the Import
+ * screen, and the real [EditorEntry] under the real route, reading [savedHome] and the given
+ * import drafts. [startDestination] picks the tab, or onboarding, the graph starts on. Saving
+ * does nothing. Notices show in a snackbar host, as in the app.
  */
 @Composable
 internal fun EditorTestGraph(
@@ -36,12 +37,14 @@ internal fun EditorTestGraph(
     drafts: MutableMap<String, EditorDraft>,
     pendingDrafts: MutableMap<String, Profile>,
     importNotices: MutableMap<String, String>,
+    startDestination: String = "dashboard",
 ) {
     val snackbar = remember { SnackbarHostState() }
     val noticeScope = rememberCoroutineScope()
     Box {
-        NavHost(navController = nav, startDestination = "dashboard") {
+        NavHost(navController = nav, startDestination = startDestination) {
             composable("dashboard") { Text("Dashboard tab") }
+            composable("onboarding") { Text("Onboarding") }
             composable("profiles") { Text("Profiles tab") }
             composable("import") { Text("Import screen") }
             composable(
