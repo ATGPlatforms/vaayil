@@ -28,8 +28,10 @@ internal class AppWidgetPusher(private val context: Context) : WidgetPusher {
 /**
  * Keeps every placed widget on the hub's state. Each state differing from the last successfully
  * pushed one is pushed once; [refresh] pushes regardless, because a newly placed widget needs
- * the current views even when the state has not changed. A push that throws is logged and counts
- * as not pushed, so the collection never ends and the next change still lands.
+ * the current views even when the state has not changed. A refresh reads its state under the
+ * same lock, so it never lands an older state over a newer push, and a null state pushes
+ * nothing. A push that throws is logged and counts as not pushed, so the collection never ends
+ * and the next change still lands.
  */
 internal class WidgetUpdater(private val pusher: WidgetPusher) {
     private var lastPushed: QuickState? = null
@@ -42,8 +44,8 @@ internal class WidgetUpdater(private val pusher: WidgetPusher) {
         }
     }
 
-    fun refresh(state: QuickState) {
-        synchronized(this@WidgetUpdater) { pushLocked(state) }
+    fun refresh(newest: () -> QuickState?) {
+        synchronized(this@WidgetUpdater) { newest()?.let(::pushLocked) }
     }
 
     /** Callers hold this updater's lock: pushes never overlap and their record is ordered. */

@@ -425,7 +425,9 @@ app -> core/model, core/ui, core/config, core/tunnel-api, core/data, core/automa
   with no stored row (B3), and during a key outage the shortcuts are left as they are. The
   shortcuts do no usage reporting and are never long-lived. The widget and shortcut updaters
   start only from `AppContainer`'s production initializer, after `initEngine()`; test
-  containers never start them.
+  containers never start them. A widget refresh (after every widget tap and on every
+  APPWIDGET_UPDATE) pushes the hub's newest state, read under the updater's lock, so an earlier
+  read never lands over a newer push; before the hub's first state it reads the stores itself.
 
 ## Design system (normative for UI work)
 

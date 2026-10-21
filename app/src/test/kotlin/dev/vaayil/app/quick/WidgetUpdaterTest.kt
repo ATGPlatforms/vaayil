@@ -61,9 +61,16 @@ class WidgetUpdaterTest {
         updater.launchIn(scope, source)
         source.tryEmit(home)
 
-        updater.refresh(home)
+        updater.refresh { home }
 
         assertEquals(listOf(home, home), pushed)
+    }
+
+    @Test
+    fun `a refresh with no state pushes nothing`() {
+        updater().refresh { null }
+
+        assertTrue("a null state was pushed: $pushed", pushed.isEmpty())
     }
 
     @Test

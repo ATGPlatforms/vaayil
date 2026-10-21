@@ -95,9 +95,15 @@ internal class QuickControls(
         shortcuts.onAppResumed()
     }
 
-    /** A newly placed widget asks for the current views, even when the last push was the same. */
+    /**
+     * A newly placed widget asks for the current views, even when the last push was the same.
+     * The push is the hub's newest state, read under the updater's lock, so a refresh never
+     * lands an older state over a newer push; before the hub's first state, the refresh reads
+     * the stores itself.
+     */
     suspend fun refreshWidgets() {
-        widgets.refresh(currentState())
+        val read = if (state.value == null) currentState() else null
+        widgets.refresh { state.value ?: read }
     }
 
     private companion object {
