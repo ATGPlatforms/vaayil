@@ -36,7 +36,7 @@ import org.robolectric.annotation.Config
 class ProfileEditorWarningTest {
     @get:Rule val compose = createComposeRule()
 
-    private val mismatch = "This profile's addresses don't match its Allowed IPs, so it won't carry connections."
+    private val mismatch = "This profile won't carry connections. Its addresses don't match its Allowed IPs."
     private val dnsBypass = "DNS lookups will bypass this tunnel. Add a DNS server to keep them in."
 
     private fun profile(addresses: List<String>, dnsServers: List<String> = listOf("1.1.1.1")) = Profile(

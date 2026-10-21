@@ -19,7 +19,7 @@ private val V6_HALF = BigInteger.ONE.shiftLeft(V6_BITS - 1)
  */
 fun Profile.warnings(): List<String> = buildList {
     if (addressesMissRoutedFamilies()) {
-        add("This profile's addresses don't match its Allowed IPs, so it won't carry connections.")
+        add("This profile won't carry connections. Its addresses don't match its Allowed IPs.")
     }
     val allowedIps = peer.allowedIps
     val v4 = coveredAddressCount(allowedIps, ipv6 = false)
