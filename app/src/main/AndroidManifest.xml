@@ -31,6 +31,22 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+            <!-- Open with: a .conf file another app hands over, content URIs only. Never BROWSABLE, so a
+                 web page can't start an import. -->
+            <intent-filter android:label="Import into Vaayil">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:scheme="content" />
+                <data android:mimeType="application/octet-stream" />
+                <data android:mimeType="text/plain" />
+            </intent-filter>
+            <!-- Share: unknown-type files only, so sharing text or a link never lists Vaayil. No scheme:
+                 a share carries its file in EXTRA_STREAM, not in the intent's data. -->
+            <intent-filter android:label="Import into Vaayil">
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="application/octet-stream" />
+            </intent-filter>
         </activity>
         <!-- The launcher shortcut's trampoline: invisible, finishes at once and leaves no task
              behind, no intent filter. -->
