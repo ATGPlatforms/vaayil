@@ -41,6 +41,7 @@ import dev.vaayil.feature.settings.SettingsFlags
 import dev.vaayil.feature.tunnel.TunnelController
 import dev.vaayil.feature.tunnel.TunnelControllerStore
 import java.util.UUID
+import java.util.concurrent.atomic.AtomicInteger
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -71,6 +72,9 @@ private const val TAG = "AppContainer"
 
 /** How many reads of a file opened from another app run at once; a fifth open waits for one. */
 private const val OPENED_FILE_READS_AT_ONCE = 4
+
+/** How many imports Vaayil holds for review at once, reads in flight and waiting drafts together. */
+private const val OPEN_IMPORTS_MAX = 8
 
 private val darkModeFollowSystemKey = booleanPreferencesKey("darkModeFollowSystem")
 
@@ -225,6 +229,27 @@ class AppContainer internal constructor(
     private val openedFileIo = Dispatchers.IO.limitedParallelism(OPENED_FILE_READS_AT_ONCE)
 
     /**
+     * Opened-file reads in flight: admitted, not yet finished. With [pendingDrafts] it counts the
+     * imports Vaayil holds for review, and an open past [OPEN_IMPORTS_MAX] is refused unread, so a
+     * flood of opens can't grow memory without bound. Leaving a review (Back, Discard) or saving
+     * it drops its draft and makes room for the next.
+     */
+    private val openedFileReads = AtomicInteger()
+
+    /** Guards [admitOpenedFile]'s check-and-take, so two opens can't both take the last place. */
+    private val openedFileAdmission = Any()
+
+    /** Takes a place for one open, or refuses it while [OPEN_IMPORTS_MAX] imports are held. */
+    private fun admitOpenedFile(): Boolean = synchronized(openedFileAdmission) {
+        if (openedFileReads.get() + pendingDrafts.size >= OPEN_IMPORTS_MAX) {
+            false
+        } else {
+            openedFileReads.incrementAndGet()
+            true
+        }
+    }
+
+    /**
      * The queue for files opened from another app: a read finishes before the screen that serves
      * it exists, so its outcome waits here. Memory only, like every draft (F30); [dropDrafts]
      * clears it.
@@ -234,14 +259,16 @@ class AppContainer internal constructor(
     /**
      * Reads and parses a file opened from another app into [openedFiles], on the app scope: the
      * screen that serves the queue may not exist yet, so the read never belongs to an activity.
-     * Nothing is saved; a review waits in [pendingDrafts] until its editor saves (F18), and both
-     * the read and the name query run on [openedFileIo].
+     * Nothing is saved; a review waits in [pendingDrafts] until its editor saves (F18). The read
+     * and the name query run on [openedFileIo], and an open is refused unread while
+     * [OPEN_IMPORTS_MAX] imports are held.
      */
     internal fun openFile(request: OpenRequest): Job {
         val generation = openedFiles.generation()
-        return appScope.launch {
+        val admitted = request is OpenRequest.File && admitOpenedFile()
+        val job = appScope.launch {
             val outcome = openFileOutcome(
-                request,
+                if (admitted) request else OpenRequest.Refused,
                 { readDocumentText(appContext.contentResolver, it, dispatcher = openedFileIo) },
                 { readDocumentBaseName(appContext.contentResolver, it, dispatcher = openedFileIo) },
                 ::parseImport,
@@ -253,6 +280,10 @@ class AppContainer internal constructor(
             }
             Log.i(TAG, "Opened file: " + if (outcome is OpenedFileOutcome.Review) "review" else "failed")
         }
+        // Whatever the outcome, the place is given back once the job has settled; completion
+        // comes after a draft is stored, so a finishing read is never counted twice.
+        if (admitted) job.invokeOnCompletion { openedFileReads.decrementAndGet() }
+        return job
     }
 
     /** Drops every in-memory draft when the activity finishes for good (spec U7), and the queue. */

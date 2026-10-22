@@ -227,6 +227,112 @@ class AppContainerOpenFileTest {
         assertEquals(4, hold.mostAtOnce.get())
         assertEquals(5, container.pendingDrafts.size)
     }
+
+    @Test
+    fun `a ninth open while eight files are being read is refused unread`() = runBlocking {
+        val hold = Hold()
+        val queried = java.util.Collections.synchronizedList(mutableListOf<Uri>())
+        TestFilesProvider.onQuery = { queried += it }
+        val jobs = (1..8).map { n ->
+            val file = uri("held-$n.conf")
+            shadowOf(app.contentResolver).registerInputStreamSupplier(file) {
+                hold.enter()
+                ByteArrayInputStream(VALID_CONF.toByteArray())
+            }
+            container.openFile(OpenRequest.File(file))
+        }
+        val ninthReads = AtomicInteger()
+        val ninth = uri("ninth.conf")
+        shadowOf(app.contentResolver).registerInputStreamSupplier(ninth) {
+            ninthReads.incrementAndGet()
+            ByteArrayInputStream(VALID_CONF.toByteArray())
+        }
+        try {
+            assertTrue("four reads never started", hold.awaitEntered(4))
+            withTimeout(10_000) { container.openFile(OpenRequest.File(ninth)).join() }
+            assertEquals(OpenedFileOutcome.Failed(ImportMessages.UNREADABLE), container.openedFiles.take())
+            assertEquals(0, ninthReads.get())
+            assertFalse("the ninth file was queried", ninth in queried)
+            hold.release()
+            withTimeout(10_000) { jobs.joinAll() }
+        } finally {
+            hold.release()
+        }
+        assertEquals(8, container.pendingDrafts.size)
+    }
+
+    @Test
+    fun `reads in flight and reviews waiting add up to the cap`() = runBlocking {
+        repeat(4) { n ->
+            val file = uri("waiting-$n.conf")
+            serveTestFile(app, file, VALID_CONF.toByteArray(), "waiting.conf")
+            container.openFile(OpenRequest.File(file)).join()
+        }
+        repeat(4) { container.openedFiles.take() }
+        val hold = Hold()
+        val queried = java.util.Collections.synchronizedList(mutableListOf<Uri>())
+        TestFilesProvider.onQuery = { queried += it }
+        val jobs = (5..8).map { n ->
+            val file = uri("waiting-$n.conf")
+            shadowOf(app.contentResolver).registerInputStreamSupplier(file) {
+                hold.enter()
+                ByteArrayInputStream(VALID_CONF.toByteArray())
+            }
+            container.openFile(OpenRequest.File(file))
+        }
+        val ninthReads = AtomicInteger()
+        val ninth = uri("ninth.conf")
+        shadowOf(app.contentResolver).registerInputStreamSupplier(ninth) {
+            ninthReads.incrementAndGet()
+            ByteArrayInputStream(VALID_CONF.toByteArray())
+        }
+        try {
+            assertTrue("four reads never started", hold.awaitEntered(4))
+            withTimeout(10_000) { container.openFile(OpenRequest.File(ninth)).join() }
+            assertEquals(OpenedFileOutcome.Failed(ImportMessages.UNREADABLE), container.openedFiles.take())
+            assertEquals(0, ninthReads.get())
+            assertFalse("the ninth file was queried", ninth in queried)
+            hold.release()
+            withTimeout(10_000) { jobs.joinAll() }
+        } finally {
+            hold.release()
+        }
+    }
+
+    @Test
+    fun `a ninth open while eight reviews wait is refused unread, and leaving one with Back admits the next`() =
+        runBlocking {
+            val ids = (1..8).map { n ->
+                val file = uri("waiting-$n.conf")
+                serveTestFile(app, file, VALID_CONF.toByteArray(), "waiting.conf")
+                container.openFile(OpenRequest.File(file)).join()
+                (container.openedFiles.take() as OpenedFileOutcome.Review).draftId
+            }
+            val queried = java.util.Collections.synchronizedList(mutableListOf<Uri>())
+            TestFilesProvider.onQuery = { queried += it }
+            val ninthReads = AtomicInteger()
+            val ninth = uri("ninth.conf")
+            shadowOf(app.contentResolver).registerInputStreamSupplier(ninth) {
+                ninthReads.incrementAndGet()
+                ByteArrayInputStream(VALID_CONF.toByteArray())
+            }
+
+            container.openFile(OpenRequest.File(ninth)).join()
+            assertEquals(OpenedFileOutcome.Failed(ImportMessages.UNREADABLE), container.openedFiles.take())
+            assertEquals(0, ninthReads.get())
+            assertFalse("the ninth file was queried", ninth in queried)
+
+            // Leaving a review with Back drops its draft, as EditorEntry's onDispose does.
+            container.pendingDrafts.remove(ids.first())
+            container.importNotices.remove(ids.first())
+
+            container.openFile(OpenRequest.File(ninth)).join()
+            val outcome = container.openedFiles.take()
+            assertTrue("expected a review, was $outcome", outcome is OpenedFileOutcome.Review)
+            assertEquals(1, ninthReads.get())
+            assertTrue("the ninth file was never queried", ninth in queried)
+            assertEquals(8, container.pendingDrafts.size)
+        }
 }
 
 /** Holds every call that enters it until [release], and counts how many it holds at once. */
