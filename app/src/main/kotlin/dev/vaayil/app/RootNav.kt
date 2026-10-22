@@ -261,10 +261,10 @@ private fun RootNavGraph(
             { profile -> noticeScope.launch { container.tunnelController.connect(profile) } },
         )
     }
-    // Unlike quick requests, nothing is dropped during onboarding: an import needs no consent (c6).
-    OpenedFileEffect(container.openedFiles, nav) { message ->
-        noticeScope.launch { snackbar.showSnackbar(message) }
-    }
+    // Unlike quick requests, nothing is dropped during onboarding: an import needs no consent.
+    // A failure shows in the Import screen's Short snackbar (c6), one at a time.
+    val openedFileFailures = remember(snackbar, noticeScope) { OpenedFileFailureNotice(snackbar, noticeScope) }
+    OpenedFileEffect(container.openedFiles, nav, openedFileFailures::show)
 }
 
 /** Standard chrome for pushed full-screen routes: a quiet back header above the screen. */
