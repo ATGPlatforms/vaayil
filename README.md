@@ -93,6 +93,9 @@ limit, no in-app purchases and no ads, and Vaayil is free software under
   of the tunnel's, which helps with names on your local network. It changes only which
   resolver answers; connections are routed as before.
 - **A clear warning** when a profile would send its DNS lookups outside the tunnel.
+- **Private DNS:** while Android's Private DNS is set to a hostname, apps send their DNS
+  lookups there instead of to the profile's DNS. The dashboard says so while you're
+  connected, and so does the profile editor.
 
 ### Automation
 
@@ -193,7 +196,7 @@ Vaayil needs Android 8.0 (API 26) or newer, and a WireGuard configuration to con
 To check an APK before you install it, compare its signing certificate with Vaayil's:
 
 ```bash
-apksigner verify --print-certs vaayil-1.0.0-1.apk
+apksigner verify --print-certs vaayil-1.1.0-2.apk
 ```
 
 The `certificate SHA-256 digest` line must read
