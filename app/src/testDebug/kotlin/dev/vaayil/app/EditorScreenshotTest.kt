@@ -2,7 +2,10 @@ package dev.vaayil.app
 
 import android.app.Application
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
@@ -79,7 +82,10 @@ class EditorScreenshotTest {
     fun editorPrivateDns() {
         // T-8 (spec §3.3): the note under the DNS header names Android's Private DNS host.
         showEditor(privateDnsHost = "dns.google")
-        compose.onNodeWithText(PRIVATE_DNS_NOTE).performScrollTo()
+        // Scroll to the heading under the note, so the whole note box is in the frame. The pill row
+        // below it repeats "Secure DNS"; the heading comes first.
+        compose.onAllNodesWithText("Secure DNS").onFirst().performScrollTo()
+        compose.onNodeWithText(PRIVATE_DNS_NOTE).assertIsDisplayed()
         compose.waitForIdle()
         compose.onRoot().captureRoboImage("src/testDebug/snapshots/editor-private-dns-w360dp.png")
     }
