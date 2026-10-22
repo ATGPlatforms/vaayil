@@ -97,30 +97,37 @@ class OpenedFileManifestTest {
     @Test
     fun `both filters say what choosing Vaayil does`() {
         // Robolectric builds each match from the activity's own label ("Vaayil"), not from the
-        // label its filter carries, so the label is read where it is declared. The unit tests run
-        // in the module directory.
+        // label its filter carries, so the label is read where it is declared. Only MainActivity's
+        // filters count, so a filter on another component can't hide a change to its label. The
+        // unit tests run in the module directory.
         val manifest = File("src/main/AndroidManifest.xml")
         assertTrue("not in the app module: ${manifest.absolutePath}", manifest.isFile)
         val parser = XmlPullParserFactory.newInstance().apply { isNamespaceAware = true }.newPullParser()
         parser.setInput(manifest.reader())
 
         val labels = mutableMapOf<String, String>()
+        var inMainActivity = false
         var inFilter = false
         var action: String? = null
         var label: String? = null
         while (true) {
             when (parser.next()) {
                 XmlPullParser.START_TAG -> when (parser.name) {
-                    "intent-filter" -> {
+                    "activity" -> inMainActivity =
+                        parser.getAttributeValue(ANDROID_NS, "name") == "dev.vaayil.app.MainActivity"
+                    "intent-filter" -> if (inMainActivity) {
                         inFilter = true
                         action = null
                         label = parser.getAttributeValue(ANDROID_NS, "label")
                     }
                     "action" -> if (inFilter) action = parser.getAttributeValue(ANDROID_NS, "name")
                 }
-                XmlPullParser.END_TAG -> if (parser.name == "intent-filter") {
-                    action?.let { labels[it] = label.orEmpty() }
-                    inFilter = false
+                XmlPullParser.END_TAG -> when (parser.name) {
+                    "intent-filter" -> if (inFilter) {
+                        action?.let { labels[it] = label.orEmpty() }
+                        inFilter = false
+                    }
+                    "activity" -> inMainActivity = false
                 }
                 XmlPullParser.END_DOCUMENT -> break
             }

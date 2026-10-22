@@ -1,6 +1,6 @@
 package dev.vaayil.app
-import android.app.Application
 
+import android.app.Application
 import android.net.Uri
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import dev.vaayil.core.config.WgConfigParser

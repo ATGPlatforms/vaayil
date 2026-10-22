@@ -62,6 +62,7 @@ class OpenedFileIntentTest {
         }
 
     @Test
+    @Config(sdk = [26, 35])
     fun `Vaayil's own provider authority is recognised`() {
         assertTrue(app.isOwnProviderAuthority("dev.vaayil.android.androidx-startup"))
         assertFalse(app.isOwnProviderAuthority("com.example.files"))
@@ -118,6 +119,7 @@ class OpenedFileIntentTest {
     }
 
     @Test
+    @Config(sdk = [26, 35])
     fun `Vaayil's own provider is refused, however it is written`() {
         val own = "dev.vaayil.android.androidx-startup"
         assertEquals(OpenRequest.Refused, requestOf(view(Uri.parse("content://$own/x"))))
@@ -152,6 +154,7 @@ class OpenedFileIntentTest {
     }
 
     @Test
+    @Config(sdk = [26, 35])
     fun `a share whose stream is not a uri is refused`() {
         val intent = Intent(Intent.ACTION_SEND)
             .setType("application/octet-stream")
