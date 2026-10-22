@@ -225,8 +225,8 @@ fun ProfileEditorScreen(
                 tint = VellumColors.Lavender,
                 badge = if (p.dns.mode == DnsMode.SECURE) "PROTECTED" else null,
             )
-            // T-8 (spec §3.3): advice about Android's Private DNS — it says why this sheet's
-            // DNS settings are skipped. No action, no "Got it".
+            // T-8 (spec §3.3): advice about Android's Private DNS — it says why apps' lookups skip
+            // this sheet's DNS settings. No action, no "Got it".
             privateDnsHost?.let { WarningNote(privateDnsEditorNote(it)) }
             Text("Secure DNS", style = MaterialTheme.typography.titleSmall)
             // DNS policy = two stacked pill segments (spec §3.5): Off/Secure-DNS, then DoH/DoT.

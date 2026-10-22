@@ -739,7 +739,7 @@ private fun syncGuardService(container: AppContainer, rules: AutoConnectRules) {
 /**
  * System settings screens are implicit targets; an OEM build without one must not crash the app.
  * T-8 (spec §3.2): the network settings screen is one such target, so each is tried in turn and
- * first one that opens wins; when none does, the app stays up where the user left it.
+ * the first one that opens wins; when none does, the app stays up where the user left it.
  */
 internal fun Context.openSystemScreen(vararg intents: Intent) {
     for (intent in intents) {
