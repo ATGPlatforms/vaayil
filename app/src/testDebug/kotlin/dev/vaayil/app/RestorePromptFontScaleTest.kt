@@ -8,6 +8,7 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.text.TextLayoutResult
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.github.takahirom.roborazzi.ExperimentalRoborazziApi
 import com.github.takahirom.roborazzi.captureScreenRoboImage
@@ -59,11 +60,11 @@ class RestorePromptFontScaleTest {
         saveRules = { savedRules = it },
     )
 
-    private fun openLongestPrompt(vm: BackupViewModel) {
+    private fun openLongestPrompt(vm: BackupViewModel, fontScale: Float = 2f) {
         compose.setContent {
             VaayilTheme.Content {
                 CompositionLocalProvider(LocalReducedMotion provides true) {
-                    AtFontScale(2f) { BackupScreen(vm = vm, onRestored = {}) }
+                    AtFontScale(fontScale) { BackupScreen(vm = vm, onRestored = {}) }
                 }
             }
         }
@@ -74,6 +75,24 @@ class RestorePromptFontScaleTest {
             compose.onAllNodesWithText("Restore this snapshot?").fetchSemanticsNodes().isNotEmpty()
         }
         compose.waitForIdle()
+    }
+
+    /** The layout of the one text node in the open dialog that renders exactly [text]. */
+    private fun dialogLayoutOf(text: String): TextLayoutResult {
+        val matches = compose.allTextLayouts(isDialog()).filter { it.text == text }
+        assertEquals("text nodes rendering \"${text.take(48)}\" in the dialog", 1, matches.size)
+        return matches.single().layout
+    }
+
+    /** Every line but the last ends right after a space: no break inside a word. */
+    private fun assertBreaksAtWordEdges(layout: TextLayoutResult, text: String) {
+        for (line in 0 until layout.lineCount - 1) {
+            val end = layout.getLineEnd(line, visibleEnd = false) - 1
+            assertTrue(
+                "\"${text.take(48)}\" line ${line + 1} broke inside a word",
+                text[end] == ' ',
+            )
+        }
     }
 
     private fun assertLongestPromptShown() {
@@ -106,6 +125,29 @@ class RestorePromptFontScaleTest {
 
     @Test
     @Config(qualifiers = "w360dp-h640dp")
+    fun `at font scale 2 each summary value breaks only at word edges`() {
+        val vm = viewModel()
+        openLongestPrompt(vm)
+
+        val added = "1 profile"
+        val overwritten = "2 existing profiles with the same id"
+        val rules = "Replaced by the snapshot's: Exclusive, 12 apps, Allow local network on"
+        assertBreaksAtWordEdges(dialogLayoutOf(added), added)
+        assertBreaksAtWordEdges(dialogLayoutOf(overwritten), overwritten)
+        assertBreaksAtWordEdges(dialogLayoutOf(rules), rules)
+        // Breaking only at word edges proves nothing if a long value never wraps.
+        assertTrue(
+            "\"${overwritten.take(48)}\" did not wrap (${dialogLayoutOf(overwritten).lineCount} line)",
+            dialogLayoutOf(overwritten).lineCount > 1,
+        )
+        assertTrue(
+            "\"${rules.take(48)}\" did not wrap (${dialogLayoutOf(rules).lineCount} line)",
+            dialogLayoutOf(rules).lineCount > 1,
+        )
+    }
+
+    @Test
+    @Config(qualifiers = "w360dp-h640dp")
     fun `the longest restore prompt fits at font scale 2 and Cancel can be pressed`() {
         val vm = viewModel()
         openLongestPrompt(vm)
@@ -119,6 +161,32 @@ class RestorePromptFontScaleTest {
             compose.onAllNodesWithText("Restore this snapshot?").fetchSemanticsNodes().isEmpty(),
         )
         assertNull(savedProfiles)
+        assertNull(savedRules)
+    }
+
+    @Test
+    @Config(qualifiers = "w360dp-h640dp")
+    fun `at font scale 1 a short value stays beside its label`() {
+        RuntimeEnvironment.setFontScale(1f)
+        val vm = viewModel()
+        openLongestPrompt(vm, fontScale = 1f)
+
+        // Merged lookups collapse the whole ledger into one node; the text nodes themselves
+        // are leaves of the unmerged tree.
+        val label = compose.onNodeWithText("ADDED", useUnmergedTree = true)
+            .fetchSemanticsNode().boundsInRoot
+        val value = compose.onNodeWithText("1 profile", useUnmergedTree = true)
+            .fetchSemanticsNode().boundsInRoot
+        assertTrue(
+            "\"1 profile\" left ADDED's line (value ${value.top}..${value.bottom}, " +
+                "label ${label.top}..${label.bottom})",
+            value.top < label.bottom && label.top < value.bottom,
+        )
+        assertTrue(
+            "\"1 profile\" did not follow ADDED on its line " +
+                "(value.left=${value.left}, label.right=${label.right})",
+            value.left >= label.right,
+        )
     }
 }
 
