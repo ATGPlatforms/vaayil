@@ -8,7 +8,9 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -28,6 +30,8 @@ import dev.vaayil.core.ui.vellumSeam
  * The scaffold is the shared [ScrimDialog]; the copy rides the mandated `warning`
  * surface with a 1dp `warning-mark` seam. Outside taps call nothing — they must not
  * count as consent or refusal.
+ * At large text the copy scrolls inside that surface, so the seam stays closed and Not now
+ * and Continue stay in view, which matters because they are the dialog's only way out.
  */
 @Composable
 fun LocationDisclosureDialog(onContinue: () -> Unit, onNotNow: () -> Unit) {
@@ -35,10 +39,12 @@ fun LocationDisclosureDialog(onContinue: () -> Unit, onNotNow: () -> Unit) {
         val shape = RoundedCornerShape(10.dp)
         Column(
             modifier = Modifier
+                .weight(1f, fill = false)
                 .fillMaxWidth()
                 .background(VellumColors.Warning, shape)
                 .vellumSeam(shape, VellumColors.WarningMark)
-                .padding(16.dp),
+                .padding(16.dp)
+                .verticalScroll(rememberScrollState()),
         ) {
             Text("Wi-Fi network access", style = MaterialTheme.typography.headlineLarge, color = VellumColors.OnWarning)
             Text(
