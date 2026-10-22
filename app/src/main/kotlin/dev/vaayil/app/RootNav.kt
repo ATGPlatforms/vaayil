@@ -330,12 +330,7 @@ private fun DashboardTab(
                 onSelectProfile = pick.pick,
                 onToggle = { gate(selected?.id) { homeVm.toggle(selected?.id) } },
                 onOpenProfiles = { nav.navigateTab("profiles") },
-                onOpenNetworkSettings = {
-                    context.openSystemScreen(
-                        Intent(Settings.ACTION_WIRELESS_SETTINGS),
-                        Intent(Settings.ACTION_SETTINGS),
-                    )
-                },
+                onOpenNetworkSettings = { context.openNetworkSettings() },
                 onDismissPrivateDns = homeVm::dismissPrivateDns,
                 scrollState = dashboardScroll,
             )
@@ -756,6 +751,12 @@ internal fun Context.openSystemScreen(vararg intents: Intent) {
         }
     }
 }
+
+/** T-8 (spec §3.2): "Open network settings" — the network settings screen, else the Settings root. */
+internal fun Context.openNetworkSettings() = openSystemScreen(
+    Intent(Settings.ACTION_WIRELESS_SETTINGS),
+    Intent(Settings.ACTION_SETTINGS),
+)
 
 @Composable
 private fun SettingsRoute(container: AppContainer, nav: NavHostController) {

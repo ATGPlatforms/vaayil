@@ -35,20 +35,14 @@ class SystemScreenTest {
 
     @Test
     fun `the first screen that opens wins`() {
-        context().openSystemScreen(
-            Intent(Settings.ACTION_WIRELESS_SETTINGS),
-            Intent(Settings.ACTION_SETTINGS),
-        )
+        context().openNetworkSettings()
 
         assertEquals(listOf(Settings.ACTION_WIRELESS_SETTINGS), opened)
     }
 
     @Test
     fun `a missing network screen falls back to Settings`() {
-        context(missing = setOf(Settings.ACTION_WIRELESS_SETTINGS)).openSystemScreen(
-            Intent(Settings.ACTION_WIRELESS_SETTINGS),
-            Intent(Settings.ACTION_SETTINGS),
-        )
+        context(missing = setOf(Settings.ACTION_WIRELESS_SETTINGS)).openNetworkSettings()
 
         assertEquals(listOf(Settings.ACTION_SETTINGS), opened)
     }
@@ -56,10 +50,7 @@ class SystemScreenTest {
     @Test
     fun `nothing opens when neither screen exists`() {
         context(missing = setOf(Settings.ACTION_WIRELESS_SETTINGS, Settings.ACTION_SETTINGS))
-            .openSystemScreen(
-                Intent(Settings.ACTION_WIRELESS_SETTINGS),
-                Intent(Settings.ACTION_SETTINGS),
-            )
+            .openNetworkSettings()
 
         assertEquals(emptyList<String>(), opened)
     }

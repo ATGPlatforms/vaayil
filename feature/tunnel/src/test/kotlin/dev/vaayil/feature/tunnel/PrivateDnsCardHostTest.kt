@@ -46,6 +46,7 @@ class PrivateDnsCardHostTest {
     fun `Got it hides the card for that host in any letter case`() {
         assertNull(privateDnsCardHost(ui(dismissed = "dns.google")))
         assertNull(privateDnsCardHost(ui(dismissed = "DNS.Google")))
+        assertNull(privateDnsCardHost(ui(host = "DNS.Google", dismissed = "dns.google")))
     }
 
     @Test
