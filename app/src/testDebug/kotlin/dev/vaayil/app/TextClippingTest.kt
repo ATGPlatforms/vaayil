@@ -2,6 +2,8 @@ package dev.vaayil.app
 
 import android.app.Application
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -9,6 +11,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -66,6 +70,30 @@ class TextClippingTest {
     fun aTextOffTheScreenIsReported() {
         show { Text("Off the edge", modifier = Modifier.offset(x = 400.dp)) }
         assertOneProblem("off the screen")
+    }
+
+    @Test
+    fun aTextInsideARootAwayFromTheLeftEdgeIsNotReported() {
+        show {
+            Row {
+                Spacer(Modifier.width(100.dp))
+                Box(Modifier.width(200.dp).testTag("panel")) { Text("Fits", Modifier.offset(x = 150.dp)) }
+            }
+        }
+        assertEquals(emptyList<String>(), compose.textClipProblems(hasTestTag("panel")))
+    }
+
+    @Test
+    fun aTextLeftOfARootAwayFromTheLeftEdgeIsReported() {
+        show {
+            Row {
+                Spacer(Modifier.width(100.dp))
+                Box(Modifier.width(200.dp).testTag("panel")) { Text("Fits", Modifier.offset(x = (-50).dp)) }
+            }
+        }
+        val problems = compose.textClipProblems(hasTestTag("panel"))
+        assertEquals(problems.toString(), 1, problems.size)
+        assertTrue(problems.single(), problems.single().contains("off the screen"))
     }
 
     @Test

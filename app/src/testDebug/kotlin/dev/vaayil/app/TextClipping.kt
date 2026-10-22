@@ -58,13 +58,15 @@ fun SemanticsNodeInteractionsProvider.allTextLayouts(
  *  - cut at the bottom: the paragraph is taller than the node;
  *  - cut at the side: a text that may not wrap is wider than its node;
  *  - cut after its last line: the visible lines end before the text does (a `maxLines` cut);
- *  - off the screen: the node starts before or ends after [root]'s horizontal edges.
+ *  - off the screen: the node starts before or ends after [root]'s horizontal edges, both measured in the window.
  * Ellipsized text is cut on purpose, so the side and last-line checks skip it.
  */
 fun SemanticsNodeInteractionsProvider.textClipProblems(
     root: SemanticsMatcher = isRoot(),
 ): List<String> {
-    val rootWidth = onNode(root, useUnmergedTree = true).fetchSemanticsNode().size.width
+    val rootNode = onNode(root, useUnmergedTree = true).fetchSemanticsNode()
+    val rootLeft = rootNode.positionInRoot.x
+    val rootRight = rootLeft + rootNode.size.width
     return allTextLayouts(root).mapNotNull { t ->
         val layout = t.layout
         val input = layout.layoutInput
@@ -81,8 +83,8 @@ fun SemanticsNodeInteractionsProvider.textClipProblems(
                 "cut at the side (text ${textWidth}px wide, node ${layout.size.width}px)"
             !ellipsized && shownChars < t.text.length ->
                 "cut after line ${layout.lineCount} (shows $shownChars of ${t.text.length} characters)"
-            left < -0.5f || right > rootWidth + 0.5f ->
-                "off the screen (x $left..${right}px, screen ${rootWidth}px)"
+            left < rootLeft - 0.5f || right > rootRight + 0.5f ->
+                "off the screen (x $left..${right}px, root $rootLeft..${rootRight}px)"
             else -> null
         }
         problem?.let { "\"${t.text.take(48)}\": $it" }
