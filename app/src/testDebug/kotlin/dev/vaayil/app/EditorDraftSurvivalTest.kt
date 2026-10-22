@@ -48,7 +48,7 @@ class EditorDraftSurvivalTest {
     private var registry by mutableStateOf(SaveableStateRegistry(null) { true })
     private var shown by mutableStateOf(true)
 
-    private fun openEditor() {
+    private fun show() {
         compose.setContent {
             CompositionLocalProvider(LocalSaveableStateRegistry provides registry, LocalReducedMotion provides true) {
                 if (shown) {
@@ -57,6 +57,10 @@ class EditorDraftSurvivalTest {
                 }
             }
         }
+    }
+
+    private fun openEditor() {
+        show()
         compose.runOnIdle {
             nav.navigateTab("profiles")
             nav.navigate("editor?profileId=p1")
@@ -118,6 +122,36 @@ class EditorDraftSurvivalTest {
         compose.onNodeWithText("Edit Profile").assertExists()
         recreate(keepViewModels = false)
         assertKeyShown(key)
+    }
+
+    @Test
+    fun `an editor under a second editor keeps its draft through a recreation`() {
+        openEditor()                                   // Profiles tab, then editor?profileId=p1
+        val key = generateKey()
+        pendingDrafts["d2"] = savedHome.copy(id = "d2", name = "Opened")
+        compose.runOnIdle { nav.navigate("editor?draftId=d2") }   // a second editor entry on top
+        compose.onNodeWithText("Opened").assertExists()
+        compose.runOnIdle { assertTrue(drafts.values.any { it.current.interfaceConfig.privateKey == key }) }
+        recreate(keepViewModels = false)
+        compose.runOnIdle { compose.activity.onBackPressedDispatcher.onBackPressed() }   // the untouched review leaves
+        assertKeyShown(key)
+    }
+
+    @Test
+    fun `an import's review under a second review keeps its import through a recreation`() {
+        pendingDrafts["d1"] = savedHome.copy(id = "d1", name = "First")
+        pendingDrafts["d2"] = savedHome.copy(id = "d2", name = "Second")
+        show()
+        compose.runOnIdle { nav.navigateTab("profiles"); nav.navigate("editor?draftId=d1") }
+        compose.onNodeWithText("First").assertExists()
+        compose.runOnIdle { nav.navigate("editor?draftId=d2") }
+        compose.onNodeWithText("Second").assertExists()
+        compose.runOnIdle { assertEquals(setOf("d1", "d2"), pendingDrafts.keys.toSet()) }
+        recreate(keepViewModels = false)
+        compose.runOnIdle { compose.activity.onBackPressedDispatcher.onBackPressed() }
+        compose.onNodeWithText("First").assertExists()
+        compose.onNodeWithText("This import was interrupted. Import the file again.").assertDoesNotExist()
+        compose.runOnIdle { assertEquals(setOf("d1"), pendingDrafts.keys.toSet()) }
     }
 
     @Test

@@ -12,6 +12,7 @@ import dev.vaayil.core.model.Profile
 import dev.vaayil.core.ui.LocalReducedMotion
 import dev.vaayil.feature.profiles.EditorDraft
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -32,11 +33,11 @@ class EditorImportBackTest {
     private val importNotices = ConcurrentHashMap<String, String>()
     private lateinit var nav: NavHostController
 
-    private fun show() {
+    private fun show(startDestination: String = "dashboard") {
         compose.setContent {
             nav = rememberNavController()
             CompositionLocalProvider(LocalReducedMotion provides true) {
-                VaayilTheme.Content { EditorTestGraph(nav, drafts, pendingDrafts, importNotices) }
+                VaayilTheme.Content { EditorTestGraph(nav, drafts, pendingDrafts, importNotices, startDestination) }
             }
         }
     }
@@ -79,5 +80,18 @@ class EditorImportBackTest {
         compose.runOnIdle { nav.navigate("editor?draftId=gone") }
         compose.onNodeWithText("This import was interrupted. Import the file again.").assertExists()
         compose.onNodeWithText("Profiles tab").assertExists()
+    }
+
+    @Test
+    fun `an interrupted review over onboarding returns to onboarding`() {
+        show(startDestination = "onboarding")
+        compose.runOnIdle { nav.navigate("editor?draftId=gone") }   // restored after a process death
+        compose.onNodeWithText("This import was interrupted. Import the file again.").assertExists()
+        compose.onNodeWithText("Onboarding").assertExists()
+        compose.onNodeWithText("Profiles tab").assertDoesNotExist()
+        compose.runOnIdle {
+            assertEquals("onboarding", nav.currentDestination?.route)
+            assertNull(nav.previousBackStackEntry)
+        }
     }
 }

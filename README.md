@@ -49,7 +49,8 @@ limit, no in-app purchases and no ads, and Vaayil is free software under
 
 ### Bring your own tunnel
 
-- **Import a profile however it reaches you:** open a WireGuard `.conf` file, paste a
+- **Import a profile however it reaches you:** pick a WireGuard `.conf` file in Vaayil,
+  open one straight from another app such as your file manager or a messenger, paste a
   configuration, scan a QR code, or type the details in. Vaayil can generate a key pair
   for a new profile.
 - **Share or export:** show a profile as a QR code, in a window that blocks screenshots,
@@ -149,9 +150,9 @@ The [privacy policy](docs/privacy-policy.md) has the details.
 | **Foreground service** | Keeping the tunnel and the Wi-Fi guard running while you use other apps. |
 | **Internet** | Reaching your WireGuard server and your DNS servers. |
 
-Vaayil needs no storage permission: files you import or export go through Android's
-file picker. The Split Tunnel tab lists your apps on the device only and never sends the
-list anywhere.
+Vaayil needs no storage permission: it reads only the files you pick in Android's file
+picker or open in Vaayil from another app, and exports go through the file picker. The
+Split Tunnel tab lists your apps on the device only and never sends the list anywhere.
 
 ## Under the hood
 

@@ -1,12 +1,16 @@
 package dev.vaayil.app
 
+import android.content.Intent
 import android.os.Bundle
+import android.util.Log
 import android.view.View
 import android.view.Window
 import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+
+private const val TAG = "MainActivity"
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -22,7 +26,22 @@ class MainActivity : ComponentActivity() {
         // stay fillable (the backup passphrase).
         window.excludeFromAutofill()
         val container = (application as VaayilApplication).container
+        // An open is handled once: a recreation replays this intent with a saved state, and after
+        // a process death the grant it relied on is gone, so only a fresh launch reads the file.
+        if (isFreshLaunch(savedInstanceState, intent)) openFrom(intent, container)
         setContent { VaayilTheme.Content { RootNav(container) } }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        openFrom(intent, (application as VaayilApplication).container)
+    }
+
+    private fun openFrom(intent: Intent, container: AppContainer) {
+        val request = openRequestOf(intent) { isOwnProviderAuthority(it) } ?: return
+        // The URI, the file's name and its text never reach a log; the type is a fixed label.
+        Log.i(TAG, "Open from another app: ${intent.action} ${loggedOpenType(intent.type)}")
+        container.openFile(request)
     }
 }
 

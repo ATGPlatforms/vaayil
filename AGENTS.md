@@ -351,7 +351,9 @@ app -> core/model, core/ui, core/config, core/tunnel-api, core/data, core/automa
   snapshot written: N profiles." or "Wrote N of M profiles. K couldn't be read and were left out."
   (singular forms in the code).
 - Navigation (C3): every push goes through `navigatePush` (`launchSingleTop`; single-top matches
-  the destination, not its arguments; two quick pushes can reuse one entry, c1).
+  the destination, not its arguments; two quick pushes can reuse one entry, c1), except an opened
+  file's review: `pushOpenedFileReview` pushes it as a new entry, never single-top, so it can't take
+  over an editor already on top (see the opened-file bullet below).
   Back and up on pushed routes act only while their entry is
   RESUMED (`dropUnlessResumed`) and pop through `popIfNotRoot`, which never pops the start
   destination; the editor's save completion leaves through `dropUnlessStarted`.
@@ -379,6 +381,30 @@ app -> core/model, core/ui, core/config, core/tunnel-api, core/data, core/automa
   wait in `pendingDrafts`. Drafts hold private keys, so they NEVER go into a saved-state Bundle;
   a process death loses them by design (an orphaned import review says so, M3), and all three
   maps are dropped when the activity finishes for good.
+- Opening a file from another app (Open with, Share): `MainActivity` has two more intent filters, both
+  labelled "Import into Vaayil": `VIEW` (DEFAULT, never BROWSABLE) for `application/octet-stream` and
+  `text/plain` on the `content` scheme only, and `SEND` for `application/octet-stream` alone, so sharing
+  text or a link never lists Vaayil. `openRequestOf` (`OpenedFileIntent.kt`) takes `VIEW`'s data or
+  `SEND`'s `EXTRA_STREAM` (else the first ClipData item) and never reads `EXTRA_TEXT`; anything but a
+  content URI, and a URI served by one of Vaayil's own providers (matched without its user-id prefix,
+  ignoring case), is refused unread with "Could not read file". An intent counts once: `onCreate` handles
+  it only on a fresh launch (`isFreshLaunch`: no saved state, not relaunched from Recents), and
+  `onNewIntent` handles each new one. `AppContainer.openFile` reads on the app scope with the picker's
+  rules (`readDocumentText`, `readDocumentBaseName`, `parseImport`) and queues a review or an error in
+  `OpenedFiles`, in memory only: `dropDrafts` empties the queue before the draft maps, and a read still
+  running then drops its draft. `OpenedFileEffect` pushes each review as a new editor entry (never
+  single-top) while the screen is started, over the tabs, onboarding or another editor, and shows an
+  error in a Short snackbar with the Import screen's words. Three bounds hold however many files
+  another app opens: at most 4 reads and name queries run at once, on `AppContainer`'s own view of the
+  IO threads (`openedFileIo`), so a provider that never answers can't take the shared IO threads that
+  answer DNS and start and stop the tunnel; an open is refused unread, with "Could not read file",
+  while 8 imports are being read or wait for review (`pendingDrafts`); and one opened-file failure
+  snackbar waits or shows at a time (`OpenedFileFailureNotice`), any further failure being dropped.
+  An editor keeps its draft while its entry is
+  anywhere on the back stack, so a review over an open editor never drops that editor's draft (F30), and
+  an interrupted review (M3) goes to the Profiles tab only while the tabs are on the back stack. An
+  import's name is unique against the stored profiles and the drafts awaiting review (F26). Nothing is
+  saved or connected before Save, and no log line holds the URI, the file name or the text.
 - The main window is out of autofill (L1): `MainActivity` sets `IMPORTANT_FOR_AUTOFILL_NO_EXCLUDE_DESCENDANTS`
   on its decor view (`Window.excludeFromAutofill`), so an automatic autofill request sees none of its views and
   no service offers to save the editor's keys as a password. Compose's root opts itself in

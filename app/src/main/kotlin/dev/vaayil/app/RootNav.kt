@@ -77,6 +77,7 @@ import dev.vaayil.core.ui.ScrimDialog
 import dev.vaayil.core.ui.VellumQuietAction
 import dev.vaayil.core.ui.SecureWindow
 import dev.vaayil.core.ui.VellumColors
+import dev.vaayil.feature.profiles.ImportMessages
 import dev.vaayil.feature.profiles.ImportOutcome
 import dev.vaayil.feature.profiles.ImportScreen
 import dev.vaayil.feature.profiles.ImportViewModel
@@ -260,6 +261,10 @@ private fun RootNavGraph(
             { profile -> noticeScope.launch { container.tunnelController.connect(profile) } },
         )
     }
+    // Unlike quick requests, nothing is dropped during onboarding: an import needs no consent.
+    // A failure shows in the Import screen's Short snackbar (c6), one at a time.
+    val openedFileFailures = remember(snackbar, noticeScope) { OpenedFileFailureNotice(snackbar, noticeScope) }
+    OpenedFileEffect(container.openedFiles, nav, openedFileFailures::show)
 }
 
 /** Standard chrome for pushed full-screen routes: a quiet back header above the screen. */
@@ -362,7 +367,7 @@ private fun ProfilesTab(
                     runCatching { container.parseImport(text, name) }.fold(
                         onSuccess = { profile -> nav.navigatePush("editor?draftId=${Uri.encode(profile.id)}") },
                         onFailure = {
-                            snackbar.showSnackbar("That doesn't look like a valid WireGuard config.")
+                            snackbar.showSnackbar(ImportMessages.NOT_A_CONFIG)
                         },
                     )
                 }
@@ -699,7 +704,7 @@ private fun ImportRoute(
                     when (outcome) {
                         is ImportOutcome.Success -> openEditor(outcome.profile.id)
                         is ImportOutcome.Failure -> scope.launch {
-                            snackbar.showSnackbar(outcome.message ?: "That doesn't look like a valid WireGuard config.")
+                            snackbar.showSnackbar(outcome.message ?: ImportMessages.NOT_A_CONFIG)
                         }
                     }
                 }

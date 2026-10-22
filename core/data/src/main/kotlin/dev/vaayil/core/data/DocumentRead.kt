@@ -2,7 +2,9 @@ package dev.vaayil.core.data
 
 import android.content.ContentResolver
 import android.net.Uri
+import android.provider.OpenableColumns
 import java.io.InputStream
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -23,6 +25,47 @@ internal fun readDocument(open: () -> InputStream?, maxBytes: Int): DocumentRead
         DocumentRead.Unreadable
     }
 
-/** Reads a SAF document as bounded UTF-8 on the IO dispatcher. Shared by the .conf and .vylconf importers. */
-suspend fun readDocumentText(resolver: ContentResolver, uri: Uri, maxBytes: Int = DEFAULT_MAX_INPUT_BYTES): DocumentRead =
-    withContext(Dispatchers.IO) { readDocument({ resolver.openInputStream(uri) }, maxBytes) }
+/**
+ * Reads a SAF document as bounded UTF-8 on [dispatcher], IO unless the caller bounds it: a
+ * provider call that never returns holds the thread it runs on, so a caller reading files other
+ * apps hand it gives them a view of IO of their own. Shared by the .conf and .vylconf importers.
+ */
+suspend fun readDocumentText(
+    resolver: ContentResolver,
+    uri: Uri,
+    maxBytes: Int = DEFAULT_MAX_INPUT_BYTES,
+    dispatcher: CoroutineDispatcher = Dispatchers.IO,
+): DocumentRead = withContext(dispatcher) { readDocument({ resolver.openInputStream(uri) }, maxBytes) }
+
+/**
+ * The import's name for a file: its display name, else its URI's last path segment, without a
+ * trailing `.conf`; "Imported" when neither leaves anything. A blank display name is still a
+ * name, so it never falls back to the path.
+ */
+internal fun documentBaseName(displayName: String?, lastPathSegment: String?): String =
+    (displayName ?: lastPathSegment)?.removeSuffix(".conf")?.trim()?.takeIf { it.isNotBlank() } ?: "Imported"
+
+/**
+ * [documentBaseName] for a document a provider serves. The name query runs on [dispatcher], IO
+ * unless the caller bounds it; it is best effort, so a provider that throws, returns no row or
+ * has no display-name column leaves the last path segment to name the file, and opening it still
+ * works.
+ */
+suspend fun readDocumentBaseName(
+    resolver: ContentResolver,
+    uri: Uri,
+    dispatcher: CoroutineDispatcher = Dispatchers.IO,
+): String =
+    withContext(dispatcher) {
+        val displayName = try {
+            resolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { cursor ->
+                // By index, not position: a provider that ignores the projection must not turn
+                // another column into the name.
+                val column = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                if (column >= 0 && cursor.moveToFirst()) cursor.getString(column) else null
+            }
+        } catch (_: Exception) {
+            null
+        }
+        documentBaseName(displayName, uri.lastPathSegment)
+    }

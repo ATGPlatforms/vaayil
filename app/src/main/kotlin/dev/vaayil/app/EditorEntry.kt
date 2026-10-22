@@ -1,5 +1,6 @@
 package dev.vaayil.app
 
+import android.annotation.SuppressLint
 import android.net.Uri
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
@@ -23,6 +24,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.compose.dropUnlessResumed
 import androidx.lifecycle.compose.dropUnlessStarted
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavHostController
 import dev.vaayil.core.model.Profile
 import dev.vaayil.core.ui.ScrimDialog
@@ -36,7 +38,7 @@ import dev.vaayil.feature.profiles.ProfileEditorViewModel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 
-/** The editor's route pattern. `RootNavGraph` registers it; [EditorEntry] looks its own entry up by it. */
+/** The editor's route pattern. `RootNavGraph` registers it. */
 internal const val EDITOR_ROUTE = "editor?profileId={profileId}&draftId={draftId}"
 
 /**
@@ -49,6 +51,14 @@ internal fun NavHostController.openImportReview(draftId: String) {
         launchSingleTop = true
     }
 }
+
+/**
+ * Every entry on the back stack. `currentBackStack` is the only way to ask about an entry other
+ * than the topmost one (an editor with a second editor pushed over it, F30); it is public but
+ * marked library-group-only, so the app needs lint's leave for it.
+ */
+@SuppressLint("RestrictedApi")
+private fun NavHostController.backStackEntries(): List<NavBackStackEntry> = currentBackStack.value
 
 /**
  * The profile editor as one back-stack entry: its view model, the draft the entry keeps, and
@@ -89,15 +99,12 @@ internal fun EditorEntry(
     // Leaving the editor drops its draft, and an unsaved import with it (F18: Back must
     // cancel). Back, Save and Discard pop the entry before its content leaves composition, so
     // it is no longer on the back stack. A rotation, an activity teardown or a screen opened
-    // over the editor leave the entry in place, and the draft with it (F30). A saved import
-    // was already removed by the save path.
+    // over the editor leave the entry in place, and the draft with it (F30) — a second editor
+    // pushed over this one (an opened file's review) included. A saved import was already
+    // removed by the save path.
     DisposableEffect(entryId, draftId) {
         onDispose {
-            val stillOpen = try {
-                nav.getBackStackEntry(EDITOR_ROUTE).id == entryId
-            } catch (e: IllegalArgumentException) {
-                false
-            }
+            val stillOpen = nav.backStackEntries().any { it.id == entryId }
             if (!stillOpen) {
                 drafts.remove(entryId)
                 if (draftId != null) {
@@ -119,13 +126,19 @@ internal fun EditorEntry(
     val leaveAfterSave = dropUnlessStarted { nav.popIfNotRoot() }
     if (draftId != null && state.missing) {
         // M3: the import this review was opened for died with the process, so there is nothing
-        // to review. Say so and land on the Profiles tab, never on a blank form. Popping first
-        // keeps the review out of the tab's saved state. Deliberately not lifecycle-gated: this
-        // effect runs while the entry may be only STARTED.
+        // to review. Say so and land on the Profiles tab, never on a blank form — but only
+        // while the tabs are on the back stack: before onboarding ends there is no tab to land
+        // on, so the screen beneath stays. Popping first keeps the review out of the tab's
+        // saved state. Deliberately not lifecycle-gated: this effect runs while the entry may
+        // be only STARTED.
         LaunchedEffect(entryId) {
             noticeScope.launch { snackbar.showSnackbar("This import was interrupted. Import the file again.") }
             nav.popIfNotRoot()
-            if (nav.currentDestination?.route != "profiles") nav.navigateTab("profiles")
+            if (nav.currentDestination?.route != "profiles" &&
+                nav.backStackEntries().any { it.destination.route == "dashboard" }
+            ) {
+                nav.navigateTab("profiles")
+            }
         }
     } else {
         EditorBackGuard(dirty = state.dirty, onLeave = leave) { onBack ->

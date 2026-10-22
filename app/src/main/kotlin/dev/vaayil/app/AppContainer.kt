@@ -25,6 +25,8 @@ import dev.vaayil.core.data.ActiveProfileStore
 import dev.vaayil.core.data.AutomationRulesStore
 import dev.vaayil.core.data.DataGraph
 import dev.vaayil.core.data.SplitTunnelRulesStore
+import dev.vaayil.core.data.readDocumentBaseName
+import dev.vaayil.core.data.readDocumentText
 import dev.vaayil.core.data.rescueLegacySplitTunnelRules
 import dev.vaayil.core.model.Profile
 import dev.vaayil.core.model.SplitTunnelPolicy
@@ -39,8 +41,10 @@ import dev.vaayil.feature.settings.SettingsFlags
 import dev.vaayil.feature.tunnel.TunnelController
 import dev.vaayil.feature.tunnel.TunnelControllerStore
 import java.util.UUID
+import java.util.concurrent.atomic.AtomicInteger
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
@@ -48,6 +52,8 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 /**
  * Flags live in their own DataStore file; core:data owns the active-profile file. A file that
@@ -63,6 +69,12 @@ internal val Context.settingsDataStore by preferencesDataStore(
 )
 
 private const val TAG = "AppContainer"
+
+/** How many reads of a file opened from another app run at once; a fifth open waits for one. */
+private const val OPENED_FILE_READS_AT_ONCE = 4
+
+/** How many imports Vaayil holds for review at once, reads in flight and waiting drafts together. */
+private const val OPEN_IMPORTS_MAX = 8
 
 private val darkModeFollowSystemKey = booleanPreferencesKey("darkModeFollowSystem")
 
@@ -207,24 +219,101 @@ class AppContainer internal constructor(
      */
     val editorDrafts = java.util.concurrent.ConcurrentHashMap<String, EditorDraft>()
 
-    /** Drops every in-memory draft when the activity finishes for good (spec U7). */
+    /**
+     * Files opened from another app read on this view of IO, never on the shared threads: a
+     * provider that never answers holds the thread reading from it, and cancelling the read can't
+     * free it, so an app opening files without end must not reach the threads that also answer
+     * the tunnel's DNS and start and stop it. A view of IO doesn't count against IO's own 64
+     * threads; [OPENED_FILE_READS_AT_ONCE] of them read at a time, a fifth open waiting for one.
+     */
+    private val openedFileIo = Dispatchers.IO.limitedParallelism(OPENED_FILE_READS_AT_ONCE)
+
+    /**
+     * Opened-file reads in flight: admitted, not yet finished. With [pendingDrafts] it counts the
+     * imports Vaayil holds for review, and an open past [OPEN_IMPORTS_MAX] is refused unread, so a
+     * flood of opens can't grow memory without bound. Leaving a review (Back, Discard) or saving
+     * it drops its draft and makes room for the next.
+     */
+    private val openedFileReads = AtomicInteger()
+
+    /** Guards [admitOpenedFile]'s check-and-take, so two opens can't both take the last place. */
+    private val openedFileAdmission = Any()
+
+    /** Takes a place for one open, or refuses it while [OPEN_IMPORTS_MAX] imports are held. */
+    private fun admitOpenedFile(): Boolean = synchronized(openedFileAdmission) {
+        if (openedFileReads.get() + pendingDrafts.size >= OPEN_IMPORTS_MAX) {
+            false
+        } else {
+            openedFileReads.incrementAndGet()
+            true
+        }
+    }
+
+    /**
+     * The queue for files opened from another app: a read finishes before the screen that serves
+     * it exists, so its outcome waits here. Memory only, like every draft (F30); [dropDrafts]
+     * clears it.
+     */
+    internal val openedFiles = OpenedFiles()
+
+    /**
+     * Reads and parses a file opened from another app into [openedFiles], on the app scope: the
+     * screen that serves the queue may not exist yet, so the read never belongs to an activity.
+     * Nothing is saved; a review waits in [pendingDrafts] until its editor saves (F18). The read
+     * and the name query run on [openedFileIo], and an open is refused unread while
+     * [OPEN_IMPORTS_MAX] imports are held.
+     */
+    internal fun openFile(request: OpenRequest): Job {
+        val generation = openedFiles.generation()
+        val admitted = request is OpenRequest.File && admitOpenedFile()
+        val job = appScope.launch {
+            val outcome = openFileOutcome(
+                if (admitted) request else OpenRequest.Refused,
+                { readDocumentText(appContext.contentResolver, it, dispatcher = openedFileIo) },
+                { readDocumentBaseName(appContext.contentResolver, it, dispatcher = openedFileIo) },
+                ::parseImport,
+            )
+            // A session that ended while this read ran gets nothing: the draft it made goes too.
+            if (!openedFiles.post(outcome, generation) && outcome is OpenedFileOutcome.Review) {
+                pendingDrafts.remove(outcome.draftId)
+                importNotices.remove(outcome.draftId)
+            }
+            Log.i(TAG, "Opened file: " + if (outcome is OpenedFileOutcome.Review) "review" else "failed")
+        }
+        // Whatever the outcome, the place is given back once the job has settled. The job
+        // completes only after its draft is stored, so a finishing read is never left uncounted:
+        // for that moment it counts as both a read and a draft, which can refuse an open early
+        // but never lets one past the cap.
+        if (admitted) job.invokeOnCompletion { openedFileReads.decrementAndGet() }
+        return job
+    }
+
+    /** Drops every in-memory draft when the activity finishes for good (spec U7), and the queue. */
     fun dropDrafts() {
+        // Empty the queue first: clearing the maps first would let a read finishing in between
+        // put its draft back with nothing left to remove it.
+        openedFiles.clear()
         pendingDrafts.clear()
         importNotices.clear()
         editorDrafts.clear()
     }
 
+    private val parseMutex = Mutex()
+
     /**
      * Parses an import into an unsaved draft keyed by its id; throws the parser's exception on
-     * bad input. The name is made unique against the stored profiles (F26). Search domains the
-     * profile cannot keep leave a notice for the review (F19).
+     * bad input. The name is made unique against the stored profiles and the drafts still
+     * awaiting review (F26), so two opened files of one name get two names; the mutex keeps
+     * choosing the name and storing the draft one step, so two opens in flight cannot settle on
+     * the same one. Search domains the profile cannot keep leave a notice for the review (F19).
      */
-    suspend fun parseImport(text: String, name: String): Profile {
-        val taken = profiles.observeProfiles().first().map { it.name }.toSet()
-        val draft = parseImportDraft(text, name, taken)
+    suspend fun parseImport(text: String, name: String): Profile = parseMutex.withLock {
+        val stored = profiles.observeProfiles().first().map { it.name }
+        val pending = pendingDrafts.values.map { it.name }
+        val draft = parseImportDraft(text, name, (stored + pending).toSet())
         searchDomainNotice(draft.droppedSearchDomains)?.let { importNotices[draft.profile.id] = it }
         pendingDrafts[draft.profile.id] = draft.profile
-        return draft.profile
+        draft.profile
     }
 
     /** Copy with a fresh id and a unique "(copy)" name suffix, backing the list screen's Duplicate action. */
