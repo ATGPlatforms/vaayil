@@ -10,9 +10,16 @@ import dev.vaayil.core.data.DataGraph
 import dev.vaayil.feature.profiles.ImportMessages
 import java.io.ByteArrayInputStream
 import java.util.concurrent.CountDownLatch
+import java.util.concurrent.Semaphore
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicInteger
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.withTimeoutOrNull
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -174,4 +181,76 @@ class AppContainerOpenFileTest {
 
         assertTrue(container.openedFiles.pending.value.isEmpty())
     }
+
+    @Test
+    fun `five opens read at most four files at once and leave the shared IO threads free`() = runBlocking {
+        val hold = Hold()
+        val jobs = (1..5).map { n ->
+            val file = uri("held-$n.conf")
+            shadowOf(app.contentResolver).registerInputStreamSupplier(file) {
+                hold.enter()
+                ByteArrayInputStream(VALID_CONF.toByteArray())
+            }
+            container.openFile(OpenRequest.File(file))
+        }
+        try {
+            assertTrue("four reads never started", hold.awaitEntered(4))
+            assertFalse("a fifth read ran beside four held ones", hold.anotherEnters())
+            assertEquals(true, withTimeoutOrNull(10_000) { withContext(Dispatchers.IO) { true } })
+            hold.release()
+            withTimeout(10_000) { jobs.joinAll() }
+        } finally {
+            hold.release()
+        }
+        assertEquals(4, hold.mostAtOnce.get())
+        assertEquals(5, container.pendingDrafts.size)
+    }
+
+    @Test
+    fun `five opens whose name query hangs ask at most four at once`() = runBlocking {
+        val hold = Hold()
+        TestFilesProvider.onQuery = { hold.enter() }
+        val jobs = (1..5).map { n ->
+            val file = uri("named-$n.conf")
+            serveTestFile(app, file, VALID_CONF.toByteArray(), "named.conf")
+            container.openFile(OpenRequest.File(file))
+        }
+        try {
+            assertTrue("four name queries never started", hold.awaitEntered(4))
+            assertFalse("a fifth name query ran beside four held ones", hold.anotherEnters())
+            assertEquals(true, withTimeoutOrNull(10_000) { withContext(Dispatchers.IO) { true } })
+            hold.release()
+            withTimeout(10_000) { jobs.joinAll() }
+        } finally {
+            hold.release()
+        }
+        assertEquals(4, hold.mostAtOnce.get())
+        assertEquals(5, container.pendingDrafts.size)
+    }
+}
+
+/** Holds every call that enters it until [release], and counts how many it holds at once. */
+private class Hold {
+    private val held = AtomicInteger()
+    val mostAtOnce = AtomicInteger()
+    private val entered = Semaphore(0)
+    private val gate = CountDownLatch(1)
+
+    fun enter() {
+        val now = held.incrementAndGet()
+        mostAtOnce.accumulateAndGet(now) { a, b -> maxOf(a, b) }
+        entered.release()
+        try {
+            gate.await(10, TimeUnit.SECONDS)
+        } finally {
+            held.decrementAndGet()
+        }
+    }
+
+    fun awaitEntered(count: Int): Boolean = entered.tryAcquire(count, 10, TimeUnit.SECONDS)
+
+    /** Whether one more call enters within half a second. */
+    fun anotherEnters(): Boolean = entered.tryAcquire(1, 500, TimeUnit.MILLISECONDS)
+
+    fun release() = gate.countDown()
 }

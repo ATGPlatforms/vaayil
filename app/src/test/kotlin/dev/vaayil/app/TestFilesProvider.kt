@@ -25,6 +25,7 @@ class TestFilesProvider : ContentProvider() {
         selectionArgs: Array<out String>?,
         sortOrder: String?,
     ): Cursor? {
+        onQuery(uri)
         if (queryFails) throw IllegalStateException("the name query failed")
         val cursor = MatrixCursor(arrayOf(OpenableColumns.DISPLAY_NAME))
         names[uri]?.let { cursor.addRow(arrayOf(it)) }
@@ -45,9 +46,14 @@ class TestFilesProvider : ContentProvider() {
         val names: MutableMap<Uri, String> = mutableMapOf()
         var queryFails: Boolean = false
 
+        /** Runs first in every name query, on the querying thread, so a test can record or hold queries. */
+        @Volatile
+        var onQuery: (Uri) -> Unit = {}
+
         fun reset() {
             names.clear()
             queryFails = false
+            onQuery = {}
         }
     }
 }

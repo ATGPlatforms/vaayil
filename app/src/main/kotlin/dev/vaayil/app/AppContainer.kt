@@ -69,6 +69,9 @@ internal val Context.settingsDataStore by preferencesDataStore(
 
 private const val TAG = "AppContainer"
 
+/** How many reads of a file opened from another app run at once; a fifth open waits for one. */
+private const val OPENED_FILE_READS_AT_ONCE = 4
+
 private val darkModeFollowSystemKey = booleanPreferencesKey("darkModeFollowSystem")
 
 /** S3: the pre-light-only theme flag. Nothing reads or writes it anymore; wipe once at start. */
@@ -213,6 +216,15 @@ class AppContainer internal constructor(
     val editorDrafts = java.util.concurrent.ConcurrentHashMap<String, EditorDraft>()
 
     /**
+     * Files opened from another app read on this view of IO, never on the shared threads: a
+     * provider that never answers holds the thread reading from it, and cancelling the read can't
+     * free it, so an app opening files without end must not reach the threads that also answer
+     * the tunnel's DNS and start and stop it. A view of IO doesn't count against IO's own 64
+     * threads; [OPENED_FILE_READS_AT_ONCE] of them read at a time, a fifth open waiting for one.
+     */
+    private val openedFileIo = Dispatchers.IO.limitedParallelism(OPENED_FILE_READS_AT_ONCE)
+
+    /**
      * The queue for files opened from another app: a read finishes before the screen that serves
      * it exists, so its outcome waits here. Memory only, like every draft (F30); [dropDrafts]
      * clears it.
@@ -222,15 +234,16 @@ class AppContainer internal constructor(
     /**
      * Reads and parses a file opened from another app into [openedFiles], on the app scope: the
      * screen that serves the queue may not exist yet, so the read never belongs to an activity.
-     * Nothing is saved; a review waits in [pendingDrafts] until its editor saves (F18).
+     * Nothing is saved; a review waits in [pendingDrafts] until its editor saves (F18), and both
+     * the read and the name query run on [openedFileIo].
      */
     internal fun openFile(request: OpenRequest): Job {
         val generation = openedFiles.generation()
         return appScope.launch {
             val outcome = openFileOutcome(
                 request,
-                { readDocumentText(appContext.contentResolver, it) },
-                { readDocumentBaseName(appContext.contentResolver, it) },
+                { readDocumentText(appContext.contentResolver, it, dispatcher = openedFileIo) },
+                { readDocumentBaseName(appContext.contentResolver, it, dispatcher = openedFileIo) },
                 ::parseImport,
             )
             // A session that ended while this read ran gets nothing: the draft it made goes too.
