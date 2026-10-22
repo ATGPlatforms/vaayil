@@ -550,7 +550,7 @@ class StoreAssetsTest {
         assertTrue("phone-3: the demo profile must produce no warning notes", editorProfile.warnings().isEmpty())
         val scrollable = scrollableAncestorOf(hasText("example.com"))
         val cardTop = {
-            listOf("Route all traffic", "Split subnets")
+            listOf("Route everything", "Split subnets")
                 .maxOf { rootRect(compose.onNodeWithText(it).fetchSemanticsNode()).bottom } +
                 with(compose.density) { (20.dp + 16.dp).toPx() }
         }

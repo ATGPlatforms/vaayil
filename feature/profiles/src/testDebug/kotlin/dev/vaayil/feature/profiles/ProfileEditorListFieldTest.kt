@@ -97,7 +97,7 @@ class ProfileEditorListFieldTest {
         setContent(current)
         val field = focusedFieldAfterClearing("0.0.0.0/0")
         field.performTextInput("192.168.1.0/24")
-        compose.onNodeWithText("Route all traffic").performScrollTo().performClick()
+        compose.onNodeWithText("Route everything").performScrollTo().performClick()
         compose.onNodeWithText("0.0.0.0/0, ::/0").performScrollTo().assertIsDisplayed()
         compose.runOnIdle {
             assertEquals(listOf("0.0.0.0/0", "::/0"), current.value.peer.allowedIps)

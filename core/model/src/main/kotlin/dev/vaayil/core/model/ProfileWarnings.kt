@@ -19,7 +19,7 @@ private val V6_HALF = BigInteger.ONE.shiftLeft(V6_BITS - 1)
  */
 fun Profile.warnings(): List<String> = buildList {
     if (addressesMissRoutedFamilies()) {
-        add("This profile's addresses don't match its Allowed IPs, so it won't carry traffic.")
+        add("This profile won't carry connections. Its addresses don't match its Allowed IPs.")
     }
     val allowedIps = peer.allowedIps
     val v4 = coveredAddressCount(allowedIps, ipv6 = false)
@@ -33,10 +33,10 @@ fun Profile.warnings(): List<String> = buildList {
     // half its space (a profile that reads as a tunnel, unlike the intentional small splits), the
     // other family is not fully covered, and it is not failed closed that way.
     if (v4 >= V4_HALF && v6 < V6_SIZE && !(defaultRoute && v6 == BigInteger.ZERO)) {
-        add("Some IPv6 traffic will bypass this tunnel. Add ::/0 to Allowed IPs to keep it in.")
+        add("Some IPv6 connections will bypass this tunnel. Add ::/0 to Allowed IPs to keep them in.")
     }
     if (v6 >= V6_HALF && v4 < V4_SIZE && !(defaultRoute && v4 == BigInteger.ZERO)) {
-        add("Some IPv4 traffic will bypass this tunnel. Add 0.0.0.0/0 to Allowed IPs to keep it in.")
+        add("Some IPv4 connections will bypass this tunnel. Add 0.0.0.0/0 to Allowed IPs to keep them in.")
     }
     // J12: with no DNS server on the VPN network Android resolves every app's lookups on the underlying network
     // while connected; WgConfigMapper adds DNS servers only in a routed family. An intercepting profile gets the

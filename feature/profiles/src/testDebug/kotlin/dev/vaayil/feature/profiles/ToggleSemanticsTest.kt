@@ -111,7 +111,7 @@ class ToggleSemanticsTest {
                 )
             }
         }
-        compose.onNode(hasText("Route all traffic") and isSelectable())
+        compose.onNode(hasText("Route everything") and isSelectable())
             .performScrollTo().assertIsSelected()
         compose.onNode(hasText("Split subnets") and isSelectable()).assertIsNotSelected()
         compose.onNode(hasText("Split subnets") and isSelectable()).performClick()
