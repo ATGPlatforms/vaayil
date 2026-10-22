@@ -280,8 +280,10 @@ class AppContainer internal constructor(
             }
             Log.i(TAG, "Opened file: " + if (outcome is OpenedFileOutcome.Review) "review" else "failed")
         }
-        // Whatever the outcome, the place is given back once the job has settled; completion
-        // comes after a draft is stored, so a finishing read is never counted twice.
+        // Whatever the outcome, the place is given back once the job has settled. The job
+        // completes only after its draft is stored, so a finishing read is never left uncounted:
+        // for that moment it counts as both a read and a draft, which can refuse an open early
+        // but never lets one past the cap.
         if (admitted) job.invokeOnCompletion { openedFileReads.decrementAndGet() }
         return job
     }
