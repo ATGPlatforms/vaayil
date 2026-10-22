@@ -291,6 +291,7 @@ private fun DashboardTab(
     nav: NavHostController,
     gate: (profileId: String?, action: () -> Unit) -> Unit,
 ) {
+    val context = LocalContext.current
     val homeVm: HomeViewModel = viewModel {
         HomeViewModel(
             status = ConnectionRegistry.status,
@@ -300,6 +301,10 @@ private fun DashboardTab(
             controller = container.tunnelController,
             lastConnected = container.activeProfile.lastConnectedId,
             handshakeState = container.handshakeState,
+            privateDnsHost = container.privateDns.host,
+            vpnHasDnsServer = container.privateDns.vpnHasDnsServer,
+            privateDnsDismissedHost = container.privateDnsDismissedHost,
+            saveDismissedPrivateDns = { host -> container.dismissPrivateDnsCard(host) },
         )
     }
     val home by homeVm.ui.collectAsStateWithLifecycle()
@@ -325,6 +330,13 @@ private fun DashboardTab(
                 onSelectProfile = pick.pick,
                 onToggle = { gate(selected?.id) { homeVm.toggle(selected?.id) } },
                 onOpenProfiles = { nav.navigateTab("profiles") },
+                onOpenNetworkSettings = {
+                    context.openSystemScreen(
+                        Intent(Settings.ACTION_WIRELESS_SETTINGS),
+                        Intent(Settings.ACTION_SETTINGS),
+                    )
+                },
+                onDismissPrivateDns = homeVm::dismissPrivateDns,
                 scrollState = dashboardScroll,
             )
         }
@@ -643,6 +655,8 @@ private fun EditorRoute(
     snackbar: SnackbarHostState,
     noticeScope: CoroutineScope,
 ) {
+    // T-8 (spec §3.2): the DNS sheet notes Android's Private DNS hostname while one is set.
+    val privateDnsHost by container.privateDns.host.collectAsStateWithLifecycle()
     // F19: an import that left search domains out says so once, as its review opens.
     ImportNoticeSnackbar(draftId, container.importNotices, snackbar)
     // F30: the view model, the entry's kept draft and Back live in EditorEntry; this route
@@ -671,6 +685,7 @@ private fun EditorRoute(
                 restartIfConnectedProfileChanged(before, after, container.settingsRestarts)
             }
         },
+        privateDnsHost = privateDnsHost,
     )
 }
 
@@ -726,13 +741,19 @@ private fun syncGuardService(container: AppContainer, rules: AutoConnectRules) {
     if (rules.needsGuardService) container.startAutoConnectService() else container.stopAutoConnectService()
 }
 
-/** System settings screens are implicit targets; an OEM build without one must not crash the app. */
-private fun Context.openSystemScreen(intent: Intent) {
-    try {
-        startActivity(intent)
-    } catch (_: ActivityNotFoundException) {
-        // Nothing on this device handles the target — no such settings screen or browser;
-        // the app stays up where the user left it.
+/**
+ * System settings screens are implicit targets; an OEM build without one must not crash the app.
+ * T-8 (spec §3.2): the Private DNS screen is one such target, so each is tried in turn and the
+ * first one that opens wins; when none does, the app stays up where the user left it.
+ */
+internal fun Context.openSystemScreen(vararg intents: Intent) {
+    for (intent in intents) {
+        try {
+            startActivity(intent)
+            return
+        } catch (_: ActivityNotFoundException) {
+            // Nothing on this device handles this target; the next one, or nothing, follows.
+        }
     }
 }
 

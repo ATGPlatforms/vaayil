@@ -106,8 +106,8 @@ feature/*         Compose UI: profiles (profiles tab w/ connect switches + QR sh
                   backup/restore, onboarding, kill-switch guide)
 app               single APK: MainActivity, RootNav (bottom-nav tabs + pushed routes),
                   VellumTopBar/VellumBottomBar, QR dialog, AppContainer, theme,
-                  screenshots, quick controls: tile, widget, shortcuts
-                  (`dev.vaayil.app.quick`)
+                  screenshots, PrivateDnsWatcher, quick controls: tile, widget,
+                  shortcuts (`dev.vaayil.app.quick`)
 third-party/wireguard-tunnel
                   wireguard-android's tunnel module, vendored at 1.0.20260102:
                   GoBackend (+ resolver host route, handle reset, VpnRoutes
@@ -242,6 +242,18 @@ app -> core/model, core/ui, core/config, core/tunnel-api, core/data, core/automa
   family its Allowed IPs route, no Secure DNS in effect and no usable split-DNS rules (`DnsPlanner`'s rule).
   `Profile.warnings()` then says "DNS lookups will bypass this tunnel. Add a DNS server to keep them in." when the
   profile reads as a tunnel; it never blocks Save, and Vaayil does not fail such a profile closed.
+- Strict Private DNS (T-8): with Android's Private DNS set to a hostname, apps' lookups go to that provider and skip
+  the profile's DNS servers, Secure DNS and split-DNS rules; when the tunnel's routes don't reach the provider, they
+  fail. `PrivateDnsWatcher` (`:app`, registered for the process by `AppContainer`'s production initializer, never by
+  test containers) reads the hostname from the non-VPN networks' `LinkProperties.getPrivateDnsServerName()`, the
+  most recent name winning, never from the VPN network's own field (it lags or stays empty) or the hidden
+  `Settings.Global` keys, and reads from Vaayil's default network whether that is a VPN network listing a DNS
+  server. Below API 28 it registers nothing. While CONNECTED with a hostname set and that DNS server present, the
+  dashboard shows a warning card under the hero with "Open network settings" (`ACTION_WIRELESS_SETTINGS`, else
+  `ACTION_SETTINGS`, else nothing) and "Got it", which hides it until Private DNS names another hostname (compared
+  ignoring case; `vaayil_flags` key `privateDnsDismissedHost`). Without that DNS server (J12's case) there is no
+  card: its advice would turn the provider's encrypted lookups into plain ones outside the tunnel. The editor's DNS
+  sheet shows a note whenever a hostname is set. Both fail open: no network, or a failed registration, shows nothing.
 - The Wi-Fi guard needs background location ("Allow all the time") — SSID access is redacted
   without it, and without it the rules see no SSID at all (`ssidForRules`), so they are paused.
   The disclosure (`LocationDisclosureDialog`, "Wi-Fi network access") is Vaayil's own copy written
@@ -423,7 +435,8 @@ app -> core/model, core/ui, core/config, core/tunnel-api, core/data, core/automa
   reset a corrupt file to defaults through `ReplaceFileCorruptionHandler`, with one WARN, instead of
   crash-looping every start (B5): pointers cleared, automation off, the external-control token
   gone, both split-tunnel lists empty, Allow local network off. `:app`'s `vaayil_flags` does the
-  same (C11): onboarding runs again and the one-time notification ask is owed again.
+  same (C11): onboarding runs again, the one-time notification ask is owed again and a hidden
+  Private DNS card shows again.
   `AppContainer.init`'s one-time upgrades run in order as named `StartupStep`s through
   `runStartupSteps` (`AppStartup.kt`): `warm`, `rescueLegacySplitTunnelRules`, `reEncryptAtRest`,
   `wipeLegacyFlags`. A failing step logs its name and exception class and start-up continues;
