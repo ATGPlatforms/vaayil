@@ -3,11 +3,10 @@ package dev.vaayil.feature.settings
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -33,6 +32,7 @@ import dev.vaayil.core.ui.vellumSeam
  * At large text the copy scrolls inside that surface, so the seam stays closed and Not now
  * and Continue stay in view, which matters because they are the dialog's only way out.
  */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun LocationDisclosureDialog(onContinue: () -> Unit, onNotNow: () -> Unit) {
     ScrimDialog(onDismissRequest = {}) {
@@ -57,13 +57,15 @@ fun LocationDisclosureDialog(onContinue: () -> Unit, onNotNow: () -> Unit) {
                 color = VellumColors.OnWarning,
             )
         }
-        Row(
+        // Ends at the right like the panel's copy; at large font scales Continue drops below
+        // Not now instead of breaking inside the word (F29).
+        FlowRow(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.End,
-            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+            itemVerticalAlignment = Alignment.CenterVertically,
         ) {
             VellumQuietAction("Not now", onNotNow)
-            Spacer(Modifier.width(8.dp))
             VellumButton("Continue", onContinue)
         }
     }

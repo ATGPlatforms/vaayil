@@ -139,4 +139,24 @@ class LocationDisclosureFontScaleTest {
             scroll.boundsInRoot.bottom <= continueTop,
         )
     }
+
+    @Test
+    @Config(qualifiers = "w360dp-h580dp")
+    fun `at font scale 2 the disclosure's button labels stay on one line`() {
+        show()
+
+        // The dialog's own layouts: `layoutOf` and `assertLinesAtMost` read the default root,
+        // which an open dialog makes ambiguous.
+        val layouts = compose.allTextLayouts(isDialog())
+        assertEquals(
+            "Continue's label lines at font scale 2.0",
+            1,
+            layouts.single { it.text == "Continue" }.layout.lineCount,
+        )
+        assertEquals(
+            "Not now's label lines at font scale 2.0",
+            1,
+            layouts.single { it.text == "Not now" }.layout.lineCount,
+        )
+    }
 }
