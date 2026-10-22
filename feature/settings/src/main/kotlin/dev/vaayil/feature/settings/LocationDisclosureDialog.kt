@@ -57,8 +57,8 @@ fun LocationDisclosureDialog(onContinue: () -> Unit, onNotNow: () -> Unit) {
                 color = VellumColors.OnWarning,
             )
         }
-        // Ends at the right like the panel's copy; at large font scales Continue drops below
-        // Not now instead of breaking inside the word (F29).
+        // Ends at the right like Vaayil's other dialogs; at large font scales Continue drops
+        // below Not now instead of breaking inside the word (F29).
         FlowRow(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
