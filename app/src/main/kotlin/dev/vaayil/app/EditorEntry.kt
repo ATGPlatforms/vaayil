@@ -69,6 +69,8 @@ private fun NavHostController.backStackEntries(): List<NavBackStackEntry> = curr
  * - [pendingDrafts] holds the unsaved imports (F18), keyed by draft id.
  * - [importNotices] the search-domain notice of each import draft, keyed like [pendingDrafts];
  *   a review that never opened leaves it to be dropped with the draft.
+ * - [privateDnsHost] T-8 (spec §3.3): Android's Private DNS hostname, noted in the DNS sheet
+ *   while one is set.
  * - [noticeScope] outlives the entry, so a notice shown as the entry leaves stays up (M3).
  */
 @Composable
@@ -84,6 +86,7 @@ internal fun EditorEntry(
     noticeScope: CoroutineScope,
     get: suspend (String?) -> Profile?,
     saveFn: suspend (Profile) -> Unit,
+    privateDnsHost: String? = null,
 ) {
     // Keyed per profile id (or draft id): the factory — and thus load() — runs once per view
     // model. A rotation keeps the view model; a recreated activity's new one takes the kept
@@ -147,6 +150,7 @@ internal fun EditorEntry(
                     state = state,
                     onField = vm::update,
                     onSave = { vm.save { leaveAfterSave() } },
+                    privateDnsHost = privateDnsHost,
                 )
             }
         }

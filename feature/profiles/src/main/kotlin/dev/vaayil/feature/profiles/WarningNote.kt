@@ -9,6 +9,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
 import dev.vaayil.core.ui.VellumColors
 import dev.vaayil.core.ui.vellumSeam
@@ -20,6 +21,15 @@ import dev.vaayil.core.ui.vellumSeam
  */
 @Composable
 internal fun WarningNote(text: String, modifier: Modifier = Modifier) {
+    WarningNote(AnnotatedString(text), modifier)
+}
+
+/**
+ * The same block for a body that carries styled spans — T-8's Private DNS note sets the host
+ * in monospace inside its one sentence, so TalkBack still reads the note as a single line.
+ */
+@Composable
+internal fun WarningNote(text: AnnotatedString, modifier: Modifier = Modifier) {
     val shape = RoundedCornerShape(10.dp)
     Box(
         modifier = modifier

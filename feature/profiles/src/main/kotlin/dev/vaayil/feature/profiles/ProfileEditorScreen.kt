@@ -81,7 +81,8 @@ private val PRIVATE_SUBNETS = listOf("10.0.0.0/8", "172.16.0.0/12", "192.168.0.0
  * Sectioned editor in Vellum dress (spec §3.5): [Interface] / [Peer] / DNS / Advanced
  * sheets with sage/slate/lavender section tints, fields as two-film wells with labels
  * above (the shared [VellumField]), DNS policy as stacked pill segments, and the
- * hostname lookup hint as a warning block. Field errors surface per field,
+ * hostname lookup hint as a warning block. While Android's Private DNS is set to a host,
+ * the DNS sheet carries a note naming it (T-8). Field errors surface per field,
  * only once touched.
  */
 @Composable
@@ -89,6 +90,7 @@ fun ProfileEditorScreen(
     state: EditorState,
     onField: ((Profile) -> Profile) -> Unit,
     onSave: () -> Unit,
+    privateDnsHost: String? = null,
 ) {
     SecureWindow() // keys are on screen here, revealed or not: blank screenshots/recents (S-5)
     val p = state.profile
@@ -223,6 +225,9 @@ fun ProfileEditorScreen(
                 tint = VellumColors.Lavender,
                 badge = if (p.dns.mode == DnsMode.SECURE) "PROTECTED" else null,
             )
+            // T-8 (spec §3.3): advice about Android's Private DNS — it says why apps' lookups skip
+            // this sheet's DNS settings. No action, no "Got it".
+            privateDnsHost?.let { WarningNote(privateDnsEditorNote(it)) }
             Text("Secure DNS", style = MaterialTheme.typography.titleSmall)
             // DNS policy = two stacked pill segments (spec §3.5): Off/Secure-DNS, then DoH/DoT.
             PillSegmented(

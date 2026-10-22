@@ -4,11 +4,13 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.ConnectivityManager
 import android.util.Log
 import androidx.datastore.core.handlers.ReplaceFileCorruptionHandler
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.emptyPreferences
+import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import dev.vaayil.app.quick.AppWidgetPusher
 import dev.vaayil.app.quick.CompatShortcutHost
@@ -58,7 +60,8 @@ import kotlinx.coroutines.sync.withLock
 /**
  * Flags live in their own DataStore file; core:data owns the active-profile file. A file that
  * cannot be parsed is replaced with empty flags instead of crashing every process start (C11):
- * `onboardingDone` resets, so onboarding runs again, rather than the app never starting.
+ * `onboardingDone` resets, so onboarding runs again, and a hidden Private DNS card shows again,
+ * rather than the app never starting.
  */
 internal val Context.settingsDataStore by preferencesDataStore(
     name = "vaayil_flags",
@@ -88,6 +91,9 @@ private val ONBOARDING_DONE = booleanPreferencesKey("onboardingDone")
 /** C7: set by the first notification-permission ask, before its dialog launches. */
 private val NOTIFICATIONS_ASKED = booleanPreferencesKey("notificationsAsked")
 
+/** T-8 (spec §3.2): the hostname whose dashboard card "Got it" hid. */
+private val PRIVATE_DNS_DISMISSED_HOST = stringPreferencesKey("privateDnsDismissedHost")
+
 class AppContainer internal constructor(
     private val appContext: Context,
     startupRunner: suspend (List<StartupStep>) -> Unit,
@@ -101,7 +107,7 @@ class AppContainer internal constructor(
     constructor(appContext: Context) : this(
         appContext,
         { steps -> runStartupSteps(steps) },
-        { container -> container.initEngine(); container.quickControls.start() },
+        { container -> container.initEngine(); container.quickControls.start(); container.privateDns.start() },
     )
 
     val db = DataGraph.database(appContext)
@@ -131,6 +137,14 @@ class AppContainer internal constructor(
         QuickRequests(),
         WidgetUpdater(AppWidgetPusher(appContext)),
         ShortcutUpdater(QuickShortcutSync(CompatShortcutHost(appContext)), profiles::storedIds),
+    )
+
+    /**
+     * T-8 (spec §3.1): Android's Private DNS, watched for the process. Only the production
+     * initializer starts it, so a test container never registers a callback.
+     */
+    internal val privateDns = PrivateDnsWatcher(
+        appContext.getSystemService(ConnectivityManager::class.java)?.asNetworkCallbackRegistrar(),
     )
 
     /**
@@ -174,6 +188,15 @@ class AppContainer internal constructor(
             else -> return
         }
         appContext.settingsDataStore.edit { it[prefKey] = value }
+    }
+
+    /** T-8 (spec §3.2): the hostname "Got it" hid; the dashboard card stays away for it. */
+    internal val privateDnsDismissedHost: Flow<String?> =
+        appContext.settingsDataStore.data.map { it[PRIVATE_DNS_DISMISSED_HOST] }
+
+    /** T-8 (spec §3.2): "Got it" — the card stays away until Private DNS names another hostname. */
+    internal suspend fun dismissPrivateDnsCard(host: String) {
+        appContext.settingsDataStore.edit { it[PRIVATE_DNS_DISMISSED_HOST] = host }
     }
 
     /**

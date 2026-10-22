@@ -119,3 +119,25 @@ fun SemanticsNodeInteractionsProvider.assertEllipsizedOnOneLine(text: String) {
     assertEquals("\"${text.take(48)}\" lines", 1, layout.lineCount)
     assertTrue("\"${text.take(48)}\" is not cut with an ellipsis", layout.isLineEllipsized(0))
 }
+
+/**
+ * Every line but the last breaks at a word edge: it ends right after a space, unless its
+ * last character falls inside [except] (a value allowed to split, such as a long hostname).
+ * The break's last character is read from the next line's start offset, so a hanging space
+ * at the wrap counts as the space it is.
+ */
+fun assertBreaksAtWordEdges(
+    layout: TextLayoutResult,
+    text: String,
+    except: IntRange = IntRange.EMPTY,
+) {
+    for (line in 0 until layout.lineCount - 1) {
+        val last = layout.getLineStart(line + 1) - 1
+        val char = text.getOrNull(last)
+        assertTrue(
+            "line ${line + 1} of \"${text.take(48)}\" ends at index $last (${char?.let { "'$it'" } ?: "nothing"}), " +
+                "not a word edge",
+            char == ' ' || last in except,
+        )
+    }
+}

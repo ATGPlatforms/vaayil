@@ -20,6 +20,7 @@ import org.junit.Before
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
 private class FakeStore : TunnelControllerStore {
     val set = MutableStateFlow<String?>(null)
@@ -125,5 +126,46 @@ class HomeViewModelTest {
         assertEquals(HandshakeState.WAITING, vm.ui.value.handshakeState)
         handshake.value = HandshakeState.VERIFIED
         assertEquals(HandshakeState.VERIFIED, vm.ui.value.handshakeState)
+    }
+
+    @Test
+    fun `the ui follows the Private DNS inputs live`() = runTest(UnconfinedTestDispatcher()) {
+        val engine = FakeTunnelEngine(backgroundScope)
+        val store = FakeStore()
+        val host = MutableStateFlow<String?>("dns.google")
+        val vm = HomeViewModel(
+            engine.status,
+            MutableStateFlow(TunnelStats.empty),
+            store.set,
+            MutableStateFlow(listOf(profile("p1"))),
+            TunnelController(engine, store) { profile("p1") },
+            lastConnected = flowOf(null),
+            privateDnsHost = host,
+            vpnHasDnsServer = MutableStateFlow(true),
+            privateDnsDismissedHost = MutableStateFlow("one.one.one.one"),
+        )
+        assertEquals("dns.google", vm.ui.value.privateDnsHost)
+        assertTrue(vm.ui.value.vpnHasDnsServer)
+        assertEquals("one.one.one.one", vm.ui.value.privateDnsDismissedHost)
+        host.value = null
+        assertNull(vm.ui.value.privateDnsHost)
+    }
+
+    @Test
+    fun `dismissPrivateDns hands the host over once`() = runTest(UnconfinedTestDispatcher()) {
+        val engine = FakeTunnelEngine(backgroundScope)
+        val store = FakeStore()
+        val saved = mutableListOf<String>()
+        val vm = HomeViewModel(
+            engine.status,
+            MutableStateFlow(TunnelStats.empty),
+            store.set,
+            MutableStateFlow(listOf(profile("p1"))),
+            TunnelController(engine, store) { profile("p1") },
+            lastConnected = flowOf(null),
+            saveDismissedPrivateDns = { saved += it },
+        )
+        vm.dismissPrivateDns("dns.google")
+        assertEquals(listOf("dns.google"), saved)
     }
 }

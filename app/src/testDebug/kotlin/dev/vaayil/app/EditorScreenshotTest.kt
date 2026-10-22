@@ -2,7 +2,10 @@ package dev.vaayil.app
 
 import android.app.Application
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
@@ -74,7 +77,20 @@ class EditorScreenshotTest {
         "editor-full-d440",
     )
 
-    private fun captureFull(fileName: String) {
+    @Test
+    @Config(qualifiers = "w360dp-h800dp")
+    fun editorPrivateDns() {
+        // T-8 (spec §3.3): the note under the DNS header names Android's Private DNS host.
+        showEditor(privateDnsHost = "dns.google")
+        // Scroll to the heading under the note, so the whole note box is in the frame. The pill row
+        // below it repeats "Secure DNS"; the heading comes first.
+        compose.onAllNodesWithText("Secure DNS").onFirst().performScrollTo()
+        compose.onNodeWithText(PRIVATE_DNS_NOTE).assertIsDisplayed()
+        compose.waitForIdle()
+        compose.onRoot().captureRoboImage("src/testDebug/snapshots/editor-private-dns-w360dp.png")
+    }
+
+    private fun showEditor(privateDnsHost: String? = null) {
         compose.setContent {
             VaayilTheme.Content {
                 // Deterministic capture: no motion phases mid-frame.
@@ -83,12 +99,22 @@ class EditorScreenshotTest {
                         state = EditorState(profile, emptyList()),
                         onField = {},
                         onSave = {},
+                        privateDnsHost = privateDnsHost,
                     )
                 }
             }
         }
+    }
+
+    private fun captureFull(fileName: String) {
+        showEditor()
         compose.onNodeWithText("Advanced").performScrollTo().performClick()
         compose.waitForIdle()
         compose.onRoot().captureRoboImage("src/testDebug/snapshots/$fileName.png")
+    }
+
+    private companion object {
+        const val PRIVATE_DNS_NOTE = "Android's Private DNS is set to dns.google. While it is, apps' DNS lookups " +
+            "skip this profile's DNS servers, Secure DNS and split-DNS rules."
     }
 }
