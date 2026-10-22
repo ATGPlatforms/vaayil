@@ -468,7 +468,7 @@ class StoreAssetsTest {
                     rules = AutoConnectRules(wifiGuardEnabled = true, trustedSsids = setOf("Home")),
                     permissionState = PermissionState.GRANTED,
                 ),
-                appVersion = "1.0.0",
+                appVersion = "1.1.0",
                 onOpenKillSwitchGuide = {},
                 onOpenVpnSettings = {},
                 onOpenPrivacyPolicy = {},
@@ -561,13 +561,15 @@ class StoreAssetsTest {
             viewportTop, cardTop(), 1f,
         )
         val viewport = rootRect(scrollable)
-        // The example.com rule Row — the domain and its remove control — is whole. The
-        // resolver action below it is a 48dp target and the rule block runs 22dp past the
-        // fold, so its box ends below the viewport bottom: the card top owns the bar (the
-        // top-edge rule) and a bottom-edge cut is the one the shot may carry.
+        // phone-3 frames the example.com rule — the domain and the remove icon a person sees.
+        // The remove control's 40dp IconButton touch box may run past the fold; its visible
+        // 24dp icon (measured unmerged) stays whole. The longer split-DNS hint from #11 moved
+        // the row down, and the resolver action below it is a 48dp target, so the rest of the
+        // rule block ends below the viewport bottom: the card top owns the bar (the top-edge
+        // rule) and a bottom-edge cut is the one the shot may carry.
         listOf(
             compose.onNodeWithText("example.com"),
-            compose.onNodeWithContentDescription("Remove example.com"),
+            compose.onNodeWithContentDescription("Remove example.com", useUnmergedTree = true),
         ).forEach { node ->
             val bounds = rootRect(node.fetchSemanticsNode())
             assertTrue(
