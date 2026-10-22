@@ -6,6 +6,8 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -32,7 +34,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.vaayil.core.data.DocumentRead
@@ -207,28 +208,29 @@ fun BackupScreen(
 
     state.pendingRestore?.let { prompt ->
         ScrimDialog(onDismissRequest = vm::cancelRestore) {
-            Text(
-                "Restore this snapshot?",
-                style = MaterialTheme.typography.headlineLarge,
-                color = VellumColors.OnSurface,
-            )
-            Sheet(films = Films.Two, modifier = Modifier.fillMaxWidth()) {
-                restoreSummaryRows(prompt).forEach { (label, value) ->
-                    Row(modifier = Modifier.fillMaxWidth()) {
-                        VellumEyebrow(label)
-                        Spacer(Modifier.weight(1f))
-                        Text(
-                            value,
-                            style = monoTextStyle(),
-                            color = VellumColors.OnSurface,
-                            textAlign = TextAlign.End,
-                            modifier = Modifier.padding(start = 12.dp),
-                        )
+            // The prompt's longest form (added and overwritten profiles, replaced rules and the
+            // legacy-rule note) can outgrow a small screen at font scale 2.0. The text scrolls
+            // and the Cancel/Restore row stays below it, always in view; `fill = false` keeps
+            // the prompt's natural size whenever everything fits (Material 3 AlertDialog's shape).
+            Column(
+                modifier = Modifier
+                    .weight(1f, fill = false)
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                Text(
+                    "Restore this snapshot?",
+                    style = MaterialTheme.typography.headlineLarge,
+                    color = VellumColors.OnSurface,
+                )
+                Sheet(films = Films.Two, modifier = Modifier.fillMaxWidth()) {
+                    restoreSummaryRows(prompt).forEach { (label, value) ->
+                        RestoreSummaryRow(label, value)
                     }
                 }
-            }
-            restoreNotes(prompt).forEach { note ->
-                Text(note, style = MaterialTheme.typography.bodySmall, color = VellumColors.OnSurfaceVariant)
+                restoreNotes(prompt).forEach { note ->
+                    Text(note, style = MaterialTheme.typography.bodySmall, color = VellumColors.OnSurfaceVariant)
+                }
             }
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -299,6 +301,31 @@ private fun BackupAction(
                 )
             }
         }
+    }
+}
+
+/**
+ * One restore-summary row, shaped like the Profiles tab's fact rows: the value sits
+ * beside its label while it fits on that line; otherwise it moves under the label and
+ * wraps at its spaces across the summary's width, so a long value never starves beside
+ * its label at large font scales. These labels are eyebrows, so they render uppercase.
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun RestoreSummaryRow(label: String, value: String) {
+    FlowRow(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalArrangement = Arrangement.spacedBy(2.dp),
+        itemVerticalAlignment = Alignment.CenterVertically,
+    ) {
+        VellumEyebrow(label)
+        Text(
+            value,
+            style = monoTextStyle(),
+            color = VellumColors.OnSurface,
+            modifier = Modifier.padding(start = 12.dp),
+        )
     }
 }
 

@@ -1,10 +1,14 @@
 package dev.vaayil.feature.settings
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -53,39 +57,53 @@ fun PassphraseDialog(
     }
     ScrimDialog(onDismissRequest = onDismiss) {
         SecureWindow()
-        Text(
-            if (mode == PassphraseDialogMode.CREATE) "Protect this snapshot" else "Unlock snapshot",
-            style = MaterialTheme.typography.headlineLarge,
-            color = VellumColors.OnSurface,
-        )
-        Text(
-            if (mode == PassphraseDialogMode.CREATE) {
-                "Choose a passphrase of at least $MIN_PASSPHRASE_LENGTH characters. Vaayil cannot recover it."
-            } else {
-                "Enter the passphrase this snapshot was exported with."
-            },
-            style = MaterialTheme.typography.bodyMedium,
-            color = VellumColors.OnSurfaceVariant,
-        )
-        SecretTextField("Passphrase", passphrase, { passphrase = it }, visible, { visible = !visible })
-        if (mode == PassphraseDialogMode.CREATE) {
-            SecretTextField("Confirm passphrase", confirm, { confirm = it }, visible, { visible = !visible })
-        }
-        if (hint != null) {
-            Text(hint, style = MaterialTheme.typography.bodySmall, color = VellumColors.M3Error)
-        }
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.End,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            VellumQuietAction("Cancel", onDismiss)
-            Spacer(Modifier.width(8.dp))
-            VellumButton(
-                if (mode == PassphraseDialogMode.CREATE) "Export" else "Unlock",
-                onClick = { onConfirm(passphrase.toCharArray()) },
-                enabled = canConfirm,
-            )
+        // At font scale 2.0 on a small phone the dialog can outgrow the screen: the text and
+        // fields scroll and the buttons stay in view below them. `fill = false` keeps the
+        // natural size whenever everything fits, and the 12dp above the buttons is the scroll's
+        // own bottom padding, so the last field's focus ring and lift are never clipped.
+        Column {
+            Column(
+                modifier = Modifier
+                    .weight(1f, fill = false)
+                    .verticalScroll(rememberScrollState())
+                    .padding(bottom = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                Text(
+                    if (mode == PassphraseDialogMode.CREATE) "Protect this snapshot" else "Unlock snapshot",
+                    style = MaterialTheme.typography.headlineLarge,
+                    color = VellumColors.OnSurface,
+                )
+                Text(
+                    if (mode == PassphraseDialogMode.CREATE) {
+                        "Choose a passphrase of at least $MIN_PASSPHRASE_LENGTH characters. Vaayil cannot recover it."
+                    } else {
+                        "Enter the passphrase this snapshot was exported with."
+                    },
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = VellumColors.OnSurfaceVariant,
+                )
+                SecretTextField("Passphrase", passphrase, { passphrase = it }, visible, { visible = !visible })
+                if (mode == PassphraseDialogMode.CREATE) {
+                    SecretTextField("Confirm passphrase", confirm, { confirm = it }, visible, { visible = !visible })
+                }
+                if (hint != null) {
+                    Text(hint, style = MaterialTheme.typography.bodySmall, color = VellumColors.M3Error)
+                }
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                VellumQuietAction("Cancel", onDismiss)
+                Spacer(Modifier.width(8.dp))
+                VellumButton(
+                    if (mode == PassphraseDialogMode.CREATE) "Export" else "Unlock",
+                    onClick = { onConfirm(passphrase.toCharArray()) },
+                    enabled = canConfirm,
+                )
+            }
         }
     }
 }

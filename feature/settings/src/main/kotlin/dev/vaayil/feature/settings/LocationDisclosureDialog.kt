@@ -3,12 +3,13 @@ package dev.vaayil.feature.settings
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -28,17 +29,22 @@ import dev.vaayil.core.ui.vellumSeam
  * The scaffold is the shared [ScrimDialog]; the copy rides the mandated `warning`
  * surface with a 1dp `warning-mark` seam. Outside taps call nothing — they must not
  * count as consent or refusal.
+ * At large text the copy scrolls inside that surface, so the seam stays closed and Not now
+ * and Continue stay in view, which matters because they are the dialog's only way out.
  */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun LocationDisclosureDialog(onContinue: () -> Unit, onNotNow: () -> Unit) {
     ScrimDialog(onDismissRequest = {}) {
         val shape = RoundedCornerShape(10.dp)
         Column(
             modifier = Modifier
+                .weight(1f, fill = false)
                 .fillMaxWidth()
                 .background(VellumColors.Warning, shape)
                 .vellumSeam(shape, VellumColors.WarningMark)
-                .padding(16.dp),
+                .padding(16.dp)
+                .verticalScroll(rememberScrollState()),
         ) {
             Text("Wi-Fi network access", style = MaterialTheme.typography.headlineLarge, color = VellumColors.OnWarning)
             Text(
@@ -51,13 +57,15 @@ fun LocationDisclosureDialog(onContinue: () -> Unit, onNotNow: () -> Unit) {
                 color = VellumColors.OnWarning,
             )
         }
-        Row(
+        // Ends at the right like Vaayil's other dialogs; at large font scales Continue drops
+        // below Not now instead of breaking inside the word (F29).
+        FlowRow(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.End,
-            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+            itemVerticalAlignment = Alignment.CenterVertically,
         ) {
             VellumQuietAction("Not now", onNotNow)
-            Spacer(Modifier.width(8.dp))
             VellumButton("Continue", onContinue)
         }
     }
