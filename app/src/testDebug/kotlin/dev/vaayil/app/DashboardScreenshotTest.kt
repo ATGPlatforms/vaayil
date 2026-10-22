@@ -107,4 +107,21 @@ class DashboardScreenshotTest {
         ),
         home,
     )
+
+    @Test
+    @Config(qualifiers = "w360dp-h800dp")
+    fun phoneConnectedPrivateDns() = capture(
+        // T-8 (spec §3.2): the warning card sits under the hero while Android's Private DNS
+        // names a provider and the VPN network lists a DNS server.
+        "dashboard-private-dns-w360dp",
+        HomeUiState(
+            status = TunnelStatus(profileId = home.id, phase = ConnectionPhase.CONNECTED, error = null),
+            activeProfile = home,
+            profiles = listOf(home),
+            handshakeState = HandshakeState.VERIFIED,
+            privateDnsHost = "dns.google",
+            vpnHasDnsServer = true,
+        ),
+        home,
+    )
 }

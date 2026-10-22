@@ -57,6 +57,7 @@ import dev.vaayil.core.model.isIpLiteral
 import dev.vaayil.core.model.parseDotEndpoint
 import dev.vaayil.core.model.secureInEffect
 import dev.vaayil.core.model.warnings
+import dev.vaayil.core.ui.CappedFontScale
 import dev.vaayil.core.ui.Films
 import dev.vaayil.core.ui.PillSegmented
 import dev.vaayil.core.ui.SecretTextField
@@ -230,32 +231,39 @@ fun ProfileEditorScreen(
             privateDnsHost?.let { WarningNote(privateDnsEditorNote(it)) }
             Text("Secure DNS", style = MaterialTheme.typography.titleSmall)
             // DNS policy = two stacked pill segments (spec §3.5): Off/Secure-DNS, then DoH/DoT.
-            PillSegmented(
-                options = listOf("Off", "Secure DNS"),
-                selectedIndex = if (p.dns.mode == DnsMode.SECURE) 1 else 0,
-                onSelect = { index ->
-                    // F15: coming on pins a type immediately — DoH unless previously chosen —
-                    // so the selector below never lies about a null secureType.
-                    onField {
-                        it.copy(
-                            dns = it.dns.copy(
-                                mode = if (index == 1) DnsMode.SECURE else DnsMode.TUNNEL,
-                                secureType = if (index == 1) (it.dns.secureType ?: SecureDnsType.DOH) else it.dns.secureType,
-                            ),
-                        )
-                    }
-                },
-            )
-            if (p.dns.mode == DnsMode.SECURE) {
+            // F29: the segment labels stay on one line inside the fixed 52dp track, so at
+            // large font scales they cap their scale rather than clip in a half-width
+            // segment ("Secure DNS" at font scale 2.0 is wider than the 134dp segment).
+            CappedFontScale(1.15f) {
                 PillSegmented(
-                    options = listOf("DoH", "DoT"),
-                    selectedIndex = if (p.dns.secureType == SecureDnsType.DOT) 1 else 0,
+                    options = listOf("Off", "Secure DNS"),
+                    selectedIndex = if (p.dns.mode == DnsMode.SECURE) 1 else 0,
                     onSelect = { index ->
+                        // F15: coming on pins a type immediately — DoH unless previously chosen —
+                        // so the selector below never lies about a null secureType.
                         onField {
-                            it.copy(dns = it.dns.copy(secureType = if (index == 1) SecureDnsType.DOT else SecureDnsType.DOH))
+                            it.copy(
+                                dns = it.dns.copy(
+                                    mode = if (index == 1) DnsMode.SECURE else DnsMode.TUNNEL,
+                                    secureType = if (index == 1) (it.dns.secureType ?: SecureDnsType.DOH) else it.dns.secureType,
+                                ),
+                            )
                         }
                     },
                 )
+            }
+            if (p.dns.mode == DnsMode.SECURE) {
+                CappedFontScale(1.15f) {
+                    PillSegmented(
+                        options = listOf("DoH", "DoT"),
+                        selectedIndex = if (p.dns.secureType == SecureDnsType.DOT) 1 else 0,
+                        onSelect = { index ->
+                            onField {
+                                it.copy(dns = it.dns.copy(secureType = if (index == 1) SecureDnsType.DOT else SecureDnsType.DOH))
+                            }
+                        },
+                    )
+                }
                 EditorField(
                     label = if (p.dns.secureType == SecureDnsType.DOT) "DoT endpoint (host or host:port)" else "DoH endpoint (https URL)",
                     value = p.dns.secureEndpoint.orEmpty(),
