@@ -14,9 +14,9 @@ import org.junit.runner.RunWith
 import org.robolectric.annotation.Config
 
 /**
- * T-8 (spec §3.2): "Open network settings" tries the Private DNS screen first and falls back to
- * the Settings root on a build that lacks it; a build with neither leaves the app where it is
- * instead of crashing.
+ * T-8 (spec §3.2): "Open network settings" tries the network settings screen first and falls
+ * back to the Settings root on a build that lacks it; a build with neither leaves the app where
+ * it is instead of crashing.
  */
 @RunWith(AndroidJUnit4::class)
 @Config(sdk = [35], application = Application::class)

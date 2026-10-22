@@ -650,7 +650,7 @@ private fun EditorRoute(
     snackbar: SnackbarHostState,
     noticeScope: CoroutineScope,
 ) {
-    // T-8 (spec §3.2): the DNS sheet notes Android's Private DNS hostname while one is set.
+    // T-8 (spec §3.3): the DNS sheet notes Android's Private DNS hostname while one is set.
     val privateDnsHost by container.privateDns.host.collectAsStateWithLifecycle()
     // F19: an import that left search domains out says so once, as its review opens.
     ImportNoticeSnackbar(draftId, container.importNotices, snackbar)
@@ -738,7 +738,7 @@ private fun syncGuardService(container: AppContainer, rules: AutoConnectRules) {
 
 /**
  * System settings screens are implicit targets; an OEM build without one must not crash the app.
- * T-8 (spec §3.2): the Private DNS screen is one such target, so each is tried in turn and the
+ * T-8 (spec §3.2): the network settings screen is one such target, so each is tried in turn and
  * first one that opens wins; when none does, the app stays up where the user left it.
  */
 internal fun Context.openSystemScreen(vararg intents: Intent) {
