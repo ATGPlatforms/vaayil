@@ -23,6 +23,12 @@ data class HomeUiState(
     val profiles: List<Profile> = emptyList(),
     val lastConnectedId: String? = null,
     val handshakeState: HandshakeState = HandshakeState.NONE,
+    /** T-8 (spec §3.2): the hostname Android's Private DNS is set to, from the app's watcher. */
+    val privateDnsHost: String? = null,
+    /** T-8 (spec §3.2): whether the VPN network itself lists a DNS server. */
+    val vpnHasDnsServer: Boolean = false,
+    /** T-8 (spec §3.2): the hostname "Got it" hid; the card stays away for it. */
+    val privateDnsDismissedHost: String? = null,
 )
 
 class HomeViewModel(
@@ -33,6 +39,10 @@ class HomeViewModel(
     private val controller: TunnelController,
     lastConnected: Flow<String?>,
     handshakeState: Flow<HandshakeState> = flowOf(HandshakeState.NONE),
+    privateDnsHost: Flow<String?> = flowOf(null),
+    vpnHasDnsServer: Flow<Boolean> = flowOf(false),
+    privateDnsDismissedHost: Flow<String?> = flowOf(null),
+    private val saveDismissedPrivateDns: suspend (host: String) -> Unit = {},
 ) : ViewModel() {
     val ui: StateFlow<HomeUiState> =
         combine(
@@ -40,7 +50,17 @@ class HomeViewModel(
                 HomeUiState(s, st, list.firstOrNull { it.id == id }, list, last)
             },
             handshakeState,
-        ) { state, hs -> state.copy(handshakeState = hs) }
+            privateDnsHost,
+            vpnHasDnsServer,
+            privateDnsDismissedHost,
+        ) { state, hs, host, vpnDns, dismissed ->
+            state.copy(
+                handshakeState = hs,
+                privateDnsHost = host,
+                vpnHasDnsServer = vpnDns,
+                privateDnsDismissedHost = dismissed,
+            )
+        }
             .stateIn(
                 CoroutineScope(viewModelScope.coroutineContext + Dispatchers.Unconfined),
                 SharingStarted.Eagerly,
@@ -54,4 +74,7 @@ class HomeViewModel(
     }
 
     fun disconnect() { viewModelScope.launch { controller.disconnect() } }
+
+    /** T-8 (spec §3.2): "Got it" — the hostname is remembered as dismissed. */
+    fun dismissPrivateDns(host: String) { viewModelScope.launch { saveDismissedPrivateDns(host) } }
 }

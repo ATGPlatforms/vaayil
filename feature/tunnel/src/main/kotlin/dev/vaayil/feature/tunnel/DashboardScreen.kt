@@ -79,8 +79,9 @@ import dev.vaayil.core.ui.VellumTelemetryNumStyle
 
 /**
  * The Vellum dashboard (spec §3.5): status pill, the 112dp hero window disc on a
- * container-3 seat running to the 20dp gutter, the session-totals ledger, and the
- * facts ledger card. Only real data renders — session totals instead of invented
+ * container-3 seat running to the 20dp gutter, the Private DNS warning when Android's
+ * setting takes lookups away from the profile's DNS (T-8), the session-totals ledger, and
+ * the facts ledger card. Only real data renders — session totals instead of invented
  * rates, "—" where a fact is unset (empty slots stay quiet).
  */
 @OptIn(ExperimentalLayoutApi::class)
@@ -91,6 +92,8 @@ fun DashboardScreen(
     onSelectProfile: (String) -> Unit,
     onToggle: () -> Unit,
     onOpenProfiles: () -> Unit,
+    onOpenNetworkSettings: () -> Unit = {},
+    onDismissPrivateDns: (host: String) -> Unit = {},
     scrollState: ScrollState = rememberScrollState(),
 ) {
     val phase = ui.status.phase
@@ -237,6 +240,17 @@ fun DashboardScreen(
                     DashboardNotice(ui)
                 }
             }
+        }
+
+        // T-8 (spec §3.2): Android's Private DNS takes every app's lookups away from the
+        // connected profile's DNS. Directly under the hero, above SESSION TOTALS.
+        privateDnsCardHost(ui)?.let { host ->
+            PrivateDnsCard(
+                host,
+                onOpenNetworkSettings,
+                { onDismissPrivateDns(host) },
+                Modifier.fillMaxWidth().padding(horizontal = 20.dp),
+            )
         }
 
         if (connected) {
