@@ -25,6 +25,8 @@ import dev.vaayil.core.data.ActiveProfileStore
 import dev.vaayil.core.data.AutomationRulesStore
 import dev.vaayil.core.data.DataGraph
 import dev.vaayil.core.data.SplitTunnelRulesStore
+import dev.vaayil.core.data.readDocumentBaseName
+import dev.vaayil.core.data.readDocumentText
 import dev.vaayil.core.data.rescueLegacySplitTunnelRules
 import dev.vaayil.core.model.Profile
 import dev.vaayil.core.model.SplitTunnelPolicy
@@ -41,6 +43,7 @@ import dev.vaayil.feature.tunnel.TunnelControllerStore
 import java.util.UUID
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
@@ -48,6 +51,8 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 /**
  * Flags live in their own DataStore file; core:data owns the active-profile file. A file that
@@ -207,24 +212,62 @@ class AppContainer internal constructor(
      */
     val editorDrafts = java.util.concurrent.ConcurrentHashMap<String, EditorDraft>()
 
-    /** Drops every in-memory draft when the activity finishes for good (spec U7). */
+    /**
+     * The queue for files opened from another app: a read finishes before the screen that serves
+     * it exists, so its outcome waits here. Memory only, like every draft (F30); [dropDrafts]
+     * clears it.
+     */
+    internal val openedFiles = OpenedFiles()
+
+    /**
+     * Reads and parses a file opened from another app into [openedFiles], on the app scope: the
+     * screen that serves the queue may not exist yet, so the read never belongs to an activity.
+     * Nothing is saved; a review waits in [pendingDrafts] until its editor saves (F18).
+     */
+    internal fun openFile(request: OpenRequest): Job {
+        val generation = openedFiles.generation()
+        return appScope.launch {
+            val outcome = openFileOutcome(
+                request,
+                { readDocumentText(appContext.contentResolver, it) },
+                { readDocumentBaseName(appContext.contentResolver, it) },
+                ::parseImport,
+            )
+            // A session that ended while this read ran gets nothing: the draft it made goes too.
+            if (!openedFiles.post(outcome, generation) && outcome is OpenedFileOutcome.Review) {
+                pendingDrafts.remove(outcome.draftId)
+                importNotices.remove(outcome.draftId)
+            }
+            Log.i(TAG, "Opened file: " + if (outcome is OpenedFileOutcome.Review) "review" else "failed")
+        }
+    }
+
+    /** Drops every in-memory draft when the activity finishes for good (spec U7), and the queue. */
     fun dropDrafts() {
+        // Empty the queue first: clearing the maps first would let a read finishing in between
+        // put its draft back with nothing left to remove it.
+        openedFiles.clear()
         pendingDrafts.clear()
         importNotices.clear()
         editorDrafts.clear()
     }
 
+    private val parseMutex = Mutex()
+
     /**
      * Parses an import into an unsaved draft keyed by its id; throws the parser's exception on
-     * bad input. The name is made unique against the stored profiles (F26). Search domains the
-     * profile cannot keep leave a notice for the review (F19).
+     * bad input. The name is made unique against the stored profiles and the drafts still
+     * awaiting review (F26), so two opened files of one name get two names; the mutex keeps
+     * choosing the name and storing the draft one step, so two opens in flight cannot settle on
+     * the same one. Search domains the profile cannot keep leave a notice for the review (F19).
      */
-    suspend fun parseImport(text: String, name: String): Profile {
-        val taken = profiles.observeProfiles().first().map { it.name }.toSet()
-        val draft = parseImportDraft(text, name, taken)
+    suspend fun parseImport(text: String, name: String): Profile = parseMutex.withLock {
+        val stored = profiles.observeProfiles().first().map { it.name }
+        val pending = pendingDrafts.values.map { it.name }
+        val draft = parseImportDraft(text, name, (stored + pending).toSet())
         searchDomainNotice(draft.droppedSearchDomains)?.let { importNotices[draft.profile.id] = it }
         pendingDrafts[draft.profile.id] = draft.profile
-        return draft.profile
+        draft.profile
     }
 
     /** Copy with a fresh id and a unique "(copy)" name suffix, backing the list screen's Duplicate action. */

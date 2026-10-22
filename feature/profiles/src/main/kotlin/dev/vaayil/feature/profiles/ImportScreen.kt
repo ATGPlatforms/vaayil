@@ -1,8 +1,5 @@
 package dev.vaayil.feature.profiles
 
-import android.content.Context
-import android.net.Uri
-import android.provider.OpenableColumns
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -38,6 +35,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.vaayil.core.data.DocumentRead
+import dev.vaayil.core.data.readDocumentBaseName
 import dev.vaayil.core.data.readDocumentText
 import dev.vaayil.core.ui.Films
 import dev.vaayil.core.ui.SecureWindow
@@ -47,9 +45,7 @@ import dev.vaayil.core.ui.VellumButtonRole
 import dev.vaayil.core.ui.VellumColors
 import dev.vaayil.core.ui.VellumField
 import dev.vaayil.core.ui.vellumSeam
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 
 /**
  * The three entry doors to a profile (mockup), Vellum dressed: open a .conf file, scan a
@@ -79,7 +75,7 @@ fun ImportScreen(
                     onImported(outcome.profile.id)
                 }
                 is ImportOutcome.Failure ->
-                    error = outcome.message ?: "That doesn't look like a valid WireGuard config."
+                    error = outcome.message ?: ImportMessages.NOT_A_CONFIG
             }
         }
     }
@@ -88,9 +84,9 @@ fun ImportScreen(
         if (uri != null) {
             scope.launch {
                 when (val read = readDocumentText(context.contentResolver, uri)) {
-                    is DocumentRead.Text -> runImport(read.text, withContext(Dispatchers.IO) { fileBaseName(context, uri) })
-                    DocumentRead.TooLarge -> error = "That file is too large to be a WireGuard config."
-                    DocumentRead.Unreadable -> error = "Could not read file"
+                    is DocumentRead.Text -> runImport(read.text, readDocumentBaseName(context.contentResolver, uri))
+                    DocumentRead.TooLarge -> error = ImportMessages.TOO_LARGE
+                    DocumentRead.Unreadable -> error = ImportMessages.UNREADABLE
                 }
             }
         }
@@ -202,12 +198,4 @@ private fun OptionCard(
         extra()
         VellumButton(label = actionLabel, onClick = onAction, enabled = enabled)
     }
-}
-
-private fun fileBaseName(context: Context, uri: Uri): String {
-    val displayName = context.contentResolver
-        .query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)
-        ?.use { cursor -> if (cursor.moveToFirst()) cursor.getString(0) else null }
-        ?: uri.lastPathSegment
-    return displayName?.removeSuffix(".conf")?.trim()?.takeIf { it.isNotBlank() } ?: "Imported"
 }
