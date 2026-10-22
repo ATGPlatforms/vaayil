@@ -4,6 +4,7 @@ import android.app.Application
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performScrollTo
@@ -96,8 +97,9 @@ class PrivateDnsLargeTextTest {
                 privateDnsHost = LONG_HOST,
             )
         }
-        compose.assertNoTextClipped("editor Private DNS note at font scale 2")
         val note = editorNote(LONG_HOST)
+        // The note itself: the editor's other labels are outside T-8.
+        compose.assertNoTextClipped("editor Private DNS note at font scale 2", root = hasText(note))
         val at = note.indexOf(LONG_HOST)
         assertBreaksAtWordEdges(compose.layoutOf(note), note, except = at until at + LONG_HOST.length)
     }
