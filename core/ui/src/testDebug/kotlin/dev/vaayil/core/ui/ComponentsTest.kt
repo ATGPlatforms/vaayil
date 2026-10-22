@@ -23,7 +23,11 @@ import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.ViewRootForTest
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -219,6 +223,14 @@ class ComponentsTest {
         }
         compose.waitForIdle()
         assertTrue("label stayed on one line", textLayoutOf("I've done this — get started").lineCount >= 2)
+    }
+
+    @Test
+    fun quietActionReportsTheButtonRole() {
+        // #17: without a role, screen readers read every quiet action as a plain view, never as a button.
+        compose.setContent { VellumQuietAction("Got it", onClick = {}) }
+        compose.onNodeWithText("Got it")
+            .assert(SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.Button))
     }
 
     @Test

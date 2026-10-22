@@ -130,6 +130,8 @@ fun Modifier.vellumQuietUnderline(color: Color = VellumColors.Seam): Modifier = 
  * `stroke-3` — the boundary becomes momentarily load-bearing under the finger.
  * [onClickLabel] names the action for screen readers when the visible label alone
  * does not say what it does.
+ * It reports the button role, as [VellumButton] does, so screen readers
+ * announce it as a button (#17).
  */
 @Composable
 fun VellumQuietAction(
@@ -151,6 +153,7 @@ fun VellumQuietAction(
                 indication = null,
                 onClickLabel = onClickLabel,
                 onClick = onClick,
+                role = Role.Button,
             )
             .padding(horizontal = 4.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
