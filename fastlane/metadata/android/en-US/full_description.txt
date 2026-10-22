@@ -1,8 +1,9 @@
 Vaayil is a calm, private client for the WireGuard® tunnels you already have: a server you run yourself, or a configuration from a provider you trust. Vaayil sells no bandwidth, runs no servers and has no accounts.
 
 BRING YOUR OWN TUNNEL
-• Import a .conf file, paste a configuration, scan a QR code, or enter the details by hand.
+• Import a .conf file, paste a configuration, scan a QR code, or enter the details by hand. You can also open a .conf file in Vaayil from your file manager or another app.
 • Connect with one tap. The dashboard tells you at a glance whether your tunnel is up and has completed its handshake, with honest session totals and the time of the last handshake.
+• A Quick Settings tile and a home-screen widget turn Vaayil on and off, and the app icon's long-press menu connects any of up to four profiles.
 • Works with Android's Always-on VPN and "Block connections without VPN".
 
 SPLIT TUNNELING
@@ -12,6 +13,7 @@ SPLIT TUNNELING
 ENCRYPTED DNS
 • DNS over HTTPS and DNS over TLS through an in-tunnel resolver.
 • Split DNS: answer chosen domains with your current network's resolver instead.
+• Vaayil warns you when Android's Private DNS is set to a hostname, because apps then send their DNS lookups there instead of to your profile's DNS.
 
 AUTOMATION
 • Connect automatically on Wi-Fi networks you haven't marked as trusted, on mobile data, or when the phone starts.
@@ -26,6 +28,6 @@ COMPLETELY FREE
 • All features, with no trial limit or in-app purchases.
 
 ABOUT THE VPN PERMISSION
-Vaayil uses Android's VpnService to run the WireGuard tunnel you configure. Traffic is encrypted from your device to your tunnel's endpoint. Vaayil does not collect, log, sell or share your traffic, your DNS queries or your browsing.
+Vaayil uses Android's VpnService to run the WireGuard tunnel you configure. Connections through the tunnel are encrypted from your device to your tunnel's endpoint. Vaayil does not collect, log, sell or share what you send through the tunnel, your DNS queries or your browsing.
 
 WireGuard is a registered trademark of Jason A. Donenfeld.

@@ -93,6 +93,9 @@ limit, no in-app purchases and no ads, and Vaayil is free software under
   of the tunnel's, which helps with names on your local network. It changes only which
   resolver answers; connections are routed as before.
 - **A clear warning** when a profile would send its DNS lookups outside the tunnel.
+- **Private DNS:** while Android's Private DNS is set to a hostname, apps send their DNS
+  lookups there instead of to the profile's DNS. The dashboard says so while you're
+  connected, and so does the profile editor.
 
 ### Automation
 
