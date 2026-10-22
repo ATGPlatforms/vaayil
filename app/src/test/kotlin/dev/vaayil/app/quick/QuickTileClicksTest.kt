@@ -197,11 +197,17 @@ class QuickTileClicksTest {
         QuickInputs(status, handshake, readable, storedCount, activeId, lastConnectedId),
     )
 
-    /** The disconnect runs on the hub's process scope, so its start and ACTIVE clear are polled. */
+    /**
+     * The disconnect runs on the hub's process scope, so its ACTIVE clear and its start are polled.
+     * It clears ACTIVE before it starts the service, so the wait covers both: waiting for ACTIVE
+     * alone let the start check run before the start on a slow runner.
+     */
     private fun awaitDisconnect() {
         runBlocking {
             val deadline = System.currentTimeMillis() + 5_000
-            while (System.currentTimeMillis() < deadline && ActiveProfileStore(app).activeId.first() != null) {
+            while (System.currentTimeMillis() < deadline &&
+                (ActiveProfileStore(app).activeId.first() != null || shadowOf(app).peekNextStartedService() == null)
+            ) {
                 shadowOf(Looper.getMainLooper()).idle()
                 delay(20)
             }
