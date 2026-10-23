@@ -147,6 +147,13 @@ app -> core/model, core/ui, core/config, core/tunnel-api, core/data, core/automa
 - TDD is the norm: failing test first (RED), minimal implementation (GREEN), evidence quoted.
 - When CI can't run (CI-1), the evidence for a merge is both gate steps run locally on the
   merged tree; once CI can run again, rerun it on the pushed head.
+- Release builds are reproducible: two clean builds of one commit give the same unsigned
+  APK, so F-Droid can publish the GitHub release's signed APK. `gradle.properties` keeps R8
+  on one thread (`android.r8.threadPoolSize=1`) for that: R8 8.10.24, bundled with AGP
+  8.10.1, races in horizontal class merging, and the ART baseline profile
+  (`assets/dexopt/baseline.prof`) then varies between builds (b/434861604, fixed in R8
+  8.10.31). Keep it until AGP bundles a fixed R8, and compare two clean builds after any AGP
+  or R8 change.
 
 ## Architecture invariants worth knowing before editing
 
