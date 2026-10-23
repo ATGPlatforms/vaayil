@@ -153,7 +153,10 @@ app -> core/model, core/ui, core/config, core/tunnel-api, core/data, core/automa
   8.10.1, races in horizontal class merging, and the ART baseline profile
   (`assets/dexopt/baseline.prof`) then varies between builds (b/434861604, fixed in R8
   8.10.31). Keep it until AGP bundles a fixed R8, and compare two clean builds after any AGP
-  or R8 change.
+  or R8 change. A clean build is a fresh clone, never a linked worktree, built with
+  `--no-build-cache`: a cache hit reuses an earlier output instead of rebuilding it, and
+  AGP can't read the commit in a linked worktree, so its APK records an error in
+  `META-INF/version-control-info.textproto` where F-Droid's build records the revision.
 
 ## Architecture invariants worth knowing before editing
 
