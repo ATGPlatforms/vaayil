@@ -196,7 +196,7 @@ Vaayil needs Android 8.0 (API 26) or newer, and a WireGuard configuration to con
 To check an APK before you install it, compare its signing certificate with Vaayil's:
 
 ```bash
-apksigner verify --print-certs vaayil-1.1.0-2.apk
+apksigner verify --print-certs vaayil-1.1.1-3.apk
 ```
 
 The `certificate SHA-256 digest` line must read
