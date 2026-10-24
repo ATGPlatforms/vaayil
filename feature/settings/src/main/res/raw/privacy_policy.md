@@ -1,8 +1,8 @@
 # Vaayil privacy policy
 
-Last updated: 2026-10-17
+Last updated: 2026-10-24
 
-Vaayil is a WireGuard VPN client for Android, developed and published by its maintainer as the open-source project at https://github.com/ATGPlatforms/vaayil. It runs no servers, has no accounts, and sends no analytics. All features are free, with no trial limit or in-app purchases. This policy explains what the app does with data on your device.
+Vaayil is a WireGuard VPN client for Android, developed and published by ATG Platforms Ltd as the open-source project at https://github.com/ATGPlatforms/vaayil. It runs no servers, has no accounts, and sends no analytics. All features are free, with no trial limit or in-app purchases. This policy explains what the app does with data on your device.
 
 ## What Vaayil stores on your device
 
@@ -41,4 +41,4 @@ Updates to this policy ship with the app and are dated at the top.
 
 ## Contact
 
-For questions, use the project's issue tracker at https://github.com/ATGPlatforms/vaayil/issues, or the developer contact on the store listing you installed Vaayil from.
+For privacy questions, email ATG Platforms Ltd at hello@atgplatforms.com. ATG Platforms Ltd is registered in England and Wales under company number 17533628. For bugs and feature requests, use the project's issue tracker at https://github.com/ATGPlatforms/vaayil/issues.

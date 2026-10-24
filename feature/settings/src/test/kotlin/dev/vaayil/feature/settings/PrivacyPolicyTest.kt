@@ -70,9 +70,10 @@ class PrivacyPolicyTest {
 
     @Test
     fun `policy identifies the source project without requiring Play`() {
-        assertTrue(policyText().contains("developed and published by its maintainer as the open-source project at https://github.com/ATGPlatforms/vaayil."))
+        assertTrue(policyText().contains("developed and published by ATG Platforms Ltd as the open-source project at https://github.com/ATGPlatforms/vaayil."))
         assertTrue(policyText().contains("https://github.com/ATGPlatforms/vaayil/issues"))
-        assertTrue(policyText().contains("Last updated: 2026-10-17"))
+        assertTrue(policyText().contains("For privacy questions, email ATG Platforms Ltd at hello@atgplatforms.com."))
+        assertTrue(policyText().contains("Last updated: 2026-10-24"))
         assertFalse(policyText().contains("developed and published by the developer named on its Google Play listing"))
         assertFalse(policyText().contains("Use the developer contact address on Vaayil's Google Play listing."))
     }
