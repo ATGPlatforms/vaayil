@@ -17,6 +17,7 @@ ENCRYPTED DNS
 
 AUTOMATION
 • Connect automatically on Wi-Fi networks you haven't marked as trusted, on mobile data, or when the phone starts.
+• Auto-connect on untrusted Wi-Fi needs location access set to "Allow all the time", because Android shows the current Wi-Fi network's name only to apps with location access, and the check runs in the background. Vaayil reads the network's name and security type (on Android 11 and older, it finds the security type in the list of nearby Wi-Fi networks), keeps no history of networks, and never sends network names or location anywhere. With this option off, Vaayil never asks for location.
 • Optional: start and stop tunnels from automation apps with explicit intents, protected by a per-install token.
 
 PRIVATE BY DESIGN
