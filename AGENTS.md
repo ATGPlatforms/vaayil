@@ -252,6 +252,15 @@ app -> core/model, core/ui, core/config, core/tunnel-api, core/data, core/automa
   family its Allowed IPs route, no Secure DNS in effect and no usable split-DNS rules (`DnsPlanner`'s rule).
   `Profile.warnings()` then says "DNS lookups will bypass this tunnel. Add a DNS server to keep them in." when the
   profile reads as a tunnel; it never blocks Save, and Vaayil does not fail such a profile closed.
+- Lockdown doesn't stop offloaded keepalives either (X1): any app with ordinary network permissions (the public
+  report's app declared only INTERNET and ACCESS_NETWORK_STATE) can start a NAT-T keepalive
+  (`ConnectivityManager.createSocketKeepalive` on an `IpSecManager` UDP-encapsulation socket). Where the network
+  hardware offloads it (the Wi-Fi chip, on the phones tested), the hardware sends a fixed one-byte UDP packet to port
+  4500, every 10 s or more, from the device's real address: outside the tunnel and outside Block connections without
+  VPN, even while Vaayil is connected. No VPN app can block it; stock Android has no fix, and GrapheneOS turns
+  unprivileged hardware keepalives off. Vaayil starts no `SocketKeepalive` (WireGuard's PersistentKeepalive rides the
+  tunnel). The kill-switch guide names it after the DNS exception and ends with "Install only apps you trust.", and
+  the README's "Kill switch, explained" says the same.
 - Strict Private DNS (T-8): with Android's Private DNS set to a hostname, apps' lookups go to that provider and skip
   the profile's DNS servers, Secure DNS and split-DNS rules; when the tunnel's routes don't reach the provider, they
   fail. `PrivateDnsWatcher` (`:app`, registered for the process by `AppContainer`'s production initializer, never by

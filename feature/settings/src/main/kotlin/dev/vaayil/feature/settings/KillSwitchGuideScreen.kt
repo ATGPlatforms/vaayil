@@ -71,10 +71,13 @@ fun KillSwitchGuideScreen(onOpenVpnSettings: () -> Unit = {}) {
                 tint = VellumColors.OnSurfaceVariant,
                 modifier = Modifier.size(20.dp),
             )
+            // J10 and X1: Android blocks neither DNS lookups nor the keep-alives an app has the network hardware send.
             Text(
                 "With these on, Android blocks apps' connections if the tunnel drops, and Vaayil reconnects after a reboot. " +
                     "Apps you exclude in Split Tunnel can't connect at all. Android doesn't block DNS lookups, though: " +
-                    "while the tunnel is down, and for excluded apps, the network you're on can still see the names apps look up.",
+                    "while the tunnel is down, and for excluded apps, the network you're on can still see the names apps look up. " +
+                    "Android also lets any app send small keep-alive packets outside the VPN, even while Vaayil is connected, " +
+                    "and the server they go to sees your real IP address. Install only apps you trust.",
                 style = MaterialTheme.typography.bodySmall,
                 color = VellumColors.OnSurfaceVariant,
             )

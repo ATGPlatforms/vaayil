@@ -116,6 +116,15 @@ limit, no in-app purchases and no ads, and Vaayil is free software under
 - One limit is Android's own: it doesn't block DNS lookups. While the tunnel is down, and
   for apps you exclude, the network you're on can still see the names apps look up.
   Vaayil's guide says so too.
+- A second limit is Android's too: any app can ask the phone to send small keep-alive
+  packets outside the VPN, even while Vaayil is connected. They carry no app data, but the
+  server they go to sees your real IP address. The phone's network hardware sends them
+  itself (the Wi-Fi chip, on the phones tested), so neither Block connections without VPN
+  nor any VPN app can stop them. Vaayil doesn't use this feature. As of October 2026,
+  stock Android hasn't fixed it; GrapheneOS has. Install only apps you trust; Vaayil's
+  guide says so too.
+  [The researcher's paper](https://supuk.ch/papers/android-natt-keepalive-vpn-bypass)
+  has the details.
 
 ### Backup and restore
 
