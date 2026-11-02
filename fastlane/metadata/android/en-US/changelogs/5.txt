@@ -1,0 +1,1 @@
+Before Android asks you to allow the VPN connection, a new screen explains what it does. The location screen now names both Wi-Fi rules that use location and says Vaayil never stores your location data or transmits it anywhere.
