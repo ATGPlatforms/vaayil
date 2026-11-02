@@ -132,10 +132,13 @@ class SettingsLocationCardTest {
                 onContinue = { continued++ },
                 onNotNow = { notNow++ },
                 readsNearbyNetworks = false,
+                offersAllowAllTheTime = true,
             )
         }
         compose.onNodeWithText("Location access").assertExists()
-        compose.onNodeWithText(locationDisclosureText(false)).assertExists()
+        compose.onNodeWithText(
+            locationDisclosureText(readsNearbyNetworks = false, offersAllowAllTheTime = true),
+        ).assertExists()
         compose.onNodeWithText("Continue").performClick()
         assertEquals(1, continued)
         compose.onNodeWithText("Not now").performClick()
@@ -148,7 +151,9 @@ class SettingsLocationCardTest {
         compose.setContent {
             LocationDisclosureDialog(onContinue = {}, onNotNow = {})
         }
-        compose.onNodeWithText(locationDisclosureText(true)).assertExists()
+        compose.onNodeWithText(
+            locationDisclosureText(readsNearbyNetworks = true, offersAllowAllTheTime = true),
+        ).assertExists()
     }
 
     @Test
@@ -157,7 +162,24 @@ class SettingsLocationCardTest {
         compose.setContent {
             LocationDisclosureDialog(onContinue = {}, onNotNow = {})
         }
-        compose.onNodeWithText(locationDisclosureText(false)).assertExists()
+        compose.onNodeWithText(
+            locationDisclosureText(readsNearbyNetworks = false, offersAllowAllTheTime = true),
+        ).assertExists()
+    }
+
+    @Test
+    @Config(sdk = [28])
+    fun `on Android 9 and older the disclosure asks for location access, not Allow all the time`() {
+        compose.setContent {
+            LocationDisclosureDialog(onContinue = {}, onNotNow = {})
+        }
+        compose.onNodeWithText(
+            locationDisclosureText(readsNearbyNetworks = true, offersAllowAllTheTime = false),
+        ).assertExists()
+        assertTrue(
+            compose.onAllNodesWithText("Allow all the time", substring = true)
+                .fetchSemanticsNodes().isEmpty(),
+        )
     }
 
     @Test

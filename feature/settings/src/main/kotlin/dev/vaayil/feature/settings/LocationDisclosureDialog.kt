@@ -25,8 +25,12 @@ import dev.vaayil.core.ui.vellumSeam
 
 internal const val LOCATION_DISCLOSURE_TITLE = "Location access"
 
-/** The disclosure's body; [readsNearbyNetworks] adds the API 30-and-below sentence before the last one. */
-internal fun locationDisclosureText(readsNearbyNetworks: Boolean): String {
+/**
+ * The disclosure's body. [readsNearbyNetworks] (API 30 and below) adds the nearby-networks sentence before the
+ * last one; [offersAllowAllTheTime] (API 29 and up) names Android's 'Allow all the time' option, which API 28 and
+ * below don't offer because a location grant there already covers background use.
+ */
+internal fun locationDisclosureText(readsNearbyNetworks: Boolean, offersAllowAllTheTime: Boolean): String {
     val nearbyNetworks = if (readsNearbyNetworks) {
         "To tell whether the network has a password, it also reads the list of nearby Wi-Fi networks. "
     } else {
@@ -35,7 +39,11 @@ internal fun locationDisclosureText(readsNearbyNetworks: Boolean): String {
     val opening = "Vaayil accesses location data to enable Auto-connect on untrusted Wi-Fi and " +
         "Disconnect on trusted networks, even when the app is closed or not in use. "
     val location = "Android counts the name of the Wi-Fi network you're on as location data, so " +
-        "these rules need location set to 'Allow all the time'. "
+        if (offersAllowAllTheTime) {
+            "these rules need location set to 'Allow all the time'. "
+        } else {
+            "these rules need location access. "
+        }
     val onDevice = "Vaayil checks that name against your trusted list on this device. "
     val neverLeaves = "It never stores your location data or transmits it anywhere, and keeps " +
         "no history of networks."
@@ -47,7 +55,10 @@ internal fun locationDisclosureText(readsNearbyNetworks: Boolean): String {
  * worded for Y1). Its first sentence follows Play's recommended form and names every feature
  * that uses location in the background, so a new such feature must be added to it. It says
  * "accesses", not "collects", because no location data leaves the device. On API 30 and
- * below it adds the nearby-networks sentence ([readsNearbyNetworks]).
+ * below it adds the nearby-networks sentence ([readsNearbyNetworks]). On API 28 and below,
+ * where a location grant already covers background use and Android offers no
+ * 'Allow all the time', the second sentence asks for location access instead
+ * ([offersAllowAllTheTime]).
  * The scaffold is the shared [ScrimDialog]; the copy rides the mandated `warning`
  * surface with a 1dp `warning-mark` seam. Outside taps call nothing — they must not
  * count as consent or refusal.
@@ -60,6 +71,7 @@ fun LocationDisclosureDialog(
     onContinue: () -> Unit,
     onNotNow: () -> Unit,
     readsNearbyNetworks: Boolean = Build.VERSION.SDK_INT < Build.VERSION_CODES.S,
+    offersAllowAllTheTime: Boolean = Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q,
 ) {
     ScrimDialog(onDismissRequest = {}) {
         val shape = RoundedCornerShape(10.dp)
@@ -74,7 +86,7 @@ fun LocationDisclosureDialog(
         ) {
             Text(LOCATION_DISCLOSURE_TITLE, style = MaterialTheme.typography.headlineLarge, color = VellumColors.OnWarning)
             Text(
-                locationDisclosureText(readsNearbyNetworks),
+                locationDisclosureText(readsNearbyNetworks, offersAllowAllTheTime),
                 style = MaterialTheme.typography.bodyLarge,
                 color = VellumColors.OnWarning,
             )

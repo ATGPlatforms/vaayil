@@ -280,7 +280,9 @@ app -> core/model, core/ui, core/config, core/tunnel-api, core/data, core/automa
   device, and none does): "Vaayil accesses location data to enable Auto-connect on untrusted Wi-Fi
   and Disconnect on trusted networks, even when the app is closed or not in use." Play wants every
   feature that uses background location named there, so a new one is added to it. It goes on to
-  say that Android counts the Wi-Fi name as location data, so the rules need "Allow all the time";
+  say that Android counts the Wi-Fi name as location data, so the rules need "Allow all the time"
+  (Android 9 and older offer no such option, because a location grant there already covers
+  background use, so there they need location access: `offersAllowAllTheTime`);
   that the name is checked against the trusted list on the device; and that Vaayil never stores
   the location data, never transmits it and keeps no history of networks. On Android 11 and older
   (`readsNearbyNetworks`) it adds that Vaayil also reads the list of nearby Wi-Fi networks, the
