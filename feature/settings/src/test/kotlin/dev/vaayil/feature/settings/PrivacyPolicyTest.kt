@@ -54,6 +54,26 @@ class PrivacyPolicyTest {
     }
 
     @Test
+    fun `location section names both Wi-Fi rules`() {
+        val blocks = parsePolicyMarkdown(policyText())
+        val heading = blocks.indexOf(PolicyBlock.Heading(2, "Location"))
+        assertTrue("the policy must have a Location section", heading >= 0)
+        val location = (blocks[heading + 1] as PolicyBlock.Paragraph).text
+        assertTrue(
+            location.startsWith(
+                "Vaayil accesses location data to enable Auto-connect on untrusted Wi-Fi and Disconnect on " +
+                    "trusted networks, even when the app is closed or not in use.",
+            ),
+        )
+        assertTrue(location.contains("set to \"Allow all the time\" on Android 10 and newer."))
+        assertTrue(location.contains("Disconnect on trusted networks works only while that rule is on."))
+        assertTrue(
+            location.endsWith("Leave Auto-connect on untrusted Wi-Fi off and the permission is never requested."),
+        )
+        assertFalse(policyText().contains("Leave the guard off"))
+    }
+
+    @Test
     fun `renderer splits headings bullets and paragraphs`() {
         val blocks = parsePolicyMarkdown("# T\n\nPara one.\n\n- a\n- b\n\n## S\n\nPara two.\n")
         assertEquals(
@@ -73,7 +93,7 @@ class PrivacyPolicyTest {
         assertTrue(policyText().contains("developed and published by ATG Platforms Ltd as the open-source project at https://github.com/ATGPlatforms/vaayil."))
         assertTrue(policyText().contains("https://github.com/ATGPlatforms/vaayil/issues"))
         assertTrue(policyText().contains("For privacy questions, email ATG Platforms Ltd at hello@atgplatforms.com."))
-        assertTrue(policyText().contains("Last updated: 2026-10-24"))
+        assertTrue(policyText().contains("Last updated: 2026-11-02"))
         assertFalse(policyText().contains("developed and published by the developer named on its Google Play listing"))
         assertFalse(policyText().contains("Use the developer contact address on Vaayil's Google Play listing."))
     }
