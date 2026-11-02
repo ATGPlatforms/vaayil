@@ -1,6 +1,6 @@
 # Vaayil privacy policy
 
-Last updated: 2026-10-24
+Last updated: 2026-11-02
 
 Vaayil is a WireGuard VPN client for Android, developed and published by ATG Platforms Ltd as the open-source project at https://github.com/ATGPlatforms/vaayil. It runs no servers, has no accounts, and sends no analytics. All features are free, with no trial limit or in-app purchases. This policy explains what the app does with data on your device.
 
@@ -13,7 +13,7 @@ Vaayil uploads none of this. Android cloud backup and device-to-device transfer 
 
 ## Location
 
-If you turn on "Auto-connect on untrusted Wi-Fi", Vaayil asks for location set to "Allow all the time", because Android only reveals the current Wi-Fi network's name to apps with location access, and the guard runs in the background. Vaayil uses this access only to read the current Wi-Fi network's name and security type, including while the app is closed. On Android 11 and older, it also reads the list of nearby Wi-Fi networks, to find the connected network's security type. It does not read GPS coordinates, keeps no history of networks, and never transmits location or network names. Leave the guard off and the permission is never requested.
+Vaayil accesses location data to enable Auto-connect on untrusted Wi-Fi and Disconnect on trusted networks, even when the app is closed or not in use. Android counts the name of the Wi-Fi network you're on as location data, so when you turn on "Auto-connect on untrusted Wi-Fi", Vaayil asks for location access, set to "Allow all the time" on Android 10 and newer. Disconnect on trusted networks works only while that rule is on. Vaayil uses this access only to read the current Wi-Fi network's name and security type, including while the app is closed. On Android 11 and older, it also reads the list of nearby Wi-Fi networks, to find the connected network's security type. It does not read GPS coordinates, keeps no history of networks, and never transmits location or network names. Leave Auto-connect on untrusted Wi-Fi off and the permission is never requested.
 
 ## Installed apps and camera
 
