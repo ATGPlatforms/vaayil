@@ -81,13 +81,13 @@ fun rememberVpnPermissionGate(
 /**
  * C7/C8: the root's manual connect gate. The consent chain runs the VPN disclosure and consent →
  * notification → [action]: the disclosure (Y2) shows only when consent is missing, Accept
- * launches Android's dialog or connects at once when consent arrived meanwhile, consent already
- * held runs straight through, a granted consent is followed by the one-time notification ask
- * (two system dialogs never stack), and a denial at either step stops where it is — the VPN
- * denial in the snackbar, the notification denial still connecting. [profileId] is the id
- * `TunnelController.toggle` will act on, so the live profile's tap is the disconnect or cancel
- * it becomes and runs at once, never replaced by a prompt; a null target (no profile to act on)
- * does nothing.
+ * launches Android's dialog or, when consent arrived meanwhile, carries on as a granted consent
+ * does, consent already held runs straight through, a granted consent is followed by the
+ * one-time notification ask (two system dialogs never stack), and a denial at either step stops
+ * where it is — the VPN denial in the snackbar, the notification denial still connecting.
+ * [profileId] is the id `TunnelController.toggle` will act on, so the live profile's tap is the
+ * disconnect or cancel it becomes and runs at once, never replaced by a prompt; a null target
+ * (no profile to act on) does nothing.
  */
 @Composable
 internal fun rememberManualConnectionGate(

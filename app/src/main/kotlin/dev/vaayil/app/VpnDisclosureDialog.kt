@@ -21,8 +21,9 @@ import dev.vaayil.core.ui.VellumQuietAction
 internal const val VPN_DISCLOSURE_TITLE = "VPN connection"
 
 /**
- * Y2: Play's VpnService prominent disclosure, approved word for word. The pieces carry the
- * spacing; they join into the one sentence run the form asks for.
+ * Y2: Play's VpnService prominent disclosure, approved word for word. Every piece but the
+ * last ends in the space before the next, so the pieces join into one paragraph;
+ * `VpnDisclosureCopyTest` pins the whole text.
  */
 internal const val VPN_DISCLOSURE_TEXT =
     "Vaayil uses Android's VpnService to send your device's connections through an encrypted WireGuard " +
@@ -34,9 +35,10 @@ internal const val VPN_DISCLOSURE_TEXT =
 /**
  * Y2: the VPN prominent disclosure Play's VpnService policy wants before Android's consent
  * dialog — what passes through the VPN, and a tap to accept. A neutral lifted sheet on the
- * shared [ScrimDialog]: no warning surface, no seam, and a no-op dismiss, because outside
- * taps and Back must not count as either answer. Not now and Accept are the dialog's only
- * way out. At large text the copy scrolls and the buttons stay in view.
+ * shared [ScrimDialog]: the copy sits on the sheet itself, with no `warning` surface or
+ * `warning-mark` seam, and the dismiss is a no-op, because outside taps and Back must not
+ * count as either answer. Not now and Accept are the dialog's only way out. At large text
+ * the copy scrolls and the buttons stay in view.
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
