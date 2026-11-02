@@ -128,17 +128,58 @@ class SettingsLocationCardTest {
         var continued = 0
         var notNow = 0
         compose.setContent {
-            LocationDisclosureDialog(onContinue = { continued++ }, onNotNow = { notNow++ })
+            LocationDisclosureDialog(
+                onContinue = { continued++ },
+                onNotNow = { notNow++ },
+                readsNearbyNetworks = false,
+                offersAllowAllTheTime = true,
+            )
         }
-        compose.onNodeWithText("Wi-Fi network access").assertExists()
-        assertTrue(
-            compose.onAllNodesWithText("never stores your location or sends anything anywhere", substring = true)
-                .fetchSemanticsNodes().isNotEmpty(),
-        )
+        compose.onNodeWithText("Location access").assertExists()
+        compose.onNodeWithText(
+            locationDisclosureText(readsNearbyNetworks = false, offersAllowAllTheTime = true),
+        ).assertExists()
         compose.onNodeWithText("Continue").performClick()
         assertEquals(1, continued)
         compose.onNodeWithText("Not now").performClick()
         assertEquals(1, notNow)
+    }
+
+    @Test
+    @Config(sdk = [29])
+    fun `on Android 11 and older the disclosure names the nearby-networks list`() {
+        compose.setContent {
+            LocationDisclosureDialog(onContinue = {}, onNotNow = {})
+        }
+        compose.onNodeWithText(
+            locationDisclosureText(readsNearbyNetworks = true, offersAllowAllTheTime = true),
+        ).assertExists()
+    }
+
+    @Test
+    @Config(sdk = [31])
+    fun `on Android 12 and newer the disclosure leaves the nearby-networks list out`() {
+        compose.setContent {
+            LocationDisclosureDialog(onContinue = {}, onNotNow = {})
+        }
+        compose.onNodeWithText(
+            locationDisclosureText(readsNearbyNetworks = false, offersAllowAllTheTime = true),
+        ).assertExists()
+    }
+
+    @Test
+    @Config(sdk = [28])
+    fun `on Android 9 and older the disclosure asks for location access, not Allow all the time`() {
+        compose.setContent {
+            LocationDisclosureDialog(onContinue = {}, onNotNow = {})
+        }
+        compose.onNodeWithText(
+            locationDisclosureText(readsNearbyNetworks = true, offersAllowAllTheTime = false),
+        ).assertExists()
+        assertTrue(
+            compose.onAllNodesWithText("Allow all the time", substring = true)
+                .fetchSemanticsNodes().isEmpty(),
+        )
     }
 
     @Test

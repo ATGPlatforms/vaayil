@@ -27,7 +27,8 @@ import androidx.compose.ui.window.DialogWindowProvider
  * dialog composes this; nobody re-derives the scaffold.
  *
  * Pass a no-op [onDismissRequest] for consent dialogs where outside taps must not
- * count as either consent or refusal (the Wi-Fi guard's prominent disclosure).
+ * count as either consent or refusal (both prominent disclosures: the Wi-Fi guard's
+ * and the VPN connection's).
  */
 @Composable
 fun ScrimDialog(
