@@ -1,5 +1,6 @@
 package dev.vaayil.feature.settings
 
+import android.os.Build
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -22,10 +23,31 @@ import dev.vaayil.core.ui.VellumColors
 import dev.vaayil.core.ui.VellumQuietAction
 import dev.vaayil.core.ui.vellumSeam
 
+internal const val LOCATION_DISCLOSURE_TITLE = "Location access"
+
+/** The disclosure's body; [readsNearbyNetworks] adds the API 30-and-below sentence before the last one. */
+internal fun locationDisclosureText(readsNearbyNetworks: Boolean): String {
+    val nearbyNetworks = if (readsNearbyNetworks) {
+        "To tell whether the network has a password, it also reads the list of nearby Wi-Fi networks. "
+    } else {
+        ""
+    }
+    val opening = "Vaayil accesses location data to enable Auto-connect on untrusted Wi-Fi and " +
+        "Disconnect on trusted networks, even when the app is closed or not in use. "
+    val location = "Android counts the name of the Wi-Fi network you're on as location data, so " +
+        "these rules need location set to 'Allow all the time'. "
+    val onDevice = "Vaayil checks that name against your trusted list on this device. "
+    val neverLeaves = "It never stores your location data or transmits it anywhere, and keeps " +
+        "no history of networks."
+    return opening + location + onDevice + nearbyNetworks + neverLeaves
+}
+
 /**
- * The Play prominent disclosure for the Wi-Fi guard's background location use (spec §3.4,
- * copy verbatim): names the data (network name via location), the purpose (trusted vs
- * untrusted), the background use, and takes an explicit tap before any system prompt.
+ * Play's prominent disclosure for the Wi-Fi guard's background location use (spec §3.4,
+ * worded for Y1). Its first sentence follows Play's recommended form and names every feature
+ * that uses location in the background, so a new such feature must be added to it. It says
+ * "accesses", not "collects", because no location data leaves the device. On API 30 and
+ * below it adds the nearby-networks sentence ([readsNearbyNetworks]).
  * The scaffold is the shared [ScrimDialog]; the copy rides the mandated `warning`
  * surface with a 1dp `warning-mark` seam. Outside taps call nothing — they must not
  * count as consent or refusal.
@@ -34,7 +56,11 @@ import dev.vaayil.core.ui.vellumSeam
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun LocationDisclosureDialog(onContinue: () -> Unit, onNotNow: () -> Unit) {
+fun LocationDisclosureDialog(
+    onContinue: () -> Unit,
+    onNotNow: () -> Unit,
+    readsNearbyNetworks: Boolean = Build.VERSION.SDK_INT < Build.VERSION_CODES.S,
+) {
     ScrimDialog(onDismissRequest = {}) {
         val shape = RoundedCornerShape(10.dp)
         Column(
@@ -46,13 +72,9 @@ fun LocationDisclosureDialog(onContinue: () -> Unit, onNotNow: () -> Unit) {
                 .padding(16.dp)
                 .verticalScroll(rememberScrollState()),
         ) {
-            Text("Wi-Fi network access", style = MaterialTheme.typography.headlineLarge, color = VellumColors.OnWarning)
+            Text(LOCATION_DISCLOSURE_TITLE, style = MaterialTheme.typography.headlineLarge, color = VellumColors.OnWarning)
             Text(
-                "To tell trusted Wi-Fi from untrusted, Vaayil reads the current network's " +
-                    "name. Android only exposes it through location access, and the guard " +
-                    "runs in the background, so Vaayil needs location set to 'Allow all the " +
-                    "time'. The name is compared on this device only; Vaayil never stores " +
-                    "your location or sends anything anywhere.",
+                locationDisclosureText(readsNearbyNetworks),
                 style = MaterialTheme.typography.bodyLarge,
                 color = VellumColors.OnWarning,
             )

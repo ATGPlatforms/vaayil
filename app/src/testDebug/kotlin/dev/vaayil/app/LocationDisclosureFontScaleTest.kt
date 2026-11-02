@@ -122,7 +122,7 @@ class LocationDisclosureFontScaleTest {
         // The body is the panel's last line of copy; read its box unclipped, because the scroll
         // area clips what it holds.
         val body = compose.onNodeWithText(
-            "never stores your location or sends anything anywhere",
+            "and keeps no history of networks",
             substring = true,
             useUnmergedTree = true,
         ).fetchSemanticsNode()

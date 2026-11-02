@@ -275,11 +275,16 @@ app -> core/model, core/ui, core/config, core/tunnel-api, core/data, core/automa
   sheet shows a note whenever a hostname is set. Both fail open: no network, or a failed registration, shows nothing.
 - The Wi-Fi guard needs background location ("Allow all the time") — SSID access is redacted
   without it, and without it the rules see no SSID at all (`ssidForRules`), so they are paused.
-  The disclosure (`LocationDisclosureDialog`, "Wi-Fi network access") is Vaayil's own copy written
-  to Play's prominent-disclosure requirements: it says what is read (the network's name), why
-  (trusted versus untrusted Wi-Fi), that the guard runs in the background and so needs "Allow all
-  the time", and that the name stays on the device. Play publishes no text to copy, so it is not
-  verbatim. Its Continue requests
+  The disclosure (`LocationDisclosureDialog`, "Location access", Y1) follows Play's recommended
+  form, with "accesses" for its "collects" (Play counts data as collected only when it leaves the
+  device, and none does): "Vaayil accesses location data to enable Auto-connect on untrusted Wi-Fi
+  and Disconnect on trusted networks, even when the app is closed or not in use." Play wants every
+  feature that uses background location named there, so a new one is added to it. It goes on to
+  say that Android counts the Wi-Fi name as location data, so the rules need "Allow all the time";
+  that the name is checked against the trusted list on the device; and that Vaayil never stores
+  the location data, never transmits it and keeps no history of networks. On Android 11 and older
+  (`readsNearbyNetworks`) it adds that Vaayil also reads the list of nearby Wi-Fi networks, the
+  security type's source below API 31. Its Continue requests
   FINE and COARSE together, then background location only once FINE is held
   (`:app` `LocationPermissionRequest.kt`, C1). `PermissionState` (`:feature:settings`
   `LocationPermission.kt`) calls COARSE
