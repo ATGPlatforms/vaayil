@@ -16,7 +16,10 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
 import androidx.core.app.ActivityOptionsCompat
 import androidx.datastore.preferences.core.edit
 import androidx.test.core.app.ApplicationProvider
@@ -28,6 +31,7 @@ import dev.vaayil.core.tunnel.wg.ConnectionRegistry
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
@@ -37,12 +41,13 @@ import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
 
 /**
- * C7/C8: a manual connect's consent chain. The VPN consent dialog comes first — a denial ends
- * in a snackbar and never reaches the notification ask — and the one-time notification ask
- * follows a granted consent, never stacking two system dialogs. The ask is claimed in the flags
- * store (shared with onboarding), so denials, recreation and later connects never ask twice; a
- * denial of the notification itself still connects, and the live profile's tap is a disconnect
- * that prompts nothing.
+ * C7/C8/Y2: a manual connect's consent chain. The VPN prominent disclosure comes first whenever
+ * consent is needed — Accept re-checks consent and launches Android's VPN dialog (a denial ends
+ * in a snackbar and never reaches the notification ask), Not now connects nothing — and the
+ * one-time notification ask follows a granted consent, never stacking two system dialogs. The
+ * ask is claimed in the flags store (shared with onboarding), so denials, recreation and later
+ * connects never ask twice; a denial of the notification itself still connects, and the live
+ * profile's tap is a disconnect that prompts nothing.
  *
  * The gates are driven directly through a recording [ActivityResultRegistry], the
  * [LocationPermissionRequestTest] pattern, so the test sees exactly what a device would answer.
@@ -129,6 +134,11 @@ class ManualConnectPermissionTest {
     @Test
     fun skippedOnboardingAsksAfterVpnResult() {
         compose.runOnIdle { tap("p1") }
+        // Y2: the disclosure stands before Android's dialog; Accept is what launches it.
+        compose.onNodeWithText(VPN_DISCLOSURE_TITLE).assertIsDisplayed()
+        assertTrue(events.isEmpty())
+        compose.onNodeWithText("Accept").assertIsDisplayed().performClick()
+        compose.waitForIdle()
         assertEquals(listOf("vpn"), events)
 
         // The user consents: only then does the notification ask follow — never two dialogs at once.
@@ -146,6 +156,10 @@ class ManualConnectPermissionTest {
     @Test
     fun vpnDenialDoesNotAskNotifications() {
         compose.runOnIdle { tap("p1") }
+        compose.onNodeWithText(VPN_DISCLOSURE_TITLE).assertIsDisplayed()
+        assertTrue(events.isEmpty())
+        compose.onNodeWithText("Accept").assertIsDisplayed().performClick()
+        compose.waitForIdle()
         assertEquals(listOf("vpn"), events)
 
         compose.runOnIdle { registry.answer(0, ActivityResult(Activity.RESULT_CANCELED, null)) }
@@ -161,14 +175,23 @@ class ManualConnectPermissionTest {
         )
         assertEquals(SnackbarDuration.Long, shown.duration)
 
-        // The prompt resolved: the next tap asks again instead of being swallowed.
+        // The prompt resolved: the next tap shows the disclosure again instead of launching.
         compose.runOnIdle { tap("p1") }
+        assertEquals(listOf("vpn"), events)
+        compose.onNodeWithText(VPN_DISCLOSURE_TITLE).assertIsDisplayed()
+        compose.onNodeWithText("Accept").assertIsDisplayed().performClick()
+        compose.waitForIdle()
         assertEquals(listOf("vpn", "vpn"), events)
     }
 
     @Test
     fun askedFlagSurvivesRecreation() {
         compose.runOnIdle { tap("p1") }
+        compose.onNodeWithText(VPN_DISCLOSURE_TITLE).assertIsDisplayed()
+        assertTrue(events.isEmpty())
+        compose.onNodeWithText("Accept").assertIsDisplayed().performClick()
+        compose.waitForIdle()
+        assertEquals(listOf("vpn"), events)
         vpnConsentGranted = true
         compose.runOnIdle { registry.answer(0, ActivityResult(Activity.RESULT_OK, null)) }
         compose.waitUntil(TIMEOUT_MS) { events.size == 2 }
@@ -194,6 +217,10 @@ class ManualConnectPermissionTest {
 
         // The first manual connect finds the claim spent: it connects without asking again.
         compose.runOnIdle { tap("p1") }
+        compose.onNodeWithText(VPN_DISCLOSURE_TITLE).assertIsDisplayed()
+        assertEquals(listOf("notifications"), events)
+        compose.onNodeWithText("Accept").assertIsDisplayed().performClick()
+        compose.waitForIdle()
         assertEquals(listOf("notifications", "vpn"), events)
         vpnConsentGranted = true
         compose.runOnIdle { registry.answer(1, ActivityResult(Activity.RESULT_OK, null)) }
@@ -206,6 +233,11 @@ class ManualConnectPermissionTest {
     fun alreadyGrantedSkipsTheAsk() {
         shadowOf(app).grantPermissions(Manifest.permission.POST_NOTIFICATIONS)
         compose.runOnIdle { tap("p1") }
+        compose.onNodeWithText(VPN_DISCLOSURE_TITLE).assertIsDisplayed()
+        assertTrue(events.isEmpty())
+        compose.onNodeWithText("Accept").assertIsDisplayed().performClick()
+        compose.waitForIdle()
+        assertEquals(listOf("vpn"), events)
         vpnConsentGranted = true
         compose.runOnIdle { registry.answer(0, ActivityResult(Activity.RESULT_OK, null)) }
 
@@ -223,6 +255,10 @@ class ManualConnectPermissionTest {
     @Config(sdk = [32])
     fun api32SkipsTheAsk() {
         compose.runOnIdle { tap("p1") }
+        compose.onNodeWithText(VPN_DISCLOSURE_TITLE).assertIsDisplayed()
+        assertTrue(events.isEmpty())
+        compose.onNodeWithText("Accept").assertIsDisplayed().performClick()
+        compose.waitForIdle()
         assertEquals(listOf("vpn"), events)
         vpnConsentGranted = true
         compose.runOnIdle { registry.answer(0, ActivityResult(Activity.RESULT_OK, null)) }
@@ -235,6 +271,10 @@ class ManualConnectPermissionTest {
     @Test
     fun doubleTapDoesNotStackRequests() {
         compose.runOnIdle { tap("p1"); tap("p1") }
+        compose.onNodeWithText(VPN_DISCLOSURE_TITLE).assertIsDisplayed()
+        assertTrue(events.isEmpty())
+        compose.onNodeWithText("Accept").assertIsDisplayed().performClick()
+        compose.waitForIdle()
         assertEquals(listOf("vpn"), events)
 
         vpnConsentGranted = true
@@ -267,6 +307,10 @@ class ManualConnectPermissionTest {
         ConnectionRegistry.status.value =
             TunnelStatus(profileId = "p1", phase = ConnectionPhase.CONNECTED, error = null)
         compose.runOnIdle { tap("p2") }
+        assertEquals(listOf("connect", "connect"), events)
+        compose.onNodeWithText(VPN_DISCLOSURE_TITLE).assertIsDisplayed()
+        compose.onNodeWithText("Accept").assertIsDisplayed().performClick()
+        compose.waitForIdle()
         assertEquals(listOf("connect", "connect", "vpn"), events)
         compose.runOnIdle { tap("p1") }
         assertEquals(listOf("connect", "connect", "vpn", "connect"), events)
@@ -278,6 +322,149 @@ class ManualConnectPermissionTest {
         compose.runOnIdle { tap(null) }
         assertTrue(events.isEmpty())
         assertEquals(0, registry.launches.size)
+    }
+
+    // Y2: the VPN prominent disclosure stands between the tap and Android's consent dialog.
+
+    @Test
+    fun `the disclosure comes before Android's consent dialog`() {
+        compose.runOnIdle { tap("p1") }
+        compose.onNodeWithText(VPN_DISCLOSURE_TITLE).assertIsDisplayed()
+        assertTrue(events.isEmpty())
+        assertEquals(0, registry.launches.size)
+        assertNull(snackbar.currentSnackbarData)
+    }
+
+    @Test
+    fun `accept opens Android's consent dialog`() {
+        compose.runOnIdle { tap("p1") }
+        compose.onNodeWithText(VPN_DISCLOSURE_TITLE).assertIsDisplayed()
+        compose.onNodeWithText("Accept").assertIsDisplayed().performClick()
+        compose.waitForIdle()
+        compose.onNodeWithText(VPN_DISCLOSURE_TITLE).assertDoesNotExist()
+        assertEquals(listOf("vpn"), events)
+
+        vpnConsentGranted = true
+        compose.runOnIdle { registry.answer(0, ActivityResult(Activity.RESULT_OK, null)) }
+        compose.waitUntil(TIMEOUT_MS) { events.size == 2 }
+        compose.runOnIdle { registry.answer(1, false) }
+        compose.waitUntil(TIMEOUT_MS) { events.size == 3 }
+        assertEquals(listOf("vpn", "notifications", "connect"), events)
+    }
+
+    @Test
+    fun `not now connects nothing and the next tap shows the disclosure again`() {
+        compose.runOnIdle { tap("p1") }
+        compose.onNodeWithText(VPN_DISCLOSURE_TITLE).assertIsDisplayed()
+        compose.onNodeWithText("Not now").assertIsDisplayed().performClick()
+        compose.waitForIdle()
+        compose.onNodeWithText(VPN_DISCLOSURE_TITLE).assertDoesNotExist()
+        assertTrue(events.isEmpty())
+        assertNull(snackbar.currentSnackbarData)
+
+        compose.runOnIdle { tap("p1") }
+        compose.onNodeWithText(VPN_DISCLOSURE_TITLE).assertIsDisplayed()
+        compose.onNodeWithText("Accept").assertIsDisplayed().performClick()
+        compose.waitForIdle()
+        assertEquals(listOf("vpn"), events)
+    }
+
+    @Test
+    fun `taps while the disclosure is up are ignored`() {
+        compose.runOnIdle { tap("p1") }
+        compose.onNodeWithText(VPN_DISCLOSURE_TITLE).assertIsDisplayed()
+        compose.runOnIdle { tap("p1"); tap("p2") }
+        compose.waitForIdle()
+        assertTrue(events.isEmpty())
+
+        compose.onNodeWithText("Accept").assertIsDisplayed().performClick()
+        compose.waitForIdle()
+        assertEquals(listOf("vpn"), events)
+        vpnConsentGranted = true
+        compose.runOnIdle { registry.answer(0, ActivityResult(Activity.RESULT_OK, null)) }
+        compose.waitUntil(TIMEOUT_MS) { events.size == 2 }
+        compose.runOnIdle { registry.answer(1, false) }
+        compose.waitUntil(TIMEOUT_MS) { events.size == 3 }
+        assertEquals(listOf("vpn", "notifications", "connect"), events)
+        assertEquals(2, registry.launches.size)
+    }
+
+    @Test
+    fun `consent held shows no disclosure`() {
+        vpnConsentGranted = true
+        compose.runOnIdle { tap("p1") }
+        compose.onNodeWithText(VPN_DISCLOSURE_TITLE).assertDoesNotExist()
+        compose.waitUntil(TIMEOUT_MS) { events.size == 1 }
+        assertEquals(listOf("notifications"), events)
+        compose.runOnIdle { registry.answer(0, false) }
+        compose.waitUntil(TIMEOUT_MS) { events.size == 2 }
+        assertEquals(listOf("notifications", "connect"), events)
+    }
+
+    @Test
+    fun `the live profile's tap never shows the disclosure`() {
+        ConnectionRegistry.status.value =
+            TunnelStatus(profileId = "p1", phase = ConnectionPhase.CONNECTED, error = null)
+        compose.runOnIdle { tap("p1") }
+        compose.onNodeWithText(VPN_DISCLOSURE_TITLE).assertDoesNotExist()
+        assertEquals(listOf("connect"), events)
+        assertEquals(0, registry.launches.size)
+    }
+
+    @Test
+    fun `accept connects at once when consent arrived meanwhile`() {
+        compose.runOnIdle { tap("p1") }
+        compose.onNodeWithText(VPN_DISCLOSURE_TITLE).assertIsDisplayed()
+        vpnConsentGranted = true
+        compose.onNodeWithText("Accept").assertIsDisplayed().performClick()
+        compose.waitForIdle()
+        compose.onNodeWithText(VPN_DISCLOSURE_TITLE).assertDoesNotExist()
+        compose.waitUntil(TIMEOUT_MS) { events.size == 1 }
+        assertEquals(listOf("notifications"), events)
+        compose.runOnIdle { registry.answer(0, false) }
+        compose.waitUntil(TIMEOUT_MS) { events.size == 2 }
+        assertEquals(listOf("notifications", "connect"), events)
+        assertEquals(1, registry.launches.size)
+    }
+
+    @Test
+    fun `a denial on Android's dialog brings the disclosure back next time`() {
+        compose.runOnIdle { tap("p1") }
+        compose.onNodeWithText(VPN_DISCLOSURE_TITLE).assertIsDisplayed()
+        compose.onNodeWithText("Accept").assertIsDisplayed().performClick()
+        compose.waitForIdle()
+        assertEquals(listOf("vpn"), events)
+
+        compose.runOnIdle { registry.answer(0, ActivityResult(Activity.RESULT_CANCELED, null)) }
+        compose.waitUntil(TIMEOUT_MS) { snackbar.currentSnackbarData != null }
+        assertEquals(
+            "Vaayil didn't get VPN permission. If another app is set as Always-on VPN, turn that off first.",
+            snackbar.currentSnackbarData!!.visuals.message,
+        )
+
+        compose.runOnIdle { tap("p1") }
+        compose.onNodeWithText(VPN_DISCLOSURE_TITLE).assertIsDisplayed()
+        assertEquals(1, events.size)
+        compose.onNodeWithText("Accept").assertIsDisplayed().performClick()
+        compose.waitForIdle()
+        assertEquals(listOf("vpn", "vpn"), events)
+    }
+
+    @Test
+    fun `a recreation closes the disclosure`() {
+        compose.runOnIdle { tap("p1") }
+        compose.onNodeWithText(VPN_DISCLOSURE_TITLE).assertIsDisplayed()
+
+        compose.runOnIdle { generation.value++ }
+        compose.waitForIdle()
+        compose.onNodeWithText(VPN_DISCLOSURE_TITLE).assertDoesNotExist()
+        assertTrue(events.isEmpty())
+
+        compose.runOnIdle { tap("p1") }
+        compose.onNodeWithText(VPN_DISCLOSURE_TITLE).assertIsDisplayed()
+        compose.onNodeWithText("Accept").assertIsDisplayed().performClick()
+        compose.waitForIdle()
+        assertEquals(listOf("vpn"), events)
     }
 
     private companion object {

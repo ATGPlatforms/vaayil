@@ -398,15 +398,25 @@ app -> core/model, core/ui, core/config, core/tunnel-api, core/data, core/automa
   from the Profiles tab, the notification, automation or boot), the pick is dropped and the dashboard shows the live
   profile; a disconnect, a failed switch, a restart of the same profile and a switch to the pick keep it
   (`pickAfterLiveChange`).
-- The manual-connect gate (C7, C8): `rememberManualConnectionGate` (`:app` `Permission.kt`) runs VPN
-  consent first, then, on API 33+, the one notification ask, then the connect. The ask is claimed
-  in one `vaayil_flags` edit (`AppContainer.claimNotificationPermissionRequest`, key
-  `notificationsAsked`) before its dialog launches, so onboarding and the gate ask once in total,
-  two system dialogs never stack, and a skipped onboarding still asks; a notification denial still
-  connects. A tap on the live profile (the disconnect or cancel) runs at once, taps while a consent
-  dialog is up are ignored, and a null target does nothing. A refused consent shows "Vaayil didn't
-  get VPN permission. If another app is set as Always-on VPN, turn that off first." (Long); the
-  dashboard's label is "VPN permission is off".
+- The manual-connect gate (C7, C8, Y2): `rememberManualConnectionGate` (`:app` `Permission.kt`) runs
+  the VPN disclosure and VPN consent first, then, on API 33+, the one notification ask, then the
+  connect. The ask is claimed in one `vaayil_flags` edit
+  (`AppContainer.claimNotificationPermissionRequest`, key `notificationsAsked`) before its dialog
+  launches, so onboarding and the gate ask once in total, two system dialogs never stack, and a
+  skipped onboarding still asks; a notification denial still connects. A tap on the live profile
+  (the disconnect or cancel) runs at once, taps while the disclosure or a consent dialog is up are
+  ignored, and a null target does nothing. A refused consent shows "Vaayil didn't get VPN
+  permission. If another app is set as Always-on VPN, turn that off first." (Long); the dashboard's
+  label is "VPN permission is off". The VPN disclosure (`VpnDisclosureDialog`, "VPN connection", Y2)
+  is Play's VpnService prominent disclosure: `rememberVpnPermissionGate` shows it only when
+  `prepare()` returns an Intent (the first connect, or after another VPN took the consent), before
+  Android's dialog, so a user who holds consent never sees it. It says that the device's
+  connections and DNS lookups pass through Vaayil only on their way to the profile's server and the
+  DNS servers set, and that Vaayil keeps no logs of them, shares them with no one and sends nothing
+  to its developer. Accept asks `prepare()` again and launches Android's dialog, or connects at once
+  if consent arrived meanwhile; Not now connects nothing, and the next connect shows it again.
+  Outside taps and Back do nothing, and a recreation closes it. The tile's and the shortcuts'
+  requests reach it through `QuickRequestEffect`, which uses the same gate.
 - QR (C5, C6): Share QR keeps its secure window (FLAG_SECURE) and shows "This profile is too large
   for a QR code. Use Export .conf instead." when the config is past QR capacity, instead of
   crashing. Both scan sites use `wireGuardScanOptions()` (`:app` `QrScan.kt`), which turns ZXing's
