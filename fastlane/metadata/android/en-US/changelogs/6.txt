@@ -1,0 +1,1 @@
+Vaayil now reads the Wi-Fi network's name only while Auto-connect on untrusted Wi-Fi is on. With only Auto-connect on mobile data on, it reads neither the name nor, on Android 11 and older, the list of nearby Wi-Fi networks. The privacy policy now names both Wi-Fi rules that use location.
