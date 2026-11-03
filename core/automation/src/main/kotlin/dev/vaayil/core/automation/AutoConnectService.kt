@@ -50,7 +50,7 @@ import kotlinx.coroutines.launch
  * every decision through VpnTunnelService intents — never the engine directly (spec §7 Phase 2).
  *
  * B2: the platform's Location switch is watched through MODE_CHANGED_ACTION while the service
- * runs; a change re-registers only the Wi-Fi watcher, so the current network is delivered at
+ * runs; a change re-registers only the Wi-Fi watcher (when one runs, Y3), so the current network is delivered at
  * once, and re-words notification 43 — without an app start.
  *
  * B1: every command goes through [BackgroundTunnelCommands] (consent on CONNECT, a live-phase gate
@@ -353,6 +353,7 @@ class AutoConnectService : Service() {
 
         fun start(context: Context) { context.startForegroundService(Intent(context, AutoConnectService::class.java)) }
         fun stop(context: Context) { context.stopService(Intent(context, AutoConnectService::class.java)) }
+
         /**
          * Y3: the wait before reading the Wi-Fi rule again after failed read [attempt] (counted from 0 over the
          * service's life): 1 s, doubling each time, at most 60 s.

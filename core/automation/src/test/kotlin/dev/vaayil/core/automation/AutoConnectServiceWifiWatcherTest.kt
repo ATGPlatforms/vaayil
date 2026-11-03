@@ -216,9 +216,31 @@ class AutoConnectServiceWifiWatcherTest {
     @Test
     fun `the wait before reading the rule again doubles from 1 s to at most 60 s`() {
         assertEquals(
-            listOf(1_000L, 2_000L, 4_000L, 8_000L, 16_000L, 32_000L, 60_000L, 60_000L),
-            listOf(0L, 1L, 2L, 3L, 4L, 5L, 6L, 1_000L).map { AutoConnectService.wifiGuardRetryDelayMs(it) },
+            listOf(1_000L, 2_000L, 4_000L, 8_000L, 16_000L, 32_000L, 60_000L, 60_000L, 60_000L),
+            listOf(0L, 1L, 2L, 3L, 4L, 5L, 6L, 64L, 1_000L).map { AutoConnectService.wifiGuardRetryDelayMs(it) },
         )
+    }
+
+    @Test
+    fun `each failed read doubles the wait before the next`() {
+        var reads = 0
+        created(
+            flow {
+                reads++
+                if (reads <= 2) throw IOException("unreadable")
+                emit(true)
+            },
+        )
+        shadowOf(Looper.getMainLooper()).idleFor(Duration.ofSeconds(1))
+        assertEquals(2, reads) // read again 1 s after the first failure, and that read failed too
+
+        shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(1_500))
+        assertEquals(2, reads) // the second wait is 2 s, not 1 s
+        assertEquals(1, callbacks.size)
+
+        shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(500))
+        assertEquals(3, reads) // read again 2 s after the second failure...
+        assertEquals(2, callbacks.size) // ...and the Wi-Fi watcher runs
     }
 
     @Test
