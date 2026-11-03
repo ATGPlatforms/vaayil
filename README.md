@@ -156,7 +156,7 @@ The [privacy policy](docs/privacy-policy.md) has the details.
 | **VPN** | Running your tunnel. Android asks before the first connection. |
 | **Notifications** | The tunnel's status and its Disconnect button. Asked once on Android 13 and newer, during setup or before your first connection. |
 | **Camera** | Scanning a profile's QR code, asked when you first scan. Frames are decoded on the device and never stored. |
-| **Location, "Allow all the time"** | Only the Wi-Fi guard: Android reveals the Wi-Fi network's name only to apps with location access, and the guard runs in the background. Asked only when you turn the guard on. Vaayil reads no GPS coordinates. |
+| **Location, "Allow all the time"** | Only for Auto-connect on untrusted Wi-Fi and Disconnect on trusted networks, even when the app is closed: Android counts a Wi-Fi network's name as location data. Asked when you turn on Auto-connect on untrusted Wi-Fi; Android 9 and older ask for location access without the "Allow all the time" option. Vaayil reads no GPS coordinates. |
 | **Network and Wi-Fi state** | Following network changes, and checking whether the current Wi-Fi network is secured. |
 | **Run at startup** | Connect on boot, and restarting the Wi-Fi guard after a reboot, when you've turned them on. |
 | **Foreground service** | Keeping the tunnel and the Wi-Fi guard running while you use other apps. |
