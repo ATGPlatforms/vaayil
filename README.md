@@ -143,7 +143,8 @@ limit, no in-app purchases and no ads, and Vaayil is free software under
 - **No silent copies:** Android cloud backup and device-to-device transfer are off for
   Vaayil. To move to a new phone, export an encrypted backup yourself.
 - **Wi-Fi names stay on the device:** the Wi-Fi guard reads the current network's name and
-  security type, keeps no history and never sends either anywhere.
+  security type (on Android 11 and older, it finds the security type in the list of nearby
+  Wi-Fi networks), keeps no history and never sends any of it anywhere.
 - **Exports are secrets:** an exported `.conf` file or QR code holds the profile's private
   key unencrypted, so treat it like a password.
 
