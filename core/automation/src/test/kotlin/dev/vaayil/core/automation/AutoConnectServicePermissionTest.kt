@@ -16,6 +16,7 @@ import dev.vaayil.core.model.WifiSecurity
 import dev.vaayil.core.tunnel.api.TunnelStatus
 import dev.vaayil.core.tunnel.wg.ConnectionRegistry
 import dev.vaayil.core.tunnel.wg.VpnTunnelService
+import kotlinx.coroutines.flow.flowOf
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -53,7 +54,10 @@ class AutoConnectServicePermissionTest {
         // The service's field initializer opens the automation DataStore before the service has a context; the
         // DataStore delegate needs one on first use. In the app, Application.onCreate always opens it first.
         AutomationRulesStore(app)
-        controller = Robolectric.buildService(AutoConnectService::class.java).create()
+        controller = Robolectric.buildService(AutoConnectService::class.java)
+        // Y3: these tests follow the Wi-Fi watcher, which runs only while Auto-connect on untrusted Wi-Fi is on.
+        controller.get().observeWifiGuard = { flowOf(true) }
+        controller.create()
         return controller.get()
     }
 
@@ -72,7 +76,9 @@ class AutoConnectServicePermissionTest {
         ShadowVpnService.setPrepareResult(null) // consent granted: a CONNECT may start the tunnel
         AutomationRulesStore(app) // open the DataStore in the app context first, as the service expects
         ConnectionRegistry.status.value = TunnelStatus.idle
-        controller = Robolectric.buildService(AutoConnectService::class.java).create()
+        controller = Robolectric.buildService(AutoConnectService::class.java)
+        controller.get().observeWifiGuard = { flowOf(rules.wifiGuardEnabled) }
+        controller.create()
         return controller.get().apply {
             readRules = { rules }
             readTarget = { "p1" }

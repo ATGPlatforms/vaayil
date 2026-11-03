@@ -301,9 +301,9 @@ app -> core/model, core/ui, core/config, core/tunnel-api, core/data, core/automa
   needs Location on; 8.0 redacts only the MAC), so the Wi-Fi rules pause and notification 43 names
   the first missing piece: background location, precise location, then Location on (B2; API 26's
   copy is unchanged). While it runs, `AutoConnectService` holds Vaayil's only runtime-registered
-  receiver: NOT_EXPORTED, for `LocationManager.MODE_CHANGED_ACTION` (`ContextCompat.registerReceiver`,
-  `AutoConnectService.kt:235`), unregistered once at teardown. A change re-registers the Wi-Fi
-  watcher, so turning Location on re-evaluates the current network at once. Below API 33,
+  receiver: NOT_EXPORTED, for `LocationManager.MODE_CHANGED_ACTION` (`ContextCompat.registerReceiver`
+  in `AutoConnectService.startWatching`), unregistered once at teardown. A change re-registers the Wi-Fi
+  watcher while it runs, so turning Location on re-evaluates the current network at once. Below API 33,
   NOT_EXPORTED relies on the generated `dev.vaayil.android.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION`
   in the merged manifest. A network is trusted only when its SSID is
   on the list AND it is SECURED (S4, `AutoConnectRules.decide` with `WifiSecurity`): OPEN (no
@@ -365,7 +365,13 @@ app -> core/model, core/ui, core/config, core/tunnel-api, core/data, core/automa
   on that binding holding a live tunnel).
 - The automation foreground service runs while EITHER rule is on (`AutoConnectRules.needsGuardService`):
   boot, app update (`MY_PACKAGE_REPLACED`), cold start and both Settings toggles go through that
-  predicate.
+  predicate. Its Wi-Fi watcher (`SsidWatcher`, the only reader of the Wi-Fi name and, below API 31, of
+  the scan list) runs only while Auto-connect on untrusted Wi-Fi is on (Y3): the service follows the
+  stored rule (`AutomationRulesStore.rules`), registers the watcher when the rule turns on and
+  unregisters it when the rule turns off, forgetting the Wi-Fi gate both times. With only Auto-connect
+  on mobile data on, Vaayil reads no Wi-Fi name, whatever location grants are held; rules that can't be
+  read turn the watcher off, and the service reads the rule again after 1 s, the wait doubling to at
+  most 60 s (`wifiGuardRetryDelayMs`), until a read succeeds.
 - An inclusive split-tunnel policy with no installed app is never applied: the VM refuses to save
   it and `SplitTunnelResolver` returns no restriction (everything tunnels).
 - The local-network switch is app-wide, as `SplitTunnelSelections.allowLocalNetwork`, stored with
