@@ -34,7 +34,11 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 
 /**
@@ -50,6 +54,11 @@ import kotlinx.coroutines.launch
  * on DISCONNECT), and no evaluation may kill this START_STICKY service: a store or target read that
  * throws skips its evaluation, a refused start is logged and the next evaluation still runs, and
  * anything the per-evaluation catch cannot hold reaches [scope]'s handler, which logs it.
+ *
+ * Y3: the service runs while either rule is on, but the [SsidWatcher] runs only while Auto-connect on untrusted
+ * Wi-Fi is on. [observeWifiGuard] follows the stored rule: the watcher is registered when it turns on and
+ * unregistered when it turns off, so with only Auto-connect on mobile data on nothing reads the Wi-Fi name or,
+ * below API 31, the scan list, whatever location grants are held. Rules that can't be read leave it off.
  */
 class AutoConnectService : Service() {
     private val scope = CoroutineScope(
@@ -60,7 +69,7 @@ class AutoConnectService : Service() {
     )
     private var watcher: SsidWatcher? = null
     private var mobileWatcher: MobileDataWatcher? = null
-    /** Evaluate-on-change gate for the Wi-Fi rules; M5/B2 forget it whenever the watcher re-registers. */
+    /** Evaluate-on-change gate for the Wi-Fi rules; M5/B2 forget it whenever the watcher re-registers, Y3 whenever it starts or stops. */
     internal val wifiGate = WifiChangeGate()
     /** M5/B2: the platform location state [watcher] last registered under; set in onCreate. */
     private lateinit var watchedLocationState: GuardLocationState
@@ -86,6 +95,14 @@ class AutoConnectService : Service() {
      * service, before it is attached, must not open the DataStore. Tests replace it.
      */
     internal var readRules: suspend () -> AutoConnectRules = { AutomationRulesStore(this).snapshot() }
+
+    /**
+     * Y3: whether Auto-connect on untrusted Wi-Fi is on, following the store. Called once, when the watchers start in
+     * onCreate, so constructing the service still opens no DataStore. Tests replace it before create().
+     */
+    internal var observeWifiGuard: () -> Flow<Boolean> = {
+        AutomationRulesStore(this).rules.map { it.wifiGuardEnabled }
+    }
 
     /** B1: where an evaluation resolves the connect target. Defaults to the store-backed resolver. */
     internal var readTarget: suspend () -> String? = { resolveConnectTarget(this) }
@@ -141,9 +158,9 @@ class AutoConnectService : Service() {
     }
 
     /**
-     * M5/B2: samples the platform's location state; on a change it unregisters only the Wi-Fi
-     * watcher, forgets its gate and registers it again, so its new callback is delivered the
-     * current network at once. True when the state changed. Never touches the mobile watcher.
+     * M5/B2: samples the platform's location state; on a change it unregisters only the Wi-Fi watcher
+     * (when one runs, Y3), forgets its gate and registers it again, so its new callback is delivered
+     * the current network at once. True when the state changed. Never touches the mobile watcher.
      */
     private fun refreshLocationState(): Boolean {
         val state = guardLocationState(this)
@@ -249,12 +266,41 @@ class AutoConnectService : Service() {
             ContextCompat.RECEIVER_NOT_EXPORTED,
         )
         locationReceiverRegistered = true
-        watcher = SsidWatcher(this, scope) { raw, security ->
-            evaluateWifi(raw, security)
-        }.also { it.register() }
         mobileWatcher = MobileDataWatcher(this) { mobile ->
             evaluateMobile(mobile)
         }.also { it.register() }
+        // Y3: the Wi-Fi watcher follows Auto-connect on untrusted Wi-Fi, not the service's lifetime.
+        scope.launch {
+            observeWifiGuard()
+                .catch { e ->
+                    Log.w(TAG, "rules unreadable (${e.javaClass.simpleName}); Wi-Fi watcher off")
+                    emit(false)
+                }
+                .distinctUntilChanged()
+                .collect { enabled -> setWifiWatching(enabled) }
+        }
+    }
+
+    /**
+     * Y3: starts the [SsidWatcher] when Auto-connect on untrusted Wi-Fi turns on and stops it when the rule turns
+     * off, forgetting the Wi-Fi gate both times, so a network that a late evaluation recorded cannot hide the
+     * current network from the new callback, which Android delivers at once.
+     */
+    private fun setWifiWatching(enabled: Boolean) {
+        try {
+            if (enabled && watcher == null) {
+                wifiGate.forget()
+                watcher = SsidWatcher(this, scope) { raw, security ->
+                    evaluateWifi(raw, security)
+                }.also { it.register() }
+            } else if (!enabled && watcher != null) {
+                watcher?.unregister()
+                watcher = null
+                wifiGate.forget()
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "Wi-Fi watcher update failed (${e.javaClass.simpleName})")
+        }
     }
 
     override fun onDestroy() {
