@@ -17,6 +17,7 @@ import dev.vaayil.core.tunnel.api.TunnelStatus
 import dev.vaayil.core.tunnel.wg.ConnectionRegistry
 import dev.vaayil.core.tunnel.wg.VpnTunnelService
 import java.io.IOException
+import java.time.Duration
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flow
@@ -175,7 +176,7 @@ class AutoConnectServiceWifiWatcherTest {
     }
 
     @Test
-    fun `rules that cannot be read leave the Wi-Fi watcher off`() {
+    fun `rules that cannot be read turn the Wi-Fi watcher off`() {
         created(
             flow {
                 emit(true)
@@ -189,6 +190,66 @@ class AutoConnectServiceWifiWatcherTest {
                 it.msg == "rules unreadable (IOException); Wi-Fi watcher off"
             },
         )
+    }
+
+    @Test
+    fun `rules that cannot be read are read again, and the Wi-Fi watcher follows them once they can be`() {
+        var reads = 0
+        created(
+            flow {
+                reads++
+                if (reads == 1) throw IOException("unreadable")
+                emit(true)
+            },
+        )
+        assertEquals(1, callbacks.size) // the first read failed: only the mobile-data watcher runs
+
+        shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(500))
+        assertEquals(1, reads) // not read again before the first wait ends
+        assertEquals(1, callbacks.size)
+
+        shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(500))
+        assertEquals(2, reads) // read again 1 s after the failure...
+        assertEquals(2, callbacks.size) // ...and the Wi-Fi watcher runs
+    }
+
+    @Test
+    fun `the wait before reading the rule again doubles from 1 s to at most 60 s`() {
+        assertEquals(
+            listOf(1_000L, 2_000L, 4_000L, 8_000L, 16_000L, 32_000L, 60_000L, 60_000L),
+            listOf(0L, 1L, 2L, 3L, 4L, 5L, 6L, 1_000L).map { AutoConnectService.wifiGuardRetryDelayMs(it) },
+        )
+    }
+
+    @Test
+    fun `after the service is destroyed the rule registers nothing`() {
+        val guard = MutableStateFlow(true)
+        created(guard)
+        assertEquals(2, callbacks.size)
+
+        controller.destroy()
+        idle()
+        assertEquals(0, callbacks.size) // both watchers stopped
+        guard.value = false
+        idle()
+        guard.value = true
+        idle()
+        assertEquals(0, callbacks.size)
+    }
+
+    @Test
+    fun `a pending read of the rule ends with the service`() {
+        var reads = 0
+        created(
+            flow {
+                reads++
+                throw IOException("unreadable")
+            },
+        )
+        controller.destroy()
+        shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMinutes(2))
+        assertEquals(1, reads)
+        assertEquals(0, callbacks.size)
     }
 
     @Test

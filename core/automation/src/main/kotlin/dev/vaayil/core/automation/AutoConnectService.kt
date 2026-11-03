@@ -34,11 +34,14 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.retryWhen
 import kotlinx.coroutines.launch
 
 /**
@@ -58,7 +61,8 @@ import kotlinx.coroutines.launch
  * Y3: the service runs while either rule is on, but the [SsidWatcher] runs only while Auto-connect on untrusted
  * Wi-Fi is on. [observeWifiGuard] follows the stored rule: the watcher is registered when it turns on and
  * unregistered when it turns off, so with only Auto-connect on mobile data on nothing reads the Wi-Fi name or,
- * below API 31, the scan list, whatever location grants are held. Rules that can't be read leave it off.
+ * below API 31, the scan list, whatever location grants are held. Rules that can't be read turn it off,
+ * and the rule is read again after [wifiGuardRetryDelayMs] until a read succeeds.
  */
 class AutoConnectService : Service() {
     private val scope = CoroutineScope(
@@ -82,7 +86,7 @@ class AutoConnectService : Service() {
     /**
      * B2: Location turned on or off while the service runs, the app closed. MODE_CHANGED is a
      * system broadcast, so a context receiver registered NOT_EXPORTED still gets it and no other
-     * app can fake it. The state sample re-registers the Wi-Fi watcher; the copy then follows it.
+     * app can fake it. The state sample re-registers the Wi-Fi watcher when one runs (Y3); the copy then follows it.
      */
     private val locationReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
@@ -97,8 +101,9 @@ class AutoConnectService : Service() {
     internal var readRules: suspend () -> AutoConnectRules = { AutomationRulesStore(this).snapshot() }
 
     /**
-     * Y3: whether Auto-connect on untrusted Wi-Fi is on, following the store. Called once, when the watchers start in
-     * onCreate, so constructing the service still opens no DataStore. Tests replace it before create().
+     * Y3: whether Auto-connect on untrusted Wi-Fi is on, following the store. Called when the watchers start in
+     * onCreate and again after each failed read, so constructing the service still opens no DataStore. Tests
+     * replace it before create().
      */
     internal var observeWifiGuard: () -> Flow<Boolean> = {
         AutomationRulesStore(this).rules.map { it.wifiGuardEnabled }
@@ -192,7 +197,7 @@ class AutoConnectService : Service() {
             .setOnlyAlertOnce(true)
             .build()
 
-    /** B1: one Wi-Fi evaluation; [startWatching] wires the actual watcher callback to this. */
+    /** B1: one Wi-Fi evaluation; [setWifiWatching] wires the actual watcher callback to this. */
     internal fun evaluateWifi(raw: String?, security: WifiSecurity): Job = scope.launch {
         val ssid = ssidForRules(raw, wifiNameVisible())
         if (!wifiGate.changed(ssid, security)) return@launch        // evaluate on change only
@@ -258,7 +263,7 @@ class AutoConnectService : Service() {
     }
 
     private fun startWatching() {
-        // B2: the switch's broadcast is registered with the watchers and lives as long as they do.
+        // B2: the switch's broadcast is registered with the mobile-data watcher and lives as long as the service does.
         ContextCompat.registerReceiver(
             this,
             locationReceiver,
@@ -269,12 +274,15 @@ class AutoConnectService : Service() {
         mobileWatcher = MobileDataWatcher(this) { mobile ->
             evaluateMobile(mobile)
         }.also { it.register() }
-        // Y3: the Wi-Fi watcher follows Auto-connect on untrusted Wi-Fi, not the service's lifetime.
+        // Y3: the Wi-Fi watcher follows Auto-connect on untrusted Wi-Fi, not the service's lifetime. A failed read
+        // turns it off, and the rule is read again after [wifiGuardRetryDelayMs].
         scope.launch {
-            observeWifiGuard()
-                .catch { e ->
+            flow { emitAll(observeWifiGuard()) }
+                .retryWhen { e, attempt ->
                     Log.w(TAG, "rules unreadable (${e.javaClass.simpleName}); Wi-Fi watcher off")
                     emit(false)
+                    delay(wifiGuardRetryDelayMs(attempt))
+                    true
                 }
                 .distinctUntilChanged()
                 .collect { enabled -> setWifiWatching(enabled) }
@@ -345,6 +353,12 @@ class AutoConnectService : Service() {
 
         fun start(context: Context) { context.startForegroundService(Intent(context, AutoConnectService::class.java)) }
         fun stop(context: Context) { context.stopService(Intent(context, AutoConnectService::class.java)) }
+        /**
+         * Y3: the wait before reading the Wi-Fi rule again after failed read [attempt] (counted from 0 over the
+         * service's life): 1 s, doubling each time, at most 60 s.
+         */
+        internal fun wifiGuardRetryDelayMs(attempt: Long): Long =
+            minOf(60_000L, 1_000L shl attempt.coerceIn(0L, 6L).toInt())
     }
 }
 

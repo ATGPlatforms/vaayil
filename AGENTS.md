@@ -370,7 +370,8 @@ app -> core/model, core/ui, core/config, core/tunnel-api, core/data, core/automa
   stored rule (`AutomationRulesStore.rules`), registers the watcher when the rule turns on and
   unregisters it when the rule turns off, forgetting the Wi-Fi gate both times. With only Auto-connect
   on mobile data on, Vaayil reads no Wi-Fi name, whatever location grants are held; rules that can't be
-  read leave the watcher off.
+  read turn the watcher off, and the service reads the rule again after 1 s, the wait doubling to at
+  most 60 s (`wifiGuardRetryDelayMs`), until a read succeeds.
 - An inclusive split-tunnel policy with no installed app is never applied: the VM refuses to save
   it and `SplitTunnelResolver` returns no restriction (everything tunnels).
 - The local-network switch is app-wide, as `SplitTunnelSelections.allowLocalNetwork`, stored with
