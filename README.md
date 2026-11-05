@@ -201,7 +201,7 @@ Vaayil needs Android 8.0 (API 26) or newer, and a WireGuard configuration to con
 - **F-Droid:** planned. F-Droid asks for three months of active development first, so
   Vaayil will resubmit in early 2027. The F-Droid build is set up to be reproducible, so
   F-Droid can publish the same signed APK as the GitHub release.
-- **Google Play:** planned.
+- **Google Play:** install Vaayil from its [Google Play listing](https://play.google.com/store/apps/details?id=dev.vaayil.android).
 
 To check an APK before you install it, compare its signing certificate with Vaayil's:
 
