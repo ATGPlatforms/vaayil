@@ -49,6 +49,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
+import kotlin.math.ceil
 
 /**
  * Component geometry pinned by spec §3.4.3: `PillSegmented`'s track is 52dp
@@ -222,6 +223,44 @@ class ComponentsTest {
                 left >= minimumInsetPx - 1f,
             )
         }
+    }
+
+    @Test
+    fun pillSegmentedUnwrapsWhenAWidenedSegmentFitsThePlainLabel() {
+        // Fix round 1: the wrap decision must read the label's unpadded width. Widening the
+        // segment just enough for "Secure DNS" itself — but not for it plus the 16dp inset —
+        // must return it to one line, exactly as a fresh instance at that width would render.
+        var width by mutableStateOf(280.dp)
+        var trackHeightPx = 0
+        var density = 1f
+        compose.setContent {
+            density = LocalDensity.current.density
+            AtFontScale(2f) {
+                Box(Modifier.width(width)) {
+                    PillSegmented(
+                        options = listOf("Off", "Secure DNS"),
+                        selectedIndex = 1,
+                        onSelect = {},
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .onGloballyPositioned { trackHeightPx = it.size.height },
+                    )
+                }
+            }
+        }
+        compose.waitForIdle()
+        val narrow = textLayoutOf("Secure DNS")
+        assertEquals("Secure DNS stayed on one line at 280dp", 2, narrow.lineCount)
+        // The window where the padded layout wraps but the plain label fits: a segment from
+        // the label's intrinsic width to 16dp above it. Four px above the intrinsic width is
+        // inside it.
+        val intrinsicPx = narrow.multiParagraph.maxIntrinsicWidth
+        val wideSegmentPx = ceil(intrinsicPx).toInt() + 4
+        val wideBox = with(compose.density) { (wideSegmentPx * 2 + 12 * density).toDp() }
+        compose.runOnIdle { width = wideBox }
+        compose.waitForIdle()
+        assertEquals("Secure DNS did not unwrap", 1, textLayoutOf("Secure DNS").lineCount)
+        assertEquals("track stayed ${trackHeightPx / density}dp tall", 52f, trackHeightPx / density, 0.1f)
     }
 
     @Test

@@ -40,6 +40,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextAlign
@@ -284,6 +285,9 @@ fun vellumSwitchColors() = SwitchDefaults.colors(
     uncheckedBorderColor = VellumColors.Stroke3,
 )
 
+/** The inset a wrapped segment label keeps from its segment's edges (`PillSegmented`). */
+private val WrappedLabelInset = 8.dp
+
 /**
  * Two-option pill segmenter (Exclusive / Inclusive mode switches), spec §3.4.3:
  * a container-4 track at least 52dp tall (radius 26) with the selected option as
@@ -302,6 +306,7 @@ fun PillSegmented(
     onSelect: (Int) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val labelInsetPx = with(LocalDensity.current) { WrappedLabelInset.roundToPx() }
     val trackShape = RoundedCornerShape(26.dp)
     val segmentShape = RoundedCornerShape(22.dp)
     Row(
@@ -344,18 +349,23 @@ fun PillSegmented(
                 contentAlignment = Alignment.Center,
             ) {
                 // A label that wrapped fills its segment's width, so the Box can no longer
-                // centre it line by line: centre the lines and inset the block only then.
-                // The inset only narrows the text, so a wrapped label cannot fit on one line
-                // again and the state settles (a widened segment unwraps it the same way).
+                // centre it line by line: centre the lines and inset the block only then. The
+                // decision compares the label's intrinsic width with the *unpadded* available
+                // width, not the padded layout, so a segment widened until the plain label
+                // fits unwraps it instead of keeping the inset (fix round 1).
                 var wrapped by remember(option) { mutableStateOf(false) }
                 Text(
                     option,
                     style = MaterialTheme.typography.labelLarge,
                     color = if (selected) VellumColors.OnSurface else VellumColors.OnSurfaceVariant,
-                    modifier = if (wrapped) Modifier.padding(horizontal = 8.dp) else Modifier,
+                    modifier = if (wrapped) Modifier.padding(horizontal = WrappedLabelInset) else Modifier,
                     textAlign = if (wrapped) TextAlign.Center else TextAlign.Start,
                     softWrap = true,
-                    onTextLayout = { wrapped = it.lineCount > 1 },
+                    onTextLayout = { layout ->
+                        val paddedPx = if (wrapped) 2 * labelInsetPx else 0
+                        val unpaddedWidthPx = layout.layoutInput.constraints.maxWidth + paddedPx
+                        wrapped = layout.multiParagraph.maxIntrinsicWidth > unpaddedWidthPx.toFloat()
+                    },
                 )
             }
         }
