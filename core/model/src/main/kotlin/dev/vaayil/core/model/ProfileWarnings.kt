@@ -3,12 +3,15 @@ package dev.vaayil.core.model
 import java.math.BigInteger
 import java.net.InetAddress
 
-/** IPv4's and IPv6's address spaces (2^32, 2^128) and their halves: the A4 rule's thresholds. */
+/**
+ * IPv4's and IPv6's address spaces (2^32, 2^128), their halves (the A4 rule's thresholds) and
+ * IPv6's width, shared with [dnsCoverageWarning].
+ */
 private const val V4_BITS = 32
-private const val V6_BITS = 128
-private val V4_SIZE = BigInteger.ONE.shiftLeft(V4_BITS)
+internal const val V6_BITS = 128
+internal val V4_SIZE = BigInteger.ONE.shiftLeft(V4_BITS)
 private val V4_HALF = BigInteger.ONE.shiftLeft(V4_BITS - 1)
-private val V6_SIZE = BigInteger.ONE.shiftLeft(V6_BITS)
+internal val V6_SIZE = BigInteger.ONE.shiftLeft(V6_BITS)
 private val V6_HALF = BigInteger.ONE.shiftLeft(V6_BITS - 1)
 
 /**
@@ -18,7 +21,8 @@ private val V6_HALF = BigInteger.ONE.shiftLeft(V6_BITS - 1)
  * to say.
  */
 fun Profile.warnings(): List<String> = buildList {
-    if (addressesMissRoutedFamilies()) {
+    val addressMismatch = addressesMissRoutedFamilies()
+    if (addressMismatch) {
         add("This profile won't carry connections. Its addresses don't match its Allowed IPs.")
     }
     val allowedIps = peer.allowedIps
@@ -43,14 +47,16 @@ fun Profile.warnings(): List<String> = buildList {
     // in-tunnel resolver when Secure DNS is in effect or split-DNS rules have any DNS server (DnsPlanner); a profile
     // that does not read as a tunnel is an intentional split, and T-1 covers the address mismatch.
     val routed = allowedIps.map(::isIpv6Entry).toSet()
-    if (
-        (v4 >= V4_HALF || v6 >= V6_HALF) &&
+    val dnsBypasses = (v4 >= V4_HALF || v6 >= V6_HALF) &&
         !(dns.secureInEffect || (dns.rules.isNotEmpty() && interfaceConfig.dnsServers.isNotEmpty())) &&
         interfaceConfig.dnsServers.none { isIpv6Entry(it) in routed } &&
-        !addressesMissRoutedFamilies()
-    ) {
+        !addressMismatch
+    if (dnsBypasses) {
         add("DNS lookups will bypass this tunnel. Add a DNS server to keep them in.")
     }
+    // #15: a server that exists but sits outside Allowed IPs is reached outside the tunnel too.
+    // J12 already covers the profile with no usable server at all, and T-1 covers a mismatch.
+    if (!dnsBypasses && !addressMismatch) dnsCoverageWarning()?.let { add(it) }
 }
 
 /**
@@ -63,7 +69,7 @@ fun Profile.warnings(): List<String> = buildList {
  * while either list is empty: an empty Allowed IPs is already a [validate] error, and a profile
  * with no address at all is a different problem that this copy would misdescribe.
  */
-private fun Profile.addressesMissRoutedFamilies(): Boolean {
+internal fun Profile.addressesMissRoutedFamilies(): Boolean {
     val routed = peer.allowedIps.map(::isIpv6Entry).toSet()
     val addresses = interfaceConfig.addresses
     return routed.isNotEmpty() && addresses.isNotEmpty() && addresses.none { isIpv6Entry(it) in routed }
@@ -73,7 +79,7 @@ private fun Profile.addressesMissRoutedFamilies(): Boolean {
  * A CIDR entry's family by its spelling. [validate] refuses the IPv4-mapped forms, the only ones
  * whose spelling and parsed family disagree, so for a valid profile this matches the tunnel.
  */
-private fun isIpv6Entry(entry: String): Boolean = entry.substringBefore('/').contains(':')
+internal fun isIpv6Entry(entry: String): Boolean = entry.substringBefore('/').contains(':')
 
 /** A CIDR block with host bits cleared, so equal entries share one block and containment is exact. */
 internal class CidrBlock(val network: BigInteger, val bits: Int, val prefix: Int) {
@@ -105,7 +111,7 @@ internal fun parseBlock(entry: String): CidrBlock? {
  * How many addresses of the [ipv6] family the [entries]' union covers: blocks contained in another
  * are counted once, and [BigInteger] keeps the union exact at 2^128.
  */
-private fun coveredAddressCount(entries: List<String>, ipv6: Boolean): BigInteger {
+internal fun coveredAddressCount(entries: List<String>, ipv6: Boolean): BigInteger {
     val blocks = entries.mapNotNull(::parseBlock).filter { (it.bits == V6_BITS) == ipv6 }
     val kept = mutableListOf<CidrBlock>()
     for (block in blocks.sortedBy { it.prefix }) {

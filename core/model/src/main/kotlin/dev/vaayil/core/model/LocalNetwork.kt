@@ -100,7 +100,7 @@ fun localNetworkRoutes(
 }
 
 /** A DNS server as the host route it needs: a single-address block of its family. */
-private fun dnsHostBlock(address: String): CidrBlock? =
+internal fun dnsHostBlock(address: String): CidrBlock? =
     if (isIpLiteral(address)) parseBlock("$address/${if (address.contains(':')) 128 else 32}") else null
 
 /**

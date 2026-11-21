@@ -10,6 +10,15 @@ class ProfileWarningsTest {
     private val bypassV6 = "Some IPv6 connections will bypass this tunnel. Add ::/0 to Allowed IPs to keep them in."
     private val bypassV4 = "Some IPv4 connections will bypass this tunnel. Add 0.0.0.0/0 to Allowed IPs to keep them in."
     private val dnsBypass = "DNS lookups will bypass this tunnel. Add a DNS server to keep them in."
+    private val dnsServerOutside = "DNS lookups will bypass this tunnel. Its DNS server isn't in Allowed IPs."
+    private val dnsServersOutside = "DNS lookups will bypass this tunnel. Its DNS servers aren't in Allowed IPs."
+    private val firstDnsServerOutside =
+        "DNS lookups will bypass this tunnel. Its first DNS server isn't in Allowed IPs."
+    private val laterDnsServerOutside =
+        "Some DNS lookups may bypass this tunnel. One of its DNS servers isn't in Allowed IPs."
+    private val secureServerOutside = "Secure DNS will bypass this tunnel. Its server isn't in Allowed IPs."
+    private val secureHostnameUncovered =
+        "Secure DNS will bypass this tunnel unless its server's address is in Allowed IPs."
 
     /**
      * Public IPv4 ranges only, 150 /8-equivalents (just over half of IPv4, no `/0`), plus a
@@ -39,6 +48,9 @@ class ProfileWarningsTest {
         ),
         dns = dns,
     )
+
+    private fun secure(type: SecureDnsType, endpoint: String) =
+        DnsPolicy(mode = DnsMode.SECURE, secureType = type, secureEndpoint = endpoint)
 
     @Test
     fun `IPv6 addresses under IPv4-only Allowed IPs warn`() {
@@ -97,7 +109,7 @@ class ProfileWarningsTest {
     @Test
     fun `public IPv4 export warns about absent IPv6`() {
         val p = profile(listOf("10.0.0.2/32"), publicV4)
-        assertEquals(listOf(bypassV6), p.warnings())
+        assertEquals(listOf(bypassV6, dnsServerOutside), p.warnings())
         assertEquals(emptyList<String>(), p.validate())
     }
 
@@ -136,7 +148,7 @@ class ProfileWarningsTest {
         )
         assertEquals(listOf(bypassV6), profile(listOf("10.0.0.2/32"), listOf("127.1.2.3/1")).warnings())
         assertEquals(
-            emptyList<String>(),
+            listOf(dnsServerOutside),
             profile(listOf("fd00::2/128"), listOf("::/2", "::/2", "1000::/4")).warnings(),
         )
         assertEquals(listOf(bypassV4), profile(listOf("fd00::2/128"), listOf("8000::1/1")).warnings())
@@ -145,7 +157,7 @@ class ProfileWarningsTest {
             profile(listOf("10.0.0.2/32", "fd00::2/128"), listOf("0.0.0.0/0", "8000::/1", "::/1")).warnings(),
         )
         assertEquals(
-            listOf(bypassV6, bypassV4),
+            listOf(bypassV6, bypassV4, laterDnsServerOutside),
             profile(listOf("10.0.0.2/32", "fd00::2/128"), listOf("0.0.0.0/1", "::/1")).warnings(),
         )
     }
@@ -153,7 +165,7 @@ class ProfileWarningsTest {
     @Test
     fun `invalid draft CIDRs never throw or resolve names`() {
         val junk = listOf("", "   ", "vpn.example.com/8", "example.com/0", "10.0.0.0/33", "10.0.0.0/", "::/129")
-        assertEquals(emptyList<String>(), profile(listOf("10.0.0.2/32"), junk).warnings())
+        assertEquals(listOf(dnsServersOutside), profile(listOf("10.0.0.2/32"), junk).warnings())
     }
 
     @Test
@@ -287,6 +299,190 @@ class ProfileWarningsTest {
         assertEquals(
             emptyList<String>(),
             profile(listOf("10.0.0.2/32"), emptyList(), dnsServers = emptyList()).warnings(),
+        )
+    }
+
+    @Test
+    fun `uncovered plain server warns`() {
+        val addresses = listOf("198.51.100.2/24")
+        val allowedIps = listOf("198.51.100.0/24")
+        assertEquals(
+            listOf(dnsServerOutside),
+            profile(addresses, allowedIps, dnsServers = listOf("192.0.2.53")).warnings(),
+        )
+        assertEquals(
+            emptyList<String>(),
+            profile(addresses, allowedIps, dnsServers = listOf("198.51.100.53")).warnings(),
+        )
+    }
+
+    @Test
+    fun `first outside then inside`() {
+        val addresses = listOf("198.51.100.2/24")
+        val allowedIps = listOf("198.51.100.0/24")
+        assertEquals(
+            listOf(firstDnsServerOutside),
+            profile(addresses, allowedIps, dnsServers = listOf("192.0.2.53", "198.51.100.53")).warnings(),
+        )
+        assertEquals(
+            listOf(laterDnsServerOutside),
+            profile(addresses, allowedIps, dnsServers = listOf("198.51.100.53", "192.0.2.53")).warnings(),
+        )
+        assertEquals(
+            listOf(dnsServersOutside),
+            profile(addresses, allowedIps, dnsServers = listOf("192.0.2.53", "192.0.2.54")).warnings(),
+        )
+    }
+
+    @Test
+    fun `ipv6 server outside its entry`() {
+        assertEquals(
+            listOf(dnsServerOutside),
+            profile(
+                listOf("2001:db8:1::2/64"),
+                listOf("2001:db8:1::/48"),
+                dnsServers = listOf("2001:db8::53"),
+            ).warnings(),
+        )
+    }
+
+    @Test
+    fun `unrouted family is silent in a plain profile`() {
+        assertEquals(
+            emptyList<String>(),
+            profile(
+                listOf("198.51.100.2/24"),
+                listOf("198.51.100.0/24"),
+                dnsServers = listOf("2001:db8::53"),
+            ).warnings(),
+        )
+    }
+
+    @Test
+    fun `intercepting with an open unrouted family warns`() {
+        assertEquals(
+            listOf(dnsServerOutside),
+            profile(
+                listOf("198.51.100.2/24"),
+                listOf("198.51.100.0/24"),
+                dnsServers = listOf("2001:db8::53"),
+                dns = DnsPolicy(rules = listOf(DnsSplitRule("corp.example", bypass = false))),
+            ).warnings(),
+        )
+    }
+
+    @Test
+    fun `intercepting with a closed family is silent`() {
+        assertEquals(
+            emptyList<String>(),
+            profile(
+                listOf("198.51.100.2/24"),
+                listOf("0.0.0.0/0"),
+                dnsServers = listOf("2001:db8::53"),
+                dns = DnsPolicy(rules = listOf(DnsSplitRule("corp.example", bypass = false))),
+            ).warnings(),
+        )
+    }
+
+    @Test
+    fun `doh and dot literals`() {
+        val v4 = listOf("198.51.100.2/24")
+        val v4Allowed = listOf("198.51.100.0/24")
+        val v6 = listOf("2001:db8:1::2/64")
+        val v6Allowed = listOf("2001:db8:1::/48")
+        assertEquals(
+            listOf(secureServerOutside),
+            profile(v4, v4Allowed, emptyList(), secure(SecureDnsType.DOH, "https://192.0.2.1/dns-query")).warnings(),
+        )
+        assertEquals(
+            listOf(secureServerOutside),
+            profile(v4, v4Allowed, emptyList(), secure(SecureDnsType.DOT, "192.0.2.1:853")).warnings(),
+        )
+        assertEquals(
+            listOf(secureServerOutside),
+            profile(v6, v6Allowed, emptyList(), secure(SecureDnsType.DOT, "[2001:db8::1]:853")).warnings(),
+        )
+        assertEquals(
+            emptyList<String>(),
+            profile(v4, v4Allowed, emptyList(), secure(SecureDnsType.DOH, "https://198.51.100.1/dns-query")).warnings(),
+        )
+        assertEquals(
+            emptyList<String>(),
+            profile(v4, v4Allowed, emptyList(), secure(SecureDnsType.DOT, "198.51.100.1:853")).warnings(),
+        )
+        assertEquals(
+            emptyList<String>(),
+            profile(v6, v6Allowed, emptyList(), secure(SecureDnsType.DOT, "[2001:db8:1::1]:853")).warnings(),
+        )
+    }
+
+    @Test
+    fun `hostname endpoint is conditional`() {
+        val hostname = secure(SecureDnsType.DOH, "https://dns.example/dns-query")
+        assertEquals(
+            listOf(secureHostnameUncovered),
+            profile(listOf("198.51.100.2/24"), listOf("198.51.100.0/24"), emptyList(), hostname).warnings(),
+        )
+        assertEquals(
+            emptyList<String>(),
+            profile(listOf("10.0.0.2/32"), listOf("0.0.0.0/0", "::/0"), emptyList(), hostname).warnings(),
+        )
+        assertEquals(
+            emptyList<String>(),
+            profile(
+                listOf("10.0.0.2/32"),
+                listOf("0.0.0.0/1", "128.0.0.0/1", "::/0"),
+                emptyList(),
+                hostname,
+            ).warnings(),
+        )
+        assertEquals(
+            emptyList<String>(),
+            profile(listOf("10.0.0.2/32"), listOf("0.0.0.0/0"), emptyList(), hostname).warnings(),
+        )
+    }
+
+    @Test
+    fun `silent under T-1`() {
+        assertEquals(
+            listOf(mismatch),
+            profile(
+                listOf("10.0.0.2/32"),
+                listOf("2001:db8::/32"),
+                dnsServers = listOf("2001:db9::53"),
+            ).warnings(),
+        )
+    }
+
+    @Test
+    fun `never together with J12`() {
+        assertEquals(
+            listOf(bypassV6, dnsBypass),
+            profile(
+                listOf("10.0.0.2/32"),
+                listOf("0.0.0.0/1", "128.0.0.0/1"),
+                dnsServers = listOf("fd00::53"),
+            ).warnings(),
+        )
+    }
+
+    @Test
+    fun `interface subnet is silent`() {
+        assertEquals(
+            emptyList<String>(),
+            profile(listOf("10.8.0.2/24"), listOf("198.51.100.0/24"), dnsServers = listOf("10.8.0.1")).warnings(),
+        )
+    }
+
+    @Test
+    fun `half-typed entries never throw and never resolve`() {
+        assertEquals(
+            listOf(dnsServerOutside),
+            profile(
+                listOf("198.51.100.2/24"),
+                listOf("198.51.100.", "2001:db8::/", "198.51.100.0/24"),
+                dnsServers = listOf("dns.example", "192.0.2.53"),
+            ).warnings(),
         )
     }
 }
