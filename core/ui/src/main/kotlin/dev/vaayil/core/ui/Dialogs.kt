@@ -5,10 +5,13 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.remember
@@ -38,7 +41,13 @@ fun ScrimDialog(
 ) {
     Dialog(
         onDismissRequest = onDismissRequest,
-        properties = DialogProperties(usePlatformDefaultWidth = false),
+        properties = DialogProperties(
+            usePlatformDefaultWidth = false,
+            // w8: the window must not fit the system windows, or the platform pans it under
+            // the keyboard and the sheet never shrinks. With this off, the insets below carry
+            // the keyboard (and the bars) into the layout.
+            decorFitsSystemWindows = false,
+        ),
     ) {
         // The token scrim renders exactly once: the platform dim is zeroed so the
         // lifted sheet floats over `Scrim`, not scrim-over-platform-dim (DESIGN.md §3).
@@ -55,6 +64,9 @@ fun ScrimDialog(
                     indication = null,
                     onClick = onDismissRequest,
                 )
+                // The scrim stays full-bleed; the sheet lays out clear of the bars and the
+                // keyboard, so a dialog's scroll area shrinks and its buttons stay visible (w8).
+                .windowInsetsPadding(WindowInsets.safeDrawing)
                 .padding(24.dp),
             contentAlignment = Alignment.Center,
         ) {

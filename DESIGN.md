@@ -371,6 +371,9 @@ carry no seam), wordmark at titleLarge, quiet gear.
 ### Dialogs and overlays
 Dialogs, dropdowns and the QR share are lifted sheets over the scrim; the QR
 ink is pinned `#3E5A42` (7.65:1 on a pure-white mat with a 20dp quiet zone).
+The scrim covers the system bars, and the sheet lays out inside
+`WindowInsets.safeDrawing` — the keyboard included — so a dialog's scroll area
+shrinks and its buttons stay visible (w8).
 Warning and error cards use their semantic surfaces with a
 `warning-mark`/`error-mark` seam; warning body text is `on-warning`, never
 the mark.
