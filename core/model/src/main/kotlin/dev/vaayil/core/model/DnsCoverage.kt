@@ -10,6 +10,8 @@ private const val FIRST_DNS_SERVER_OUTSIDE =
     "DNS lookups will bypass this tunnel. Its first DNS server isn't in Allowed IPs."
 private const val LATER_DNS_SERVER_OUTSIDE =
     "DNS lookups may bypass this tunnel. One DNS server isn't in Allowed IPs."
+private const val LATER_DNS_SERVERS_OUTSIDE =
+    "DNS lookups may bypass this tunnel. Some DNS servers aren't in Allowed IPs."
 private const val SECURE_SERVER_OUTSIDE =
     "Secure DNS will bypass this tunnel. Its server isn't in Allowed IPs."
 private const val SECURE_HOSTNAME_UNCOVERED =
@@ -74,7 +76,8 @@ internal fun Profile.dnsCoverageWarning(): String? {
         outside.none { it } -> null
         outside.all { it } -> if (checked.size == 1) DNS_SERVER_OUTSIDE else DNS_SERVERS_OUTSIDE
         outside.first() -> FIRST_DNS_SERVER_OUTSIDE
-        else -> LATER_DNS_SERVER_OUTSIDE
+        outside.count { it } == 1 -> LATER_DNS_SERVER_OUTSIDE
+        else -> LATER_DNS_SERVERS_OUTSIDE
     }
 }
 

@@ -44,6 +44,8 @@ class ProfileWarningFitTest {
         "DNS lookups will bypass this tunnel. Its first DNS server isn't in Allowed IPs."
     private val laterDnsServerOutside =
         "DNS lookups may bypass this tunnel. One DNS server isn't in Allowed IPs."
+    private val laterDnsServersOutside =
+        "DNS lookups may bypass this tunnel. Some DNS servers aren't in Allowed IPs."
     private val secureServerOutside = "Secure DNS will bypass this tunnel. Its server isn't in Allowed IPs."
     private val secureHostnameUncovered =
         "Secure DNS will bypass this tunnel unless its server is in Allowed IPs."
@@ -113,6 +115,10 @@ class ProfileWarningFitTest {
                 "later", "Later", "198.51.100.2/24",
                 dnsServers = listOf("198.51.100.53", "192.0.2.53"), allowedIps = allowedIps,
             ) to laterDnsServerOutside,
+            profile(
+                "later-many", "Later many", "198.51.100.2/24",
+                dnsServers = listOf("198.51.100.53", "192.0.2.53", "192.0.2.54"), allowedIps = allowedIps,
+            ) to laterDnsServersOutside,
             profile(
                 "secure", "Secure", "198.51.100.2/24",
                 dnsServers = emptyList(), allowedIps = allowedIps,

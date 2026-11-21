@@ -16,6 +16,8 @@ class ProfileWarningsTest {
         "DNS lookups will bypass this tunnel. Its first DNS server isn't in Allowed IPs."
     private val laterDnsServerOutside =
         "DNS lookups may bypass this tunnel. One DNS server isn't in Allowed IPs."
+    private val laterDnsServersOutside =
+        "DNS lookups may bypass this tunnel. Some DNS servers aren't in Allowed IPs."
     private val secureServerOutside = "Secure DNS will bypass this tunnel. Its server isn't in Allowed IPs."
     private val secureHostnameUncovered =
         "Secure DNS will bypass this tunnel unless its server is in Allowed IPs."
@@ -331,6 +333,20 @@ class ProfileWarningsTest {
         assertEquals(
             listOf(dnsServersOutside),
             profile(addresses, allowedIps, dnsServers = listOf("192.0.2.53", "192.0.2.54")).warnings(),
+        )
+    }
+
+    @Test
+    fun `first inside then two or more outside`() {
+        val addresses = listOf("198.51.100.2/24")
+        val allowedIps = listOf("198.51.100.0/24")
+        assertEquals(
+            listOf(laterDnsServersOutside),
+            profile(addresses, allowedIps, dnsServers = listOf("198.51.100.53", "192.0.2.53", "192.0.2.54")).warnings(),
+        )
+        assertEquals(
+            listOf(laterDnsServerOutside),
+            profile(addresses, allowedIps, dnsServers = listOf("198.51.100.53", "192.0.2.53", "198.51.100.54")).warnings(),
         )
     }
 

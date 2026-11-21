@@ -270,11 +270,12 @@ app -> core/model, core/ui, core/config, core/tunnel-api, core/data, core/automa
   its note only when J12 did not fire and T-1 is false. A literal is outside when no Allowed IPs
   entry of its family contains it, that family is not closed and no interface subnet of a routed
   family holds it; a hostname secure endpoint warns unless every open family is covered. It never
-  resolves a name and never blocks Save. Its six strings:
+  resolves a name and never blocks Save. Its seven strings:
   "DNS lookups will bypass this tunnel. Its DNS server isn't in Allowed IPs.",
   "DNS lookups will bypass this tunnel. Its DNS servers aren't in Allowed IPs.",
   "DNS lookups will bypass this tunnel. Its first DNS server isn't in Allowed IPs.",
   "DNS lookups may bypass this tunnel. One DNS server isn't in Allowed IPs.",
+  "DNS lookups may bypass this tunnel. Some DNS servers aren't in Allowed IPs.",
   "Secure DNS will bypass this tunnel. Its server isn't in Allowed IPs." and
   "Secure DNS will bypass this tunnel unless its server is in Allowed IPs."
 - Lockdown doesn't stop offloaded keepalives either (X1): any app with ordinary network permissions (the public
