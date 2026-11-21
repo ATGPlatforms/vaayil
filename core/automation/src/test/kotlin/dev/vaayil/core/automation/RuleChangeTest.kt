@@ -31,6 +31,7 @@ import org.robolectric.Robolectric
 import org.robolectric.Shadows.shadowOf
 import org.robolectric.android.controller.ServiceController
 import org.robolectric.annotation.Config
+import org.robolectric.shadows.ShadowLog
 import org.robolectric.shadows.ShadowVpnService
 
 /**
@@ -226,6 +227,7 @@ class AutoConnectServiceRuleChangeTest {
         ShadowVpnService.setPrepareResult(null) // consent granted: a CONNECT may start the tunnel
         AutomationRulesStore(app) // open the DataStore in the app context first, as the service expects
         ConnectionRegistry.status.value = TunnelStatus.idle
+        ShadowLog.clear()
     }
 
     @After
@@ -300,6 +302,22 @@ class AutoConnectServiceRuleChangeTest {
     }
 
     @Test
+    fun `the first rules read acts on nothing on cellular too`() {
+        val rules = AutoConnectRules(autoConnectOnMobileData = false)
+        val service = created() // the stream has not emitted yet
+        current = rules
+        // lastMobile survives watcher transitions, so a first read would reach a mobile comparison.
+        runBlocking { service.evaluateMobile(true).join() } // the mobile rule is off: NONE
+        val before = recording()
+
+        // The first read turns the mobile rule on: a comparison against defaults would connect.
+        observed.tryEmit(rules.copy(autoConnectOnMobileData = true))
+        idle()
+
+        assertNoNewCommands(before)
+    }
+
+    @Test
     fun `an edit that leaves the answer alone acts on nothing`() {
         val rules = AutoConnectRules(wifiGuardEnabled = true, trustedSsids = setOf("Home"))
         val service = created()
@@ -354,6 +372,38 @@ class AutoConnectServiceRuleChangeTest {
     }
 
     @Test
+    fun `a failed read then a good read acts on nothing on cellular too`() {
+        val good = AutoConnectRules(autoConnectOnMobileData = false)
+        val actionable = good.copy(autoConnectOnMobileData = true)
+        var subscriptions = 0
+        controller = Robolectric.buildService(AutoConnectService::class.java)
+        starts = RecordingStarts(app)
+        controller.get().apply {
+            observeRules = {
+                flow {
+                    subscriptions++
+                    emit(if (subscriptions == 1) good else actionable)
+                    if (subscriptions == 1) throw IOException("unreadable")
+                }
+            }
+            readRules = { good }
+            readTarget = { "p1" }
+            tunnelCommands = BackgroundTunnelCommands(starts)
+        }
+        controller.create()
+        idle()
+        runBlocking { controller.get().evaluateMobile(true).join() } // the mobile rule is off: NONE
+        val before = recording()
+
+        // The failure forgets the previous rules; 1 s later the good read arrives with the rule on,
+        // and is not compared (it would connect against the first read).
+        shadowOf(Looper.getMainLooper()).idleFor(Duration.ofSeconds(2))
+
+        assertEquals(2, subscriptions)
+        assertNoNewCommands(before)
+    }
+
+    @Test
     fun `an edit that changes the answer disconnects`() {
         val rules = AutoConnectRules(wifiGuardEnabled = true, trustedSsids = setOf("Home"))
         val service = created()
@@ -391,6 +441,55 @@ class AutoConnectServiceRuleChangeTest {
         val started = shadowOf(app).nextStartedService
         assertEquals(VpnTunnelService.ACTION_CONNECT, started?.action)
         assertEquals("p1", started?.getStringExtra(VpnTunnelService.EXTRA_PROFILE_ID))
+    }
+
+    @Test
+    fun `adding the current secured network to the list with the rule on disconnects`() {
+        val rules = AutoConnectRules(
+            wifiGuardEnabled = true,
+            trustedSsids = emptySet(),
+            disconnectOnTrusted = true,
+        )
+        val service = created()
+        observed.tryEmit(rules)
+        idle()
+        current = rules
+        ConnectionRegistry.status.value = TunnelStatus(ConnectionPhase.CONNECTED, "p1", null)
+        runBlocking { service.evaluateWifi("Home", WifiSecurity.SECURED).join() } // untrusted: NONE
+        val before = recording()
+
+        observed.tryEmit(rules.copy(trustedSsids = setOf("Home")))
+        awaitDisconnects(before.disconnects + 1)
+
+        assertEquals(
+            listOf(VpnTunnelService.ACTION_DISCONNECT),
+            starts.disconnectIntents.map { it.action },
+        )
+        assertEquals("no connect", before.connects, starts.foregroundStarts)
+    }
+
+    @Test
+    fun `removing the current network from the list while disconnected connects`() {
+        val rules = AutoConnectRules(wifiGuardEnabled = true, trustedSsids = setOf("Home"))
+        val service = created()
+        observed.tryEmit(rules)
+        idle()
+        current = rules
+        ConnectionRegistry.status.value = TunnelStatus.idle
+        runBlocking { service.evaluateWifi("Home", WifiSecurity.SECURED).join() } // trusted: NONE
+        val before = recording()
+
+        observed.tryEmit(rules.copy(trustedSsids = emptySet()))
+        awaitConnects(before.connects + 1)
+
+        val started = shadowOf(app).nextStartedService
+        assertEquals(VpnTunnelService.ACTION_CONNECT, started?.action)
+        assertEquals("p1", started?.getStringExtra(VpnTunnelService.EXTRA_PROFILE_ID))
+        assertTrue(
+            ShadowLog.getLogsForTag("BackgroundTunnelCommands").any {
+                it.msg == "connect sent (Wi-Fi rule, KEEP_ANY)"
+            },
+        )
     }
 
     @Test
