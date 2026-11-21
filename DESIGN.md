@@ -328,6 +328,9 @@ review 2026-09-21, C9). The segmented control is a
 `container-4` pill at least 52dp; at large text a segment grows and its label
 wraps (F29). Its selected segment is a *lifted* canvas pill — physically raised,
 not recolored — with radio semantics.
+The editor's two Allowed IPs quick buttons sit side by side while both labels fit
+on one line in half the row; otherwise they stack, each full width, rather than
+break a word (w39).
 A saved profile row keeps its controls beside the text only while the text's
 longest unbreakable piece — a whole word of the name or a whole machine-value
 segment — fits beside them, or when its endpoint would need more than two lines

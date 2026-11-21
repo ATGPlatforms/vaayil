@@ -103,6 +103,18 @@ class EditorScreenshotTest {
         compose.onRoot().captureRoboImage("src/testDebug/snapshots/editor-dns-font2-w360dp.png")
     }
 
+    @Test
+    @Config(qualifiers = "w360dp-h800dp")
+    fun editorScopeFont2() {
+        // w39: at font scale 2.0 the two Allowed IPs quick buttons stack, each full width.
+        showEditor(fontScale = 2f)
+        // Frame both stacked buttons: the DNS sheet's heading below them pulls the pair clear
+        // of the screen's bottom edge.
+        compose.onAllNodesWithText("Secure DNS").onFirst().performScrollTo()
+        compose.waitForIdle()
+        compose.onRoot().captureRoboImage("src/testDebug/snapshots/editor-scope-font2-w360dp.png")
+    }
+
     private fun showEditor(privateDnsHost: String? = null, fontScale: Float = 1f) {
         compose.setContent {
             VaayilTheme.Content {
