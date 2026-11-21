@@ -56,7 +56,7 @@ class AutoConnectServicePermissionTest {
         AutomationRulesStore(app)
         controller = Robolectric.buildService(AutoConnectService::class.java)
         // Y3: these tests follow the Wi-Fi watcher, which runs only while Auto-connect on untrusted Wi-Fi is on.
-        controller.get().observeWifiGuard = { flowOf(true) }
+        controller.get().observeRules = { flowOf(AutoConnectRules(wifiGuardEnabled = true)) }
         controller.create()
         return controller.get()
     }
@@ -77,7 +77,7 @@ class AutoConnectServicePermissionTest {
         AutomationRulesStore(app) // open the DataStore in the app context first, as the service expects
         ConnectionRegistry.status.value = TunnelStatus.idle
         controller = Robolectric.buildService(AutoConnectService::class.java)
-        controller.get().observeWifiGuard = { flowOf(rules.wifiGuardEnabled) }
+        controller.get().observeRules = { flowOf(rules) }
         controller.create()
         return controller.get().apply {
             readRules = { rules }

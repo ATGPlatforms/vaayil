@@ -400,6 +400,9 @@ app -> core/model, core/ui, core/config, core/tunnel-api, core/data, core/automa
   on mobile data on, Vaayil reads no Wi-Fi name, whatever location grants are held; rules that can't be
   read turn the watcher off, and the service reads the rule again after 1 s, the wait doubling to at
   most 60 s (`wifiGuardRetryDelayMs`), until a read succeeds.
+  A rule edit acts at once only when it changes the decision for the current network (the last
+  network the watchers reported); otherwise the user's own Connect or Disconnect stands. The first
+  rules read after the service starts, and the first good read after a failed one, never act.
 - An inclusive split-tunnel policy with no installed app is never applied: the VM refuses to save
   it and `SplitTunnelResolver` returns no restriction (everything tunnels).
 - The local-network switch is app-wide, as `SplitTunnelSelections.allowLocalNetwork`, stored with
