@@ -76,6 +76,7 @@ import org.robolectric.shadows.ShadowVpnService
 class VpnTunnelServiceTest {
     private val context: Context get() = ApplicationProvider.getApplicationContext()
     private val connected = mutableListOf<String>()
+    private val modes = mutableListOf<ConnectMode>()
     private val controlJob = SupervisorJob()
     private var stopCalls = 0
 
@@ -110,7 +111,7 @@ class VpnTunnelServiceTest {
     ) {
         VpnTunnelService.controlOverride = TunnelControl(
             scope = CoroutineScope(controlJob + Dispatchers.Unconfined),
-            connectOp = { _, id, _ -> connected += id; outcome },
+            connectOp = { _, id, _, mode -> connected += id; modes += mode; outcome },
             statusNow = { status },
             stopOp = stopOp,
             failedSwitchOp = failedSwitch,
@@ -142,9 +143,12 @@ class VpnTunnelServiceTest {
     /** Joins every coroutine the scripted control launched, so assertions observe their settled state. */
     private fun awaitControl() = runBlocking { withTimeout(5_000) { controlJob.children.toList().joinAll() } }
 
-    private fun connectIntent(profileId: String? = null): Intent =
+    private fun connectIntent(profileId: String? = null, modeExtra: String? = null): Intent =
         Intent(context, VpnTunnelService::class.java).setAction(VpnTunnelService.ACTION_CONNECT)
-            .apply { if (profileId != null) putExtra(VpnTunnelService.EXTRA_PROFILE_ID, profileId) }
+            .apply {
+                if (profileId != null) putExtra(VpnTunnelService.EXTRA_PROFILE_ID, profileId)
+                if (modeExtra != null) putExtra(VpnTunnelService.EXTRA_CONNECT_MODE, modeExtra)
+            }
 
     private fun resumeIntent(id: String): Intent =
         connectIntent(id).putExtra(VpnTunnelService.EXTRA_RESUME, true)
@@ -443,6 +447,71 @@ class VpnTunnelServiceTest {
         assertEquals(4, shadowOf(service).stopSelfId)
 
         assertEquals(listOf("last", "last"), connected)
+    }
+
+    @Test
+    fun `a connect mode extra reaches the control`() {
+        installControl(StartOutcome.KEPT, TunnelStatus(ConnectionPhase.CONNECTED, "p", null))
+
+        builtService().onStartCommand(connectIntent("p", modeExtra = "KEEP_SAME"), 0, 6)
+        awaitControl()
+
+        assertEquals(listOf(ConnectMode.KEEP_SAME), modes)
+    }
+
+    @Test
+    fun `a connect without a mode extra is RESTART`() {
+        installControl(StartOutcome.STARTED, TunnelStatus(ConnectionPhase.CONNECTED, "p", null))
+
+        builtService().onStartCommand(connectIntent("p"), 0, 6)
+        awaitControl()
+
+        assertEquals(listOf(ConnectMode.RESTART), modes)
+    }
+
+    @Test
+    fun `a system or null-intent start asks for KEEP_ANY`() = runBlocking {
+        ActiveProfileStore(context).setLastConnected("last")
+        installControl(StartOutcome.KEPT, TunnelStatus(ConnectionPhase.CONNECTED, "last", null))
+        val service = builtService()
+
+        val alwaysOn = Intent(context, VpnTunnelService::class.java)
+            .setAction(android.net.VpnService.SERVICE_INTERFACE)
+        service.onStartCommand(alwaysOn, 0, 3)
+        service.onStartCommand(null, 0, 4)
+        awaitControl()
+
+        assertEquals(listOf(ConnectMode.KEEP_ANY, ConnectMode.KEEP_ANY), modes)
+    }
+
+    @Test
+    fun `a crash resume is RESTART`() {
+        installControl(StartOutcome.STARTED, TunnelStatus(ConnectionPhase.CONNECTED, "b", null))
+
+        builtService().onStartCommand(resumeIntent("b"), 0, 6)
+        awaitControl()
+
+        assertEquals(listOf(ConnectMode.RESTART), modes)
+    }
+
+    @Test
+    fun `a kept connect releases its start request and takes no record`() {
+        val asked = mutableListOf<String>()
+        installControl(
+            StartOutcome.KEPT,
+            TunnelStatus(ConnectionPhase.CONNECTED, "home", null),
+            failedSwitch = { id -> asked += id; SwitchFailure("Home", "Work", unresolved = false) },
+            restartRefusal = { id -> asked += id; RestartRefusal("Home", "its DNS server name didn't resolve") },
+        )
+        val service = builtService()
+
+        service.onStartCommand(connectIntent("home", modeExtra = "KEEP_SAME"), 0, 14)
+        awaitControl()
+
+        assertEquals(14, shadowOf(service).stopSelfId)
+        assertTrue(shadowOf(service).isStoppedBySelf)
+        assertTrue(asked.isEmpty())
+        assertEquals(0, stopCalls)
     }
 
     @Test
@@ -783,7 +852,7 @@ class VpnTunnelServiceTest {
         val gate = CompletableDeferred<StartOutcome>()
         VpnTunnelService.controlOverride = TunnelControl(
             scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined),
-            connectOp = { _, id, _ -> connected += id; gate.await() },
+            connectOp = { _, id, _, mode -> connected += id; modes += mode; gate.await() },
             statusNow = { TunnelStatus(ConnectionPhase.CONNECTED, "p", null) },
             stopOp = {},
         )

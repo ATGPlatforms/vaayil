@@ -105,13 +105,19 @@ object EngineProvider {
      * that fails. All connect paths (UI, boot, Wi-Fi guard, automation) use this funnel.
      * STARTED: the engine's own start for this request settled CONNECTED for this profile (A6:
      * never a status read afterwards, which a start queued behind it may have overwritten);
-     * only then are the active and last-connected records updated. FAILED: anything else; the
-     * pointers keep whatever they held. [admit] runs after the profile lookup and immediately
-     * before the engine call, with no suspension between them (J3: the crash resume passes the
-     * gate here, so a disconnect that landed during the lookup still wins); false returns
-     * REFUSED with no engine call and no pointer write.
+     * only then are the active and last-connected records updated. KEPT (#14): [mode] asked to
+     * keep a live tunnel and the engine did, so nothing started and nothing is written, the
+     * records included. FAILED: anything else; the pointers keep whatever they held. [admit] runs
+     * after the profile lookup and immediately before the engine call, with no suspension between
+     * them (J3: the crash resume passes the gate here, so a disconnect that landed during the
+     * lookup still wins); false returns REFUSED with no engine call and no pointer write.
      */
-    suspend fun connectById(context: Context, profileId: String, admit: () -> Boolean = { true }): StartOutcome {
+    suspend fun connectById(
+        context: Context,
+        profileId: String,
+        admit: () -> Boolean = { true },
+        mode: ConnectMode = ConnectMode.RESTART,
+    ): StartOutcome {
         val current = engine ?: return StartOutcome.REFUSED
         val store = ActiveProfileStore(context)
         val profile = current.profileLookupFor(profileId)
@@ -120,7 +126,7 @@ object EngineProvider {
             return StartOutcome.REFUSED
         }
         if (!admit()) return StartOutcome.REFUSED
-        val outcome = current.startWithOutcome(profile)
+        val outcome = current.startWithOutcome(profile, mode)
         if (outcome == StartOutcome.STARTED) {
             store.setActive(profileId)
             // Teardown clears ACTIVE (fail-closed) but never lastConnected: the Wi-Fi

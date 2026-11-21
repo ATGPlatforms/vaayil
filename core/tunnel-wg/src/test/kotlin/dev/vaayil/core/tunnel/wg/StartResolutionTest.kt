@@ -41,4 +41,18 @@ class StartResolutionTest {
         assertEquals(StartOutcome.FAILED, startOutcome(TunnelStatus(ConnectionPhase.CONNECTED, "work", null), "home"))
         assertEquals(StartOutcome.FAILED, startOutcome(TunnelStatus(ConnectionPhase.FAILED, "home", TunnelError.HandshakeTimeout), "home"))
     }
+
+    @Test
+    fun `a connect mode extra is read only for a known name`() {
+        assertEquals(ConnectMode.RESTART, connectModeOf(connect, null))
+        assertEquals(ConnectMode.RESTART, connectModeOf(connect, "bogus"))
+        assertEquals(ConnectMode.KEEP_ANY, connectModeOf(connect, "KEEP_ANY"))
+        assertEquals(ConnectMode.KEEP_SAME, connectModeOf(connect, "KEEP_SAME"))
+    }
+
+    @Test
+    fun `a system or null-action start asks to keep any tunnel`() {
+        assertEquals(ConnectMode.KEEP_ANY, connectModeOf(null, null))
+        assertEquals(ConnectMode.KEEP_ANY, connectModeOf(alwaysOn, null))
+    }
 }

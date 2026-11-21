@@ -24,7 +24,7 @@ import kotlinx.coroutines.launch
  */
 class TunnelControl(
     private val scope: CoroutineScope,
-    private val connectOp: suspend (Context, String, () -> Boolean) -> StartOutcome,
+    private val connectOp: suspend (Context, String, () -> Boolean, ConnectMode) -> StartOutcome,
     private val statusNow: () -> TunnelStatus,
     private val stopOp: suspend () -> Unit,
     private val reconcileOp: suspend () -> Unit = {},
@@ -41,18 +41,20 @@ class TunnelControl(
      * ignores the trailing stopSelf). Each connect whose work ends — by returning or by throwing —
      * counts as settled for the quick controls' duplicate guard. [admit] is the caller's last
      * check before the engine is touched (J3: the crash resume passes the gate here); [start]
-     * builds the Job lazily so a refused resume is dropped before [connectOp] ever runs. Returns
-     * the connect's Job.
+     * builds the Job lazily so a refused resume is dropped before [connectOp] ever runs. [mode]
+     * is the intent's connect mode (#14); a kept outcome counts as settled like any other.
+     * Returns the connect's Job.
      */
     fun connect(
         context: Context,
         profileId: String,
         start: CoroutineStart = CoroutineStart.DEFAULT,
         admit: () -> Boolean = { true },
+        mode: ConnectMode = ConnectMode.RESTART,
         onSettled: (StartOutcome, TunnelStatus) -> Unit = { _, _ -> },
     ): Job =
         scope.launch(start = start) {
-            val outcome = try { connectOp(context, profileId, admit) } finally { noteConnectSettled() }
+            val outcome = try { connectOp(context, profileId, admit, mode) } finally { noteConnectSettled() }
             onSettled(outcome, statusNow())
         }
 
@@ -92,7 +94,7 @@ class TunnelControl(
         val Default: TunnelControl by lazy {
             TunnelControl(
                 scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate),
-                connectOp = { context, profileId, admit -> EngineProvider.connectById(context, profileId, admit) },
+                connectOp = { context, profileId, admit, mode -> EngineProvider.connectById(context, profileId, admit, mode) },
                 statusNow = { EngineProvider.engine?.status?.value ?: TunnelStatus.idle },
                 stopOp = { EngineProvider.engine?.stop() },
                 reconcileOp = { EngineProvider.engine?.reconcile() },

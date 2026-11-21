@@ -44,7 +44,7 @@ class TunnelControlTest {
         val callerScope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined)
         val control = TunnelControl(
             scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined),
-            connectOp = { _, _, _ ->
+            connectOp = { _, _, _, _ ->
                 started.complete(Unit)
                 release.await() // the establish window: the service dies here in the field
                 StartOutcome.STARTED
@@ -75,7 +75,7 @@ class TunnelControlTest {
         val callerScope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined)
         val control = TunnelControl(
             scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined),
-            connectOp = { _, _, _ -> StartOutcome.REFUSED },
+            connectOp = { _, _, _, _ -> StartOutcome.REFUSED },
             statusNow = { TunnelStatus.idle },
             stopOp = {
                 started.complete(Unit)
@@ -98,7 +98,7 @@ class TunnelControlTest {
         val settled = CompletableDeferred<Unit>()
         val control = TunnelControl(
             scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined),
-            connectOp = { _, _, _ -> StartOutcome.REFUSED },
+            connectOp = { _, _, _, _ -> StartOutcome.REFUSED },
             statusNow = { TunnelStatus.idle },
             stopOp = { order += "stop" },
         )
@@ -113,7 +113,7 @@ class TunnelControlTest {
         val settled = CompletableDeferred<Unit>()
         val control = TunnelControl(
             scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined),
-            connectOp = { _, _, _ -> StartOutcome.REFUSED },
+            connectOp = { _, _, _, _ -> StartOutcome.REFUSED },
             statusNow = { TunnelStatus.idle },
             stopOp = { order += "stop" },
         )
@@ -128,7 +128,7 @@ class TunnelControlTest {
         val settled = CompletableDeferred<Unit>()
         val control = TunnelControl(
             scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined),
-            connectOp = { _, _, _ -> StartOutcome.REFUSED },
+            connectOp = { _, _, _, _ -> StartOutcome.REFUSED },
             statusNow = { TunnelStatus.idle },
             stopOp = { order += "stop" },
         )
@@ -147,7 +147,7 @@ class TunnelControlTest {
         val settled = CompletableDeferred<Unit>()
         val control = TunnelControl(
             scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined),
-            connectOp = { _, _, _ ->
+            connectOp = { _, _, _, _ ->
                 order += "connect"
                 connectRunning.complete(Unit)
                 releaseConnect.await() // the resume's establish window
@@ -185,7 +185,7 @@ class TunnelControlTest {
         var connectCalls = 0
         val control = TunnelControl(
             scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined),
-            connectOp = { _, _, _ -> connectCalls += 1; StartOutcome.REFUSED },
+            connectOp = { _, _, _, _ -> connectCalls += 1; StartOutcome.REFUSED },
             statusNow = { TunnelStatus.idle },
             stopOp = {},
         )
@@ -209,7 +209,7 @@ class TunnelControlTest {
         var settled = 0
         val control = TunnelControl(
             scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined + CoroutineExceptionHandler { _, _ -> }),
-            connectOp = { _, _, _ ->
+            connectOp = { _, _, _, _ ->
                 opRuns += 1
                 outcomes.removeFirstOrNull() ?: throw IllegalStateException("scripted connect failure")
             },
@@ -235,13 +235,37 @@ class TunnelControlTest {
 
     }
 
+    @Test
+    fun `a connect hands its mode to the op and a kept outcome still counts as settled`() = runTest {
+        val modes = mutableListOf<ConnectMode>()
+        var settled = 0
+        val control = TunnelControl(
+            scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined),
+            connectOp = { _, _, _, mode -> modes += mode; StartOutcome.KEPT },
+            statusNow = { TunnelStatus(ConnectionPhase.CONNECTED, "p", null) },
+            stopOp = {},
+            noteConnectSettled = { settled += 1 },
+        )
+        var outcome: StartOutcome? = null
+
+        control.connect(
+            ApplicationProvider.getApplicationContext(), "p",
+            mode = ConnectMode.KEEP_ANY,
+            onSettled = { settledOutcome, _ -> outcome = settledOutcome },
+        ).join()
+
+        assertEquals(listOf(ConnectMode.KEEP_ANY), modes)
+        assertEquals(1, settled)
+        assertEquals(StartOutcome.KEPT, outcome)
+    }
+
     @OptIn(ExperimentalCoroutinesApi::class)
     @Test
     fun `reconcile runs the reconcile op on the process scope`() = runTest {
         var reconciled = 0
         val control = TunnelControl(
             scope = CoroutineScope(UnconfinedTestDispatcher(testScheduler)),
-            connectOp = { _, _, _ -> StartOutcome.REFUSED },
+            connectOp = { _, _, _, _ -> StartOutcome.REFUSED },
             statusNow = { TunnelStatus.idle },
             stopOp = {},
             reconcileOp = { reconciled++ },

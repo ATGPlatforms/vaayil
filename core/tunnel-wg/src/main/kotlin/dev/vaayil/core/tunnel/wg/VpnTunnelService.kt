@@ -111,7 +111,11 @@ class VpnTunnelService : GoBackend.VpnService() {
                 // still running. While a later start is in flight this is a no-op; the last start to settle
                 // releases the service.
                 val onConnectSettled: (StartOutcome, TunnelStatus) -> Unit = { outcome, _ ->
-                    control.takeRestartRefusal(profileId)?.let { ConnectionRegistry.reportRestartRefusal(it) }
+                    // #14: a KEPT connect started nothing, so it leaves any pending C2 or K3 record
+                    // with the start that made it; it still releases its own start request (F32).
+                    if (outcome != StartOutcome.KEPT) {
+                        control.takeRestartRefusal(profileId)?.let { ConnectionRegistry.reportRestartRefusal(it) }
+                    }
                     if (outcome == StartOutcome.FAILED) {
                         control.takeFailedSwitch(profileId)?.let { ConnectionRegistry.reportSwitchFailure(it) }
                     }
@@ -134,11 +138,15 @@ class VpnTunnelService : GoBackend.VpnService() {
                     }
                     job.start()
                 } else {
+                    // #14/R2: the mode the sender named. A missing or unknown extra is RESTART; a null
+                    // action and the system's Always-on start are KEEP_ANY. The resume above never
+                    // reads it: an ACTION_CONNECT without the extra is RESTART.
+                    val mode = connectModeOf(intent?.action, intent?.getStringExtra(EXTRA_CONNECT_MODE))
                     // Process-scope orchestration, never this instance's scope: a start-while-up
                     // makes GoBackend stopSelf() this service mid-establish (tunnel-DOWN paths
                     // always do), and a cancelled connect would tear down the fresh tunnel.
                     // A destroyed instance ignores the trailing stopSelf.
-                    control.connect(this, profileId, onSettled = onConnectSettled)
+                    control.connect(this, profileId, mode = mode, onSettled = onConnectSettled)
                 }
             }
             // No other action is sent; one that arrives holds no start request either.
@@ -203,6 +211,9 @@ class VpnTunnelService : GoBackend.VpnService() {
         const val ACTION_CONNECT = "dev.vaayil.action.CONNECT"
         const val ACTION_DISCONNECT = "dev.vaayil.action.DISCONNECT"
         const val EXTRA_PROFILE_ID = "profile_id"
+
+        /** #14: the [ConnectMode] name a sender wants ([ConnectMode.RESTART] when absent or unknown). */
+        const val EXTRA_CONNECT_MODE = "dev.vaayil.extra.CONNECT_MODE"
 
         /** Marks EngineProvider's same-boot resume (F32): a resume yields to any start this process handled before it. */
         internal const val EXTRA_RESUME = "dev.vaayil.extra.RESUME"

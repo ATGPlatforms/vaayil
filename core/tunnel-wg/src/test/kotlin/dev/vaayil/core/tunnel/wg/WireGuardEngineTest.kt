@@ -51,6 +51,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
@@ -1228,6 +1229,164 @@ class WireGuardEngineTest {
         engine.stop() // a disconnect clears it too
         assertEquals(TunnelStatus.idle, engine.status.value)
         assertNull(engine.takeRestartRefusal("a"))
+    }
+
+    @Test
+    fun `keep any while up is a no-op`() = runTest {
+        val app = ApplicationProvider.getApplicationContext<Application>()
+        val records = ActiveProfileStore(app)
+        val a = secureProfile("a", "Alpha")
+        val backend = FakeBackend()
+        val subject = engine(backend, controller(backgroundScope) { RecordingUpstream() }, a)
+        withProviderEngine(subject) {
+            assertEquals(StartOutcome.STARTED, EngineProvider.connectById(app, a.id))
+            val first = subject.status.value
+            val seen = mutableListOf<TunnelStatus>()
+            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+                subject.status.collect { seen += it }
+            }
+            // A keep writes no ACTIVE/LAST of its own, so clear what the start wrote and watch them stay empty.
+            records.setActive(null)
+            records.setLastConnected(null)
+
+            assertEquals(StartOutcome.KEPT, EngineProvider.connectById(app, a.id, mode = ConnectMode.KEEP_ANY))
+
+            assertEquals(first, subject.status.value)
+            assertEquals(1, subject.status.value.generation)
+            assertEquals(listOf("Alpha" to Tunnel.State.UP), backend.calls) // one setState in total
+            assertEquals(listOf(first), seen) // nothing published after the first CONNECTED
+            assertNull(records.activeId.first())
+            assertNull(records.lastConnectedId.first())
+        }
+    }
+
+    @Test
+    fun `keep same while up is a no-op`() = runTest {
+        val a = secureProfile("a", "Alpha")
+        val backend = FakeBackend()
+        val engine = engine(backend, controller(backgroundScope) { RecordingUpstream() }, a)
+        engine.start(a)
+        val first = engine.status.value
+
+        assertEquals(StartOutcome.KEPT, engine.startWithOutcome(a, ConnectMode.KEEP_SAME))
+
+        assertEquals(first, engine.status.value)
+        assertEquals(listOf("Alpha" to Tunnel.State.UP), backend.calls)
+        engine.stop()
+    }
+
+    @Test
+    fun `keep any with another profile live is a no-op`() = runTest {
+        val a = secureProfile("a", "Alpha")
+        val b = secureProfile("b", "Beta")
+        val backend = FakeBackend()
+        val engine = engine(backend, controller(backgroundScope) { RecordingUpstream() }, a, b)
+        engine.start(a)
+
+        assertEquals(StartOutcome.KEPT, engine.startWithOutcome(b, ConnectMode.KEEP_ANY))
+
+        assertEquals(TunnelStatus(ConnectionPhase.CONNECTED, "a", null, generation = 1), engine.status.value)
+        assertEquals(listOf("Alpha" to Tunnel.State.UP), backend.calls)
+        assertEquals("Alpha", engine.liveTunnelName)
+        engine.stop()
+    }
+
+    @Test
+    fun `keep same with another profile live switches`() = runTest {
+        val a = secureProfile("a", "Alpha")
+        val b = secureProfile("b", "Beta")
+        val backend = FakeBackend()
+        val engine = engine(backend, controller(backgroundScope) { RecordingUpstream() }, a, b)
+        engine.start(a)
+
+        assertEquals(StartOutcome.STARTED, engine.startWithOutcome(b, ConnectMode.KEEP_SAME))
+
+        assertEquals(TunnelStatus(ConnectionPhase.CONNECTED, "b", null, generation = 2), engine.status.value)
+        assertEquals(listOf("Alpha" to Tunnel.State.UP, "Beta" to Tunnel.State.UP), backend.calls)
+        assertEquals(listOf("Alpha"), backend.revocations)
+        engine.stop()
+    }
+
+    @Test
+    fun `a pending restart refusal survives a keep`() = runTest {
+        val a = profileAt("a", "Alpha", "vpn.example.com:51820")
+        var resolves = true
+        val backend = FakeBackend()
+        val engine = engine(
+            backend, controller(backgroundScope) { RecordingUpstream() }, a,
+            endpointLookupProblem = { if (resolves) null else "no answer from the underlying resolvers" },
+        )
+        engine.start(a)
+        resolves = false
+        engine.start(a) // the refused restart lands its C2 record
+
+        assertEquals(StartOutcome.KEPT, engine.startWithOutcome(a, ConnectMode.KEEP_ANY))
+
+        assertEquals(RestartRefusal("Alpha", "its server name didn't resolve"), engine.takeRestartRefusal("a"))
+        assertNull(engine.takeRestartRefusal("a")) // the keep consumed nothing
+        assertEquals(
+            TunnelStatus(ConnectionPhase.CONNECTED, "a", null, TunnelNotice.SettingsNotApplied, generation = 1),
+            engine.status.value,
+        )
+        assertEquals(listOf("Alpha" to Tunnel.State.UP), backend.calls)
+        engine.stop()
+    }
+
+    @Test
+    fun `a pending failed-switch record survives a keep`() = runTest {
+        val a = secureProfile("a", "Alpha")
+        val n = profileAt("n", "Scratch", "nx.invalid:51820")
+        val backend = FakeBackend()
+        val engine = engine(
+            backend, controller(backgroundScope) { RecordingUpstream() }, a, n,
+            endpointLookupProblem = { "no answer from the underlying resolvers" },
+        )
+        engine.start(a)
+        engine.start(n) // the refused switch lands its K3 record
+
+        assertEquals(StartOutcome.KEPT, engine.startWithOutcome(n, ConnectMode.KEEP_ANY))
+
+        assertEquals(
+            SwitchFailure(targetName = "Scratch", liveName = "Alpha", unresolved = true),
+            engine.takeFailedSwitch("n"),
+        )
+        assertNull(engine.takeFailedSwitch("n")) // the keep consumed nothing
+        engine.stop()
+    }
+
+    @Test
+    fun `a keep queued behind a failed start runs`() = runTest {
+        val a = secureProfile("a", "Alpha")
+        val backend = FakeBackend()
+        val engine = engine(backend, controller(backgroundScope) { RecordingUpstream() }, a)
+        backend.failNextUp = true
+        assertEquals(StartOutcome.FAILED, engine.startWithOutcome(a))
+
+        assertEquals(StartOutcome.STARTED, engine.startWithOutcome(a, ConnectMode.KEEP_ANY))
+
+        assertEquals(TunnelStatus(ConnectionPhase.CONNECTED, "a", null, generation = 1), engine.status.value)
+        assertEquals(listOf("Alpha" to Tunnel.State.UP), backend.calls)
+        engine.stop()
+    }
+
+    @Test
+    fun `keep with a dead handle starts`() = runTest {
+        val a = secureProfile("a", "Alpha")
+        val backend = FakeBackend()
+        val engine = engine(backend, controller(backgroundScope) { RecordingUpstream() }, a)
+        engine.start(a)
+        // The backend lost the tunnel behind the engine's back: its DOWN callback never arrived.
+        backend.up = false
+        backend.upTunnel = null
+
+        assertEquals(StartOutcome.STARTED, engine.startWithOutcome(a, ConnectMode.KEEP_ANY))
+
+        assertEquals(
+            listOf("Alpha" to Tunnel.State.UP, "Alpha" to Tunnel.State.UP),
+            backend.calls,
+        )
+        assertEquals(TunnelStatus(ConnectionPhase.CONNECTED, "a", null, generation = 2), engine.status.value)
+        engine.stop()
     }
 
     @Test
