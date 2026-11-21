@@ -22,8 +22,49 @@ class DocumentBaseNameTest {
     }
 
     @Test
+    fun `a bin extension is dropped`() {
+        assertEquals("DOC-20261023-WA0000", documentBaseName("DOC-20261023-WA0000.bin", null))
+    }
+
+    @Test
+    fun `a conf before a txt comes off with it`() {
+        assertEquals("home", documentBaseName("home.conf.txt", null))
+    }
+
+    @Test
+    fun `the suffix comes off ignoring case`() {
+        assertEquals("home", documentBaseName("home.CONF", null))
+    }
+
+    @Test
+    fun `a space after the suffix is trimmed away`() {
+        assertEquals("home", documentBaseName("home.conf ", null))
+    }
+
+    @Test
+    fun `another extension is kept`() {
+        assertEquals("home.lan", documentBaseName("home.lan", null))
+    }
+
+    @Test
+    fun `a name of only import suffixes is Imported`() {
+        assertEquals("Imported", documentBaseName(".conf.txt", null))
+    }
+
+    @Test
+    fun `a saved copy keeps the suffix inside its name`() {
+        // The known limit: only trailing suffixes come off, so one inside a saved copy's name stays.
+        assertEquals("home.conf (1)", documentBaseName("home.conf (1).txt", null))
+    }
+
+    @Test
     fun `no display name falls back to the last path segment`() {
         assertEquals("work", documentBaseName(null, "work.conf"))
+    }
+
+    @Test
+    fun `a path segment carrying a directory keeps only its file name`() {
+        assertEquals("home", documentBaseName(null, "primary:Download/home.conf"))
     }
 
     @Test

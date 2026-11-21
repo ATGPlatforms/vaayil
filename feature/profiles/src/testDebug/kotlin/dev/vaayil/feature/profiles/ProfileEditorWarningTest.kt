@@ -125,4 +125,29 @@ class ProfileEditorWarningTest {
         }
         compose.onAllNodesWithText(dnsBypass).assertCountEquals(0)
     }
+
+    @Test
+    fun `dns coverage note appears and clears live`() {
+        val note = "DNS lookups will bypass this tunnel. Its DNS server isn't in Allowed IPs."
+        val base = profile(listOf("198.51.100.2/24"), dnsServers = emptyList())
+        val current = mutableStateOf(
+            base.copy(peer = base.peer.copy(allowedIps = listOf("198.51.100.0/24"))),
+        )
+        setContent(current)
+        compose.onNodeWithText(note).assertDoesNotExist()
+
+        compose.runOnIdle {
+            current.value = current.value.copy(
+                interfaceConfig = current.value.interfaceConfig.copy(dnsServers = listOf("192.0.2.53")),
+            )
+        }
+        compose.onNodeWithText(note).performScrollTo().assertIsDisplayed()
+
+        compose.runOnIdle {
+            current.value = current.value.copy(
+                peer = current.value.peer.copy(allowedIps = listOf("198.51.100.0/24", "192.0.2.0/24")),
+            )
+        }
+        compose.onNodeWithText(note).assertDoesNotExist()
+    }
 }

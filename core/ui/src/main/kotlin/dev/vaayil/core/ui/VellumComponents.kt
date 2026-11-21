@@ -10,6 +10,7 @@ import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -27,8 +28,10 @@ import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -37,8 +40,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
@@ -280,15 +285,19 @@ fun vellumSwitchColors() = SwitchDefaults.colors(
     uncheckedBorderColor = VellumColors.Stroke3,
 )
 
+/** The inset a wrapped segment label keeps from its segment's edges (`PillSegmented`). */
+private val WrappedLabelInset = 8.dp
+
 /**
  * Two-option pill segmenter (Exclusive / Inclusive mode switches), spec §3.4.3:
- * a 52dp container-4 track (radius 999) with the selected option as a lifted
- * canvas pill — `sheet-lift` + seam + `on-surface`, the paper physically rising
- * out of the track. Unselected options sit transparent in `on-surface-variant`
- * and step one film deeper when pressed; press feedback is tonal only
- * (`indication = null`, the Task-3 ripple ruling). The track is a
- * `selectableGroup` and each segment carries `Role.RadioButton` + `selected`
- * semantics so screen readers announce the current option.
+ * a container-4 track at least 52dp tall (radius 26) with the selected option as
+ * a lifted canvas pill — `sheet-lift` + seam + `on-surface`, the paper physically
+ * rising out of the track. At large text the track grows and a segment's label
+ * wraps inside it, both segments keeping the taller height. Unselected options
+ * sit transparent in `on-surface-variant` and step one film deeper when pressed;
+ * press feedback is tonal only (`indication = null`, the Task-3 ripple ruling).
+ * The track is a `selectableGroup` and each segment carries `Role.RadioButton` +
+ * `selected` semantics so screen readers announce the current option.
  */
 @Composable
 fun PillSegmented(
@@ -297,13 +306,15 @@ fun PillSegmented(
     onSelect: (Int) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val trackShape = RoundedCornerShape(50)
-    val segmentShape = RoundedCornerShape(50)
+    val labelInsetPx = with(LocalDensity.current) { WrappedLabelInset.roundToPx() }
+    val trackShape = RoundedCornerShape(26.dp)
+    val segmentShape = RoundedCornerShape(22.dp)
     Row(
         modifier = modifier
             .selectableGroup()
             .fillMaxWidth()
-            .height(52.dp)
+            .heightIn(min = 52.dp)
+            .height(IntrinsicSize.Min)
             .background(VellumColors.Container4, trackShape)
             .padding(4.dp),
         horizontalArrangement = Arrangement.spacedBy(4.dp),
@@ -337,12 +348,24 @@ fun PillSegmented(
                     ),
                 contentAlignment = Alignment.Center,
             ) {
+                // A label that wrapped fills its segment's width, so the Box can no longer
+                // centre it line by line: centre the lines and inset the block only then. The
+                // decision compares the label's intrinsic width with the *unpadded* available
+                // width, not the padded layout, so a segment widened until the plain label
+                // fits unwraps it instead of keeping the inset.
+                var wrapped by remember(option) { mutableStateOf(false) }
                 Text(
                     option,
                     style = MaterialTheme.typography.labelLarge,
                     color = if (selected) VellumColors.OnSurface else VellumColors.OnSurfaceVariant,
-                    maxLines = 1,
-                    softWrap = false,
+                    modifier = if (wrapped) Modifier.padding(horizontal = WrappedLabelInset) else Modifier,
+                    textAlign = if (wrapped) TextAlign.Center else TextAlign.Start,
+                    softWrap = true,
+                    onTextLayout = { layout ->
+                        val paddedPx = if (wrapped) 2 * labelInsetPx else 0
+                        val unpaddedWidthPx = layout.layoutInput.constraints.maxWidth + paddedPx
+                        wrapped = layout.multiParagraph.maxIntrinsicWidth > unpaddedWidthPx.toFloat()
+                    },
                 )
             }
         }

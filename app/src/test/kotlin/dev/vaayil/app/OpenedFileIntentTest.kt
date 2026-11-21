@@ -209,6 +209,22 @@ class OpenedFileIntentTest {
     }
 
     @Test
+    fun `Open with a text file keeps its name without conf and txt`() = runBlocking {
+        val file = uri("open-txt")
+        serveTestFile(app, file, VALID_CONF.toByteArray(), "home.conf.txt")
+
+        openRequestOf(view(file, "text/plain"), app::isOwnProviderAuthority)!!
+            .let(container::openFile)
+            .join()
+
+        val outcome = container.openedFiles.take()
+        assertTrue("expected a review, was $outcome", outcome is OpenedFileOutcome.Review)
+        val review = outcome as OpenedFileOutcome.Review
+        assertEquals("home", container.pendingDrafts[review.draftId]?.name)
+        assertTrue(container.profiles.observeProfiles().first().isEmpty())
+    }
+
+    @Test
     fun `a Share intent leaves one draft named from the file and saves nothing`() = runBlocking {
         val file = uri("shared")
         serveTestFile(app, file, VALID_CONF.toByteArray(), "home.conf")
@@ -226,6 +242,41 @@ class OpenedFileIntentTest {
         assertEquals(setOf(review.draftId), container.pendingDrafts.keys)
         assertEquals("home", container.pendingDrafts[review.draftId]?.name)
         assertTrue(container.profiles.observeProfiles().first().isEmpty())
+    }
+
+    @Test
+    fun `a Share of a bin file reviews as its name without the suffix`() = runBlocking {
+        val file = uri("shared-bin")
+        serveTestFile(app, file, VALID_CONF.toByteArray(), "DOC-20261023-WA0000.bin")
+
+        val intent = Intent(Intent.ACTION_SEND)
+            .setType("application/octet-stream")
+            .putExtra(Intent.EXTRA_STREAM, file)
+        openRequestOf(intent, app::isOwnProviderAuthority)!!
+            .let(container::openFile)
+            .join()
+
+        val outcome = container.openedFiles.take()
+        assertTrue("expected a review, was $outcome", outcome is OpenedFileOutcome.Review)
+        val review = outcome as OpenedFileOutcome.Review
+        assertEquals("DOC-20261023-WA0000", container.pendingDrafts[review.draftId]?.name)
+        assertTrue(container.profiles.observeProfiles().first().isEmpty())
+    }
+
+    @Test
+    fun `a name already stored gets the next free one`() = runBlocking {
+        container.profiles.save(parseImportDraft(VALID_CONF, "home", emptySet()).profile)
+        val file = uri("taken")
+        serveTestFile(app, file, VALID_CONF.toByteArray(), "home.conf.txt")
+
+        openRequestOf(view(file, "text/plain"), app::isOwnProviderAuthority)!!
+            .let(container::openFile)
+            .join()
+
+        val outcome = container.openedFiles.take()
+        assertTrue("expected a review, was $outcome", outcome is OpenedFileOutcome.Review)
+        val review = outcome as OpenedFileOutcome.Review
+        assertEquals("home (2)", container.pendingDrafts[review.draftId]?.name)
     }
 
     @Test

@@ -75,6 +75,7 @@ class QuickTileClicksTest {
         QuickControlsAccess.forContext = originalAccess
         ConnectionRegistry.status.value = TunnelStatus.idle
         ConnectionRegistry.handshake.value = HandshakeState.NONE
+        ConnectionRegistry.clearVpnConsentMissing()
     }
 
     @Test
@@ -155,6 +156,38 @@ class QuickTileClicksTest {
     }
 
     @Test
+    fun `a no-permission tap posts a request and opens the app`() {
+        ShadowVpnService.setPrepareResult(Intent()) // missing consent
+        val shown = state(TunnelStatus.idle, vpnConsentMissing = true)
+        assertEquals(QuickAction.ConnectInApp("p1"), shown.action)
+        service.render(shown)
+        assertEquals("No VPN permission", service.qsTile.subtitle?.toString())
+
+        service.onClick()
+
+        assertEquals("p1", container.quickControls.requests.pending.value?.profileId)
+        assertEquals(1, host.opened)
+        assertNull("a missing consent started the service", shadowOf(app).nextStartedService)
+        val nm = shadowOf(app.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager)
+        assertNull("the tile posted the consent notice", nm.getNotification(TunnelNotifications.NOTIFICATION_ID))
+    }
+
+    @Test
+    fun `a no-permission tap with consent connects and posts nothing`() {
+        val shown = state(TunnelStatus.idle, vpnConsentMissing = true)
+        service.render(shown)
+
+        service.onClick()
+
+        val started = shadowOf(app).nextStartedService
+        assertEquals(VpnTunnelService::class.java.name, started?.component?.className)
+        assertEquals(VpnTunnelService.ACTION_CONNECT, started?.action)
+        assertEquals("p1", started?.getStringExtra(VpnTunnelService.EXTRA_PROFILE_ID))
+        assertNull(container.quickControls.requests.pending.value)
+        assertEquals(0, host.opened)
+    }
+
+    @Test
     fun `on a secure lock screen a disconnect waits for the unlock`() {
         host.secure = true
         ConnectionRegistry.status.value = TunnelStatus(ConnectionPhase.CONNECTED, "p1", null)
@@ -193,8 +226,9 @@ class QuickTileClicksTest {
         storedCount: Int = readable.size,
         activeId: String? = null,
         lastConnectedId: String? = null,
+        vpnConsentMissing: Boolean = false,
     ): QuickState = presentQuickState(
-        QuickInputs(status, handshake, readable, storedCount, activeId, lastConnectedId),
+        QuickInputs(status, handshake, readable, storedCount, activeId, lastConnectedId, vpnConsentMissing),
     )
 
     /**

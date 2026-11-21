@@ -1,6 +1,6 @@
 # Vaayil privacy policy
 
-Last updated: 2026-11-02
+Last updated: 2026-11-21
 
 Vaayil is a WireGuard VPN client for Android, developed and published by ATG Platforms Ltd as the open-source project at https://github.com/ATGPlatforms/vaayil. It runs no servers, has no accounts, and sends no analytics. All features are free, with no trial limit or in-app purchases. This policy explains what the app does with data on your device.
 
@@ -23,7 +23,7 @@ Vaayil accesses location data to enable Auto-connect on untrusted Wi-Fi and Disc
 ## Network connections the app makes
 
 - Your VPN endpoint: the WireGuard server configured in the profile. If the endpoint is a hostname, your current network's resolver looks it up each time the tunnel starts.
-- The DNS resolvers configured in the profile: plain DNS, DNS over TLS, or DNS over HTTPS servers. Encrypted DNS travels inside the tunnel. Domains you set to bypass the tunnel are resolved by your current network's resolver, and a DNS-over-TLS or DNS-over-HTTPS server given as a hostname is looked up through that resolver when the tunnel starts, and again after a network change or a failure.
+- The DNS resolvers configured in the profile: plain DNS, DNS over TLS, or DNS over HTTPS servers. Encrypted DNS travels inside the tunnel when the server's address is in the profile's Allowed IPs; the app warns you when it might not be. Domains you set to bypass the tunnel are resolved by your current network's resolver, and a DNS-over-TLS or DNS-over-HTTPS server given as a hostname is looked up through that resolver when the tunnel starts, and again after a network change or a failure.
 
 There are no other connections: no crash reporting, no analytics, no update checks.
 

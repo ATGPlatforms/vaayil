@@ -25,6 +25,7 @@ import dev.vaayil.core.model.WifiSecurity
 import dev.vaayil.core.model.decide
 import dev.vaayil.core.model.mobileDecision
 import dev.vaayil.core.tunnel.api.isLive
+import dev.vaayil.core.tunnel.wg.ConnectMode
 import dev.vaayil.core.tunnel.wg.ConnectionRegistry
 import dev.vaayil.core.tunnel.wg.VpnTunnelService
 import kotlinx.coroutines.CancellationException
@@ -36,11 +37,9 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.retryWhen
 import kotlinx.coroutines.launch
 
@@ -59,10 +58,14 @@ import kotlinx.coroutines.launch
  * anything the per-evaluation catch cannot hold reaches [scope]'s handler, which logs it.
  *
  * Y3: the service runs while either rule is on, but the [SsidWatcher] runs only while Auto-connect on untrusted
- * Wi-Fi is on. [observeWifiGuard] follows the stored rule: the watcher is registered when it turns on and
+ * Wi-Fi is on. [observeRules] follows the stored rules: the watcher is registered when the rule turns on and
  * unregistered when it turns off, so with only Auto-connect on mobile data on nothing reads the Wi-Fi name or,
  * below API 31, the scan list, whatever location grants are held. Rules that can't be read turn it off,
  * and the rule is read again after [wifiGuardRetryDelayMs] until a read succeeds.
+ *
+ * AUTO-2 (spec §4.6): a rule edit acts at once only when it changes the answer for the last network the
+ * watchers reported; otherwise the user's own Connect or Disconnect stands. The first read after the service
+ * starts, and the first good read after a failed one, never act (R7).
  */
 class AutoConnectService : Service() {
     private val scope = CoroutineScope(
@@ -82,6 +85,10 @@ class AutoConnectService : Service() {
     /** C7: the last copy refreshNotification computed; null before the first computation. */
     private var lastNotificationCopy: Pair<String, String?>? = null
     private var lastMobile: Boolean? = null
+    /** AUTO-2: the last successfully read rules; null before the first good read and after a failed one (R7). */
+    private var lastRules: AutoConnectRules? = null
+    /** AUTO-2: the last network the Wi-Fi rules saw (the name as the rules see it) with its security; null before any report. */
+    private var lastWifi: Pair<String?, WifiSecurity>? = null
 
     /**
      * B2: Location turned on or off while the service runs, the app closed. MODE_CHANGED is a
@@ -101,12 +108,11 @@ class AutoConnectService : Service() {
     internal var readRules: suspend () -> AutoConnectRules = { AutomationRulesStore(this).snapshot() }
 
     /**
-     * Y3: whether Auto-connect on untrusted Wi-Fi is on, following the store. Called when the watchers start in
-     * onCreate and again after each failed read, so constructing the service still opens no DataStore. Tests
-     * replace it before create().
+     * Y3: the stored rules, following the store. Called when the watchers start in onCreate and again after
+     * each failed read, so constructing the service still opens no DataStore. Tests replace it before create().
      */
-    internal var observeWifiGuard: () -> Flow<Boolean> = {
-        AutomationRulesStore(this).rules.map { it.wifiGuardEnabled }
+    internal var observeRules: () -> Flow<AutoConnectRules> = {
+        AutomationRulesStore(this).rules
     }
 
     /** B1: where an evaluation resolves the connect target. Defaults to the store-backed resolver. */
@@ -174,6 +180,7 @@ class AutoConnectService : Service() {
         try {
             watcher?.unregister()
             wifiGate.forget()
+            lastWifi = null // AUTO-2: the new callback has not reported yet
             watcher?.register()
         } catch (e: Exception) {
             Log.w(TAG, "watcher re-registration failed (${e.javaClass.simpleName})")
@@ -200,19 +207,12 @@ class AutoConnectService : Service() {
     /** B1: one Wi-Fi evaluation; [setWifiWatching] wires the actual watcher callback to this. */
     internal fun evaluateWifi(raw: String?, security: WifiSecurity): Job = scope.launch {
         val ssid = ssidForRules(raw, wifiNameVisible())
+        lastWifi = ssid to security // AUTO-2: remembered even when the gate skips the evaluation
         if (!wifiGate.changed(ssid, security)) return@launch        // evaluate on change only
         val rules = readRulesOrNull() ?: return@launch
-        // J3: the disconnect is a POLICY decision, not a phase read — a visible, secured, trusted
-        // SSID with disconnect-on-trusted on must also supersede a crash resume that just came up
-        // (or is coming up) while the registry still reads idle. Otherwise the phase decides, as
-        // before: on a live tunnel the same rule disconnects, and untrusted networks connect or
-        // stay put exactly as decideForPhase always answered.
-        if (rules.decide(ssid, security, tunnelConnected = true) == SsidDecision.DISCONNECT) {
-            tunnelCommands.disconnect(foreground = false)
-            return@launch
-        }
-        when (rules.decideForPhase(ssid, security, ConnectionRegistry.status.value.phase)) {
-            SsidDecision.CONNECT -> connectResolvedTarget()
+        // J3: [wifiAnswer] keeps the policy disconnect ahead of the phase read.
+        when (rules.wifiAnswer(ssid, security, ConnectionRegistry.status.value.phase)) {
+            SsidDecision.CONNECT -> connectResolvedTarget(BackgroundSender.WIFI_RULE)
             SsidDecision.DISCONNECT -> tunnelCommands.disconnect(foreground = false)
             SsidDecision.NONE -> Unit
         }
@@ -224,7 +224,7 @@ class AutoConnectService : Service() {
         lastMobile = mobile
         val rules = readRulesOrNull() ?: return@launch
         val busy = ConnectionRegistry.status.value.phase.isLive
-        if (rules.mobileDecision(mobile, busy) == SsidDecision.CONNECT) connectResolvedTarget()
+        if (rules.mobileDecision(mobile, busy) == SsidDecision.CONNECT) connectResolvedTarget(BackgroundSender.MOBILE_RULE)
     }
 
     /** B2: whether the grants and the Location switch currently let the Wi-Fi name reach the rules. */
@@ -235,11 +235,11 @@ class AutoConnectService : Service() {
     /**
      * I1: a stale pointer (deleted profile) must not foreground-start VpnTunnelService with
      * nothing to connect — the service would idle past the 5 s FGS contract. Resolve first,
-     * then let [tunnelCommands] admit the start (B1).
+     * then let [tunnelCommands] admit the start (B1) as [sender]'s rule (#14).
      */
-    private suspend fun connectResolvedTarget() {
+    private suspend fun connectResolvedTarget(sender: BackgroundSender) {
         val target = readTargetOrNull() ?: return
-        tunnelCommands.connect(target)
+        tunnelCommands.connect(target, sender)
     }
 
     /** B1: a read that throws is logged by class, never a stored value, and skips its evaluation. */
@@ -274,30 +274,77 @@ class AutoConnectService : Service() {
         mobileWatcher = MobileDataWatcher(this) { mobile ->
             evaluateMobile(mobile)
         }.also { it.register() }
-        // Y3: the Wi-Fi watcher follows Auto-connect on untrusted Wi-Fi, not the service's lifetime. A failed read
-        // turns it off, and the rule is read again after [wifiGuardRetryDelayMs].
+        // Y3 + AUTO-2: one collection follows the stored rules — the watcher's on/off switch and the
+        // edit comparison. A failed read emits null: the watcher goes off and the previous rules are
+        // forgotten, so the first good read after it never acts (R7). The rule is read again after
+        // [wifiGuardRetryDelayMs].
         scope.launch {
-            flow { emitAll(observeWifiGuard()) }
+            flow<AutoConnectRules?> { emitAll(observeRules()) }
                 .retryWhen { e, attempt ->
                     Log.w(TAG, "rules unreadable (${e.javaClass.simpleName}); Wi-Fi watcher off")
-                    emit(false)
+                    emit(null)
                     delay(wifiGuardRetryDelayMs(attempt))
                     true
                 }
-                .distinctUntilChanged()
-                .collect { enabled -> setWifiWatching(enabled) }
+                .collect { rules -> rulesRead(rules) }
+        }
+    }
+
+    /**
+     * Y3 + AUTO-2: one successful rules read. The watcher follows the guard rule (Y3); AUTO-2 then
+     * compares this read with the previous successful one and acts only when the answer for the
+     * last network the watchers reported changed. [rules] null is the failed read's marker: the
+     * watcher goes off and the previous rules are forgotten, so the next good read starts afresh.
+     */
+    private fun rulesRead(rules: AutoConnectRules?) {
+        if (rules == null) {
+            lastRules = null
+            setWifiWatching(false)
+            return
+        }
+        val previous = lastRules
+        lastRules = rules
+        setWifiWatching(rules.wifiGuardEnabled) // Y3: idempotent, so every good read may ask
+        if (previous != null) actOnRuleChange(previous, rules)
+    }
+
+    /**
+     * AUTO-2 (spec §4.6): an edit acts at once only when the answer for the network the watchers
+     * last reported changes. Wi-Fi first; mobile data only when the Wi-Fi answer gave nothing to
+     * do. The command runs in its own coroutine (never inline): a collector that throws would end
+     * the collection, and a disconnect can wait on an accepted crash resume — either would stop
+     * the watcher following the guard rule (Y3).
+     */
+    private fun actOnRuleChange(previous: AutoConnectRules, current: AutoConnectRules) {
+        val phase = ConnectionRegistry.status.value.phase
+        val wifi = lastWifi
+        val wifiDecision = if (wifi != null) {
+            wifiRuleChange(previous, current, wifi.first, wifi.second, phase)
+        } else {
+            SsidDecision.NONE // no report yet: nothing to compare
+        }
+        when (wifiDecision) {
+            SsidDecision.CONNECT -> scope.launch { connectResolvedTarget(BackgroundSender.WIFI_RULE) }
+            SsidDecision.DISCONNECT -> scope.launch { tunnelCommands.disconnect(foreground = false) }
+            SsidDecision.NONE -> {
+                val mobile = lastMobile ?: return // no report yet: nothing to compare
+                if (mobileRuleChange(previous, current, mobile, phase.isLive) == SsidDecision.CONNECT) {
+                    scope.launch { connectResolvedTarget(BackgroundSender.MOBILE_RULE) }
+                }
+            }
         }
     }
 
     /**
      * Y3: starts the [SsidWatcher] when Auto-connect on untrusted Wi-Fi turns on and stops it when the rule turns
-     * off, forgetting the Wi-Fi gate both times, so a network that a late evaluation recorded cannot hide the
-     * current network from the new callback, which Android delivers at once.
+     * off, forgetting the Wi-Fi gate and the last reported network both times, so a network that a late
+     * evaluation recorded cannot hide the current network from the new callback, which Android delivers at once.
      */
     private fun setWifiWatching(enabled: Boolean) {
         try {
             if (enabled && watcher == null) {
                 wifiGate.forget()
+                lastWifi = null
                 watcher = SsidWatcher(this, scope) { raw, security ->
                     evaluateWifi(raw, security)
                 }.also { it.register() }
@@ -305,6 +352,7 @@ class AutoConnectService : Service() {
                 watcher?.unregister()
                 watcher = null
                 wifiGate.forget()
+                lastWifi = null
             }
         } catch (e: Exception) {
             Log.w(TAG, "Wi-Fi watcher update failed (${e.javaClass.simpleName})")
@@ -336,9 +384,14 @@ class AutoConnectService : Service() {
         private const val TAG = "AutoConnectService"
         const val CHANNEL_ID = "automation"
         const val NOTIFICATION_ID = 43
-        fun connectIntent(context: Context, profileId: String? = null): Intent =
+        fun connectIntent(
+            context: Context,
+            profileId: String? = null,
+            mode: ConnectMode = ConnectMode.RESTART,
+        ): Intent =
             Intent(context, VpnTunnelService::class.java)
                 .setAction(VpnTunnelService.ACTION_CONNECT)
+                .putExtra(VpnTunnelService.EXTRA_CONNECT_MODE, mode.name)
                 .apply { if (profileId != null) putExtra(VpnTunnelService.EXTRA_PROFILE_ID, profileId) }
 
         /**

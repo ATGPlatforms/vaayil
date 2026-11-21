@@ -86,6 +86,7 @@ class QuickWidgetReceiverTest {
         QuickControlsAccess.forContext = originalAccess
         ConnectionRegistry.status.value = TunnelStatus.idle
         ConnectionRegistry.handshake.value = HandshakeState.NONE
+        ConnectionRegistry.clearVpnConsentMissing()
     }
 
     @Test
@@ -129,6 +130,19 @@ class QuickWidgetReceiverTest {
             "Vaayil couldn't connect",
             posted.extras.getCharSequence(Notification.EXTRA_TITLE)?.toString(),
         )
+    }
+
+    @Test
+    fun `a connect without consent leaves a request and shows the no-permission face`() {
+        ShadowVpnService.setPrepareResult(Intent()) // missing consent
+        ConnectionRegistry.clearVpnConsentMissing()
+        val widget = placeWidget()
+        awaitText(widget, R.id.quick_widget_state, "Disconnected")
+
+        handle(connect("p1"))
+
+        assertEquals("p1", container.quickControls.requests.pending.value?.profileId)
+        awaitText(widget, R.id.quick_widget_state, "No VPN permission")
     }
 
     @Test

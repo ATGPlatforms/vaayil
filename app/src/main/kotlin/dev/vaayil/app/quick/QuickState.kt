@@ -12,6 +12,10 @@ internal enum class QuickTone { ACTIVE, WARNING, IDLE, ERROR }
 
 internal sealed interface QuickAction {
     data class Connect(val profileId: String) : QuickAction
+
+    /** #23: a connect refused for missing VPN permission; the app's manual gate must run. */
+    data class ConnectInApp(val profileId: String) : QuickAction
+
     data object Disconnect : QuickAction
     data object OpenApp : QuickAction
 }
@@ -23,6 +27,8 @@ internal data class QuickInputs(
     val storedCount: Int,
     val activeId: String?,
     val lastConnectedId: String?,
+    /** #23: a background connect was refused for missing VPN consent in this process. */
+    val vpnConsentMissing: Boolean = false,
 )
 
 internal data class QuickState(
@@ -56,6 +62,20 @@ internal fun presentQuickState(inputs: QuickInputs): QuickState {
         return QuickState(FALLBACK_LABEL, stateText, QuickTone.IDLE, live = false, action = QuickAction.OpenApp)
     }
 
+    val target = inputs.readable.firstOrNull { it.id == inputs.activeId }
+        ?: inputs.readable.firstOrNull { it.id == inputs.lastConnectedId }
+        ?: inputs.readable.first()
+
+    if (inputs.vpnConsentMissing) {
+        return QuickState(
+            target.name,
+            "No VPN permission",
+            QuickTone.ERROR,
+            live = false,
+            action = QuickAction.ConnectInApp(target.id),
+        )
+    }
+
     val failed = status.phase == ConnectionPhase.FAILED
     val failedProfile = if (failed) inputs.readable.firstOrNull { it.id == status.profileId } else null
     if (failedProfile != null) {
@@ -68,9 +88,6 @@ internal fun presentQuickState(inputs: QuickInputs): QuickState {
         )
     }
 
-    val target = inputs.readable.firstOrNull { it.id == inputs.activeId }
-        ?: inputs.readable.firstOrNull { it.id == inputs.lastConnectedId }
-        ?: inputs.readable.first()
     val stateText = if (status.phase == ConnectionPhase.DISCONNECTING) "Disconnecting" else "Disconnected"
     return QuickState(target.name, stateText, QuickTone.IDLE, live = false, action = QuickAction.Connect(target.id))
 }

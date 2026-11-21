@@ -57,7 +57,7 @@ class AutomationReceiver : BroadcastReceiver() {
         when (action) {
             ACTION_CONNECT -> {
                 val id = resolveProfileId(appContext, hint) ?: return
-                commands.connect(id)
+                commands.connect(id, BackgroundSender.TASKER)
             }
             ACTION_DISCONNECT -> commands.disconnect(foreground = true)
             ACTION_TOGGLE -> {

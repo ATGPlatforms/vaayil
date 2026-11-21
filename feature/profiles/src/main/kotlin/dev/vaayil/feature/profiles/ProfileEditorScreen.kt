@@ -5,6 +5,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
@@ -47,7 +48,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.dp
 import dev.vaayil.core.model.DnsMode
 import dev.vaayil.core.model.DnsSplitRule
@@ -193,27 +196,16 @@ fun ProfileEditorScreen(
                 keyboardOptions = EditorKeyboards.machineText,
                 onValues = { v -> onField { it.copy(peer = it.peer.copy(allowedIps = v)) } },
             )
-            Row(
-                modifier = Modifier.selectableGroup(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                QuickScopeChip(
-                    label = "Route everything",
-                    selected = peer.allowedIps.containsAll(listOf("0.0.0.0/0", "::/0")),
-                    onClick = {
-                        onField { it.copy(peer = it.peer.copy(allowedIps = listOf("0.0.0.0/0", "::/0"))) }
-                    },
-                    modifier = Modifier.weight(1f),
-                )
-                QuickScopeChip(
-                    label = "Split subnets",
-                    selected = peer.allowedIps.toSet() == PRIVATE_SUBNETS.toSet(),
-                    onClick = {
-                        onField { it.copy(peer = it.peer.copy(allowedIps = PRIVATE_SUBNETS)) }
-                    },
-                    modifier = Modifier.weight(1f),
-                )
-            }
+            QuickScopeChips(
+                routeAllSelected = peer.allowedIps.containsAll(listOf("0.0.0.0/0", "::/0")),
+                splitSubnetsSelected = peer.allowedIps.toSet() == PRIVATE_SUBNETS.toSet(),
+                onRouteAll = {
+                    onField { it.copy(peer = it.peer.copy(allowedIps = listOf("0.0.0.0/0", "::/0"))) }
+                },
+                onSplitSubnets = {
+                    onField { it.copy(peer = it.peer.copy(allowedIps = PRIVATE_SUBNETS)) }
+                },
+            )
             // T-1: advice, not an error. It never joins state.errors, so Save stays enabled.
             p.warnings().forEach { WarningNote(it) }
         }
@@ -467,6 +459,52 @@ private fun QuickScopeChip(
             color = if (selected) VellumColors.OnPrimaryContainer else VellumColors.OnSurfaceVariant,
             textAlign = androidx.compose.ui.text.style.TextAlign.Center,
         )
+    }
+}
+
+private class ScopeChipSpec(
+    val label: String,
+    val selected: Boolean,
+    val onClick: () -> Unit,
+)
+
+/**
+ * The Allowed IPs quick buttons (w39): side by side while each label fits on one line in
+ * half the row, so font 1 keeps its look; otherwise stacked at full width, rather than
+ * breaking a label inside a word at large text.
+ */
+@Composable
+private fun QuickScopeChips(
+    routeAllSelected: Boolean,
+    splitSubnetsSelected: Boolean,
+    onRouteAll: () -> Unit,
+    onSplitSubnets: () -> Unit,
+) {
+    val chips = listOf(
+        ScopeChipSpec("Route everything", routeAllSelected, onRouteAll),
+        ScopeChipSpec("Split subnets", splitSubnetsSelected, onSplitSubnets),
+    )
+    val measurer = rememberTextMeasurer()
+    val labelStyle = MaterialTheme.typography.labelLarge
+    BoxWithConstraints {
+        // The narrower chip's width in whole px: the row minus its 8dp gap, halved.
+        val narrowerHalf = with(LocalDensity.current) { (maxWidth.roundToPx() - 8.dp.roundToPx()) / 2 }
+        val sideBySide = chips.all { measurer.measure(it.label, labelStyle).size.width <= narrowerHalf }
+        if (sideBySide) {
+            Row(
+                modifier = Modifier.selectableGroup(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                chips.forEach { QuickScopeChip(it.label, it.selected, it.onClick, Modifier.weight(1f)) }
+            }
+        } else {
+            Column(
+                modifier = Modifier.selectableGroup(),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                chips.forEach { QuickScopeChip(it.label, it.selected, it.onClick, Modifier.fillMaxWidth()) }
+            }
+        }
     }
 }
 

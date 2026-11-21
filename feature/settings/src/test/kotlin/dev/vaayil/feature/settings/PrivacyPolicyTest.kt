@@ -49,7 +49,7 @@ class PrivacyPolicyTest {
         })
         assertTrue(items.any {
             it.startsWith("The DNS resolvers configured in the profile:") &&
-                it.contains("Encrypted DNS travels inside the tunnel.")
+                it.contains("Encrypted DNS travels inside the tunnel when the server's address is in the profile's Allowed IPs; the app warns you when it might not be.")
         })
     }
 
@@ -93,7 +93,7 @@ class PrivacyPolicyTest {
         assertTrue(policyText().contains("developed and published by ATG Platforms Ltd as the open-source project at https://github.com/ATGPlatforms/vaayil."))
         assertTrue(policyText().contains("https://github.com/ATGPlatforms/vaayil/issues"))
         assertTrue(policyText().contains("For privacy questions, email ATG Platforms Ltd at hello@atgplatforms.com."))
-        assertTrue(policyText().contains("Last updated: 2026-11-02"))
+        assertTrue(policyText().contains("Last updated: 2026-11-21"))
         assertFalse(policyText().contains("developed and published by the developer named on its Google Play listing"))
         assertFalse(policyText().contains("Use the developer contact address on Vaayil's Google Play listing."))
     }

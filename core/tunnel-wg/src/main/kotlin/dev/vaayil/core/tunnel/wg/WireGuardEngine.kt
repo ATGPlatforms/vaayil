@@ -124,9 +124,33 @@ class WireGuardEngine(
      * published — before the lock is released, so a start queued behind it (its own CONNECTING or its
      * settle) cannot change what this request reports. [EngineProvider.connectById] consumes it for the
      * active/last-connected writes; [start] ignores it.
+     *
+     * #14: with anything but [ConnectMode.RESTART], a live tunnel that the backend still reports UP
+     * (and, for [ConnectMode.KEEP_SAME], is [profile]'s own) satisfies the request: [StartOutcome.KEPT]
+     * with no status publish, no generation, no ACTIVE/LAST write and no resolver or service hold. The
+     * check runs first inside the lock, so it waits behind any start already queued and leaves the
+     * pending K3/C2 records to the start that made them.
      */
-    internal suspend fun startWithOutcome(profile: Profile): StartOutcome =
+    internal suspend fun startWithOutcome(
+        profile: Profile,
+        mode: ConnectMode = ConnectMode.RESTART,
+    ): StartOutcome =
         mutex.withLock {
+            // #14: a KEEP connect for a tunnel that is still up does nothing — no status, no generation,
+            // no ACTIVE/LAST write (A6). First in the lock: it waits behind any start already queued, so a
+            // flagged connect after a FAILED start is a real retry, and the K3/C2 removals below cannot
+            // consume a pending record. A handle the backend no longer reports UP is stale (its DOWN
+            // callback was missed), so it is started, never kept.
+            if (mode != ConnectMode.RESTART) {
+                val live = tunnel
+                if (live != null &&
+                    runCatching { backend.getState(live) == Tunnel.State.UP }.getOrDefault(false) &&
+                    (mode == ConnectMode.KEEP_ANY || _status.value.profileId == profile.id)
+                ) {
+                    android.util.Log.i("WireGuardEngine", "kept the live tunnel (${mode.name})")
+                    return@withLock StartOutcome.KEPT
+                }
+            }
             // A1: the resolver's deactivation ticket, captured before any suspending work, so a revoke that
             // lands while this start builds its session leaves its stage (and commit or rollback) a no-op.
             val dnsEpoch = dns.deactivationEpoch()

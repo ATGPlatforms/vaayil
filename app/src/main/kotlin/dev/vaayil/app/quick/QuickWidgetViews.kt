@@ -46,6 +46,7 @@ internal fun widgetLook(state: QuickState): WidgetLook = WidgetLook(
     },
     discDescription = when (state.action) {
         is QuickAction.Connect -> "Connect ${state.name}"
+        is QuickAction.ConnectInApp -> "Open Vaayil to connect ${state.name}"
         QuickAction.Disconnect -> "Disconnect ${state.name}"
         QuickAction.OpenApp -> "Open Vaayil"
     },
@@ -65,6 +66,11 @@ internal fun widgetClicks(context: Context, state: QuickState): Map<Int, Pending
                 .putExtra(QuickWidgetReceiver.EXTRA_PROFILE_ID, action.profileId),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
+        is QuickAction.ConnectInApp -> PendingIntent.getActivity(
+            context, 0,
+            QuickShortcutActivity.intent(context, action.profileId),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+        )
         QuickAction.Disconnect -> PendingIntent.getBroadcast(
             context, 0,
             Intent(context, QuickWidgetReceiver::class.java)
@@ -80,8 +86,9 @@ internal fun widgetClicks(context: Context, state: QuickState): Map<Int, Pending
 }
 
 /**
- * The widget's views for [state], carrying the taps [widgetClicks] builds: the disc connects
- * or disconnects, and the rest of the widget opens Vaayil.
+ * The widget's views for [state], carrying the taps [widgetClicks] builds: the disc carries the
+ * shown action (connect, disconnect, or Vaayil itself after a refused connect), and the rest of
+ * the widget opens Vaayil.
  */
 internal fun quickWidgetViews(context: Context, state: QuickState): RemoteViews {
     val look = widgetLook(state)

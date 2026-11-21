@@ -89,10 +89,12 @@ object DnsPlanner {
  *
  * Protect semantics (ruling 2026-09-10): only the bootstrap lookup and the split-DNS bypass
  * channel escape the tunnel through VpnService.protect. Secure (DoT/DoH) and plain tunnel-path
- * sockets follow the VPN routing like any app socket, so the resolver provider sees the VPN
- * exit and the local network sees nothing. Bypass plain degrades to unprotected only as a
- * last resort (logged) when no callback is live. UDP and TCP need separate callbacks because
- * VpnService.protect has disjoint overloads (protect(DatagramSocket) vs protect(Socket)).
+ * sockets follow the VPN routing like any app socket when the server's address is in Allowed
+ * IPs, so the resolver provider sees the VPN exit and the local network sees nothing; a server
+ * outside them is reached outside the tunnel, and the editor warns (#15). Bypass plain degrades
+ * to unprotected only as a last resort (logged) when no callback is live. UDP and TCP need
+ * separate callbacks because VpnService.protect has disjoint overloads (protect(DatagramSocket)
+ * vs protect(Socket)).
  *
  * S10: [underlying] selects ONE underlying network ([selectUnderlying]). Only its DNS servers are
  * asked, and every protected socket is also bound to it ([protectAndBindDatagram],

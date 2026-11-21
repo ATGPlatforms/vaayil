@@ -38,12 +38,22 @@ suspend fun readDocumentText(
 ): DocumentRead = withContext(dispatcher) { readDocument({ resolver.openInputStream(uri) }, maxBytes) }
 
 /**
- * The import's name for a file: its display name, else its URI's last path segment, without a
- * trailing `.conf`; "Imported" when neither leaves anything. A blank display name is still a
- * name, so it never falls back to the path.
+ * The import's name for a file: its display name, else the file name in its URI's last path
+ * segment, without a trailing `.conf`, `.txt` or `.bin`; "Imported" when neither leaves
+ * anything. Suffixes come off ignoring case, repeatedly, trimming around each; any other
+ * extension stays. A blank display name is still a name, so it never falls back to the path.
  */
-internal fun documentBaseName(displayName: String?, lastPathSegment: String?): String =
-    (displayName ?: lastPathSegment)?.removeSuffix(".conf")?.trim()?.takeIf { it.isNotBlank() } ?: "Imported"
+internal fun documentBaseName(displayName: String?, lastPathSegment: String?): String {
+    var name = (displayName ?: lastPathSegment?.substringAfterLast('/'))?.trim().orEmpty()
+    while (true) {
+        val suffix = IMPORT_SUFFIXES.firstOrNull { name.endsWith(it, ignoreCase = true) } ?: break
+        name = name.dropLast(suffix.length).trim()
+    }
+    return name.takeIf { it.isNotBlank() } ?: "Imported"
+}
+
+/** The suffixes a file's extension adds to an import's name; any other extension is kept. */
+private val IMPORT_SUFFIXES = listOf(".conf", ".txt", ".bin")
 
 /**
  * [documentBaseName] for a document a provider serves. The name query runs on [dispatcher], IO

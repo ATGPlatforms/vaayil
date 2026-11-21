@@ -21,6 +21,7 @@ import java.time.Duration
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -83,7 +84,9 @@ class AutoConnectServiceWifiWatcherTest {
         rules: () -> AutoConnectRules = { AutoConnectRules(autoConnectOnMobileData = true) },
     ): AutoConnectService {
         controller = Robolectric.buildService(AutoConnectService::class.java)
-        if (wifiGuard != null) controller.get().observeWifiGuard = { wifiGuard }
+        if (wifiGuard != null) {
+            controller.get().observeRules = { wifiGuard.map { AutoConnectRules(wifiGuardEnabled = it) } }
+        }
         controller.get().readRules = { rules() }
         controller.get().readTarget = { "p1" }
         controller.create()

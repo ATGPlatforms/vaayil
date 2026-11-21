@@ -8,7 +8,8 @@ import dev.vaayil.app.MainActivity
 import dev.vaayil.core.model.isValidProfileId
 
 /**
- * The launcher shortcut's trampoline: it drops one validated request in the process-wide
+ * The launcher shortcut's and the widget's trampoline: a shortcut tap, or the widget's disc after
+ * a connect refused for missing VPN permission, drops one validated request in the process-wide
  * [QuickRequests] slot and reopens the app, then finishes.
  *
  * MainActivity is singleTask, so the reopen returns to the app's existing task and an open editor

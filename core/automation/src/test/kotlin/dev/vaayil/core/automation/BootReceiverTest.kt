@@ -14,6 +14,7 @@ import dev.vaayil.core.data.AutomationRulesStore
 import dev.vaayil.core.data.BootClaim
 import dev.vaayil.core.data.DataGraph
 import dev.vaayil.core.data.ProfileEntity
+import dev.vaayil.core.tunnel.wg.ConnectMode
 import dev.vaayil.core.tunnel.wg.TunnelNotifications
 import dev.vaayil.core.tunnel.wg.VpnTunnelService
 import java.io.IOException
@@ -136,6 +137,7 @@ class BootReceiverTest {
             .first { it.component?.className == VpnTunnelService::class.java.name }
         assertEquals(VpnTunnelService.ACTION_CONNECT, started.action)
         assertEquals("p1", started.getStringExtra(VpnTunnelService.EXTRA_PROFILE_ID))
+        assertEquals(ConnectMode.KEEP_ANY.name, started.getStringExtra(VpnTunnelService.EXTRA_CONNECT_MODE))
     }
 
     @Test

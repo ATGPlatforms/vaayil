@@ -30,8 +30,13 @@ The maintainer's private docs live in the companion repo `vaayil-dev`, checked o
   with relative-path edits. Verify `git -C <main checkout> status --short` is empty
   before pushing.
 - **Control plane:** all tunnel connect/disconnect goes through `VpnTunnelService` intents
-  (`ACTION_CONNECT`/`ACTION_DISCONNECT` + `EXTRA_PROFILE_ID`). Nothing outside
-  `VpnTunnelService`/`EngineProvider` touches `WireGuardEngine`. Background senders
+  (`ACTION_CONNECT`/`ACTION_DISCONNECT` + `EXTRA_PROFILE_ID`). Every `ACTION_CONNECT` carries a
+  `ConnectMode` in `EXTRA_CONNECT_MODE`: RESTART (absent or unknown) for the in-app connect,
+  settings restarts, the reconnect and the crash resume; KEEP_ANY for connect-on-boot, the Wi-Fi
+  and mobile-data rules and the system's Always-on start, a no-op while any tunnel is up; KEEP_SAME
+  for Tasker, the tile and the widget, a no-op while that profile is up and a switch otherwise.
+  Nothing outside `VpnTunnelService`/`EngineProvider` touches `WireGuardEngine`.
+  Background senders
   (connect-on-boot, the guard service, Tasker) issue those intents only through
   `BackgroundTunnelCommands` (`:core:automation`, B1), and the Quick Settings tile and the
   home-screen widget through `QuickTunnelCommands` in the same module; a launcher shortcut only
@@ -40,7 +45,13 @@ The maintainer's private docs live in the companion repo `vaayil-dev`, checked o
   it posts "Vaayil couldn't connect" / "VPN permission is off. Open Vaayil and connect once to
   allow it." in the tunnel notification's slot (42, the "VPN connection" channel); a tile
   connect without consent posts nothing, leaves a request and opens the app, where the manual
-  connect gate asks. A DISCONNECT first bars the crash resume
+  connect gate asks. A refused background connect — the widget's included — sets
+  `ConnectionRegistry.vpnConsentMissing` in memory; only `BackgroundTunnelCommands` sets it, and
+  only when it refuses a CONNECT for missing consent, while a connect it admits clears it, as
+  does the bridge mirroring a CONNECTING, CONNECTED or FAILED status, never a DISCONNECTED.
+  While it is set and a profile is readable, the widget and the tile read "No VPN permission" and
+  the widget's disc opens Vaayil through the shortcut trampoline; a refused widget tap posts the
+  same 30 s request as the tile. A DISCONNECT first bars the crash resume
   (`CrashResumeGate.suppress()`, revoke included), clears ACTIVE (LAST kept) and joins a resume the service already
   accepted, then starts the service only while a tunnel is live (`EngineProvider.isTunnelLive()`). On API 34+ a
   `VpnTunnelService` start without consent crashes the
@@ -211,7 +222,8 @@ app -> core/model, core/ui, core/config, core/tunnel-api, core/data, core/automa
   cause) rebuilds it, which re-runs the lookup (`ReprobingUpstream`, wrapped around the secure
   upstream in `DnsResolver.kt`). The editor's hint says so (C9): "A hostname DNS server is looked up
   through your current network's resolver when the tunnel comes up, and again after a network change
-  or a failure." Secure DNS rides the tunnel; only bootstrap and bypass sockets are protected.
+  or a failure." Secure DNS rides the tunnel when its server's address is in Allowed IPs (the editor
+  warns otherwise); only bootstrap and bypass sockets are protected.
 - "The underlying network" is ONE network (K2, S10): `selectUnderlying` (`:core:tunnel-wg`
   `UnderlyingNetwork.kt`) picks among non-VPN networks with INTERNET, FOREGROUND and
   NOT_RESTRICTED, VALIDATED first, then Ethernet > Wi-Fi > cellular. Only its DNS servers are
@@ -252,6 +264,20 @@ app -> core/model, core/ui, core/config, core/tunnel-api, core/data, core/automa
   family its Allowed IPs route, no Secure DNS in effect and no usable split-DNS rules (`DnsPlanner`'s rule).
   `Profile.warnings()` then says "DNS lookups will bypass this tunnel. Add a DNS server to keep them in." when the
   profile reads as a tunnel; it never blocks Save, and Vaayil does not fail such a profile closed.
+  A DNS server outside Allowed IPs is reached outside the tunnel too (#15): `dnsCoverageWarning()`
+  checks the secure endpoint when Secure DNS is in effect, else every literal plain server of an
+  intercepting profile, else the literal plain servers of a routed family; `Profile.warnings()` adds
+  its note only when J12 did not fire and T-1 is false. A literal is outside when no Allowed IPs
+  entry of its family contains it, that family is not closed and no interface subnet of a routed
+  family holds it; a hostname secure endpoint warns unless every open family is covered. It never
+  resolves a name and never blocks Save. Its seven strings:
+  "DNS lookups will bypass this tunnel. Its DNS server isn't in Allowed IPs.",
+  "DNS lookups will bypass this tunnel. Its DNS servers aren't in Allowed IPs.",
+  "DNS lookups will bypass this tunnel. Its first DNS server isn't in Allowed IPs.",
+  "DNS lookups may bypass this tunnel. One DNS server isn't in Allowed IPs.",
+  "DNS lookups may bypass this tunnel. Some DNS servers aren't in Allowed IPs.",
+  "Secure DNS will bypass this tunnel. Its server isn't in Allowed IPs." and
+  "Secure DNS will bypass this tunnel unless its server is in Allowed IPs."
 - Lockdown doesn't stop offloaded keepalives either (X1): any app with ordinary network permissions (the public
   report's app declared only INTERNET and ACCESS_NETWORK_STATE) can start a NAT-T keepalive
   (`ConnectivityManager.createSocketKeepalive` on an `IpSecManager` UDP-encapsulation socket). Where the network
@@ -328,12 +354,15 @@ app -> core/model, core/ui, core/config, core/tunnel-api, core/data, core/automa
   profile is CONNECTED restarts at once; one while it is CONNECTING leaves one pending request
   (saves coalesce), which restarts once if that start settles CONNECTED for the same profile and
   is consumed without a restart by FAILED, DISCONNECTED, DISCONNECTING or another profile.
+  Settings restarts are always RESTART, so a save re-applies its settings instead of keeping the
+  live tunnel.
 - Telemetry is totals-only (`TunnelStats` = rx/tx bytes + handshake time). The dashboard
   shows session totals honestly — never invent rates, latency, or "fastest" badges.
 - `EngineProvider.connectById` returns a `StartOutcome`: the outcome of its own start, captured
   under the engine lock (`WireGuardEngine.startWithOutcome`, A6), never a re-read of the shared
   status that a queued start could overwrite. Only STARTED updates the active and last-connected
-  records. A failed switch keeps the previous tunnel and its pointers. A switch away
+  records. A KEPT outcome starts nothing and writes no record. A failed switch keeps the
+  previous tunnel and its pointers. A switch away
   from a live tunnel first resolves the target's endpoint hostname on the underlying network (the
   D1 bootstrap path) and is refused before the backend is touched when it does not resolve (F33);
   IP literals and fresh connects skip that lookup. `VpnTunnelService` never keeps a start request
@@ -372,6 +401,9 @@ app -> core/model, core/ui, core/config, core/tunnel-api, core/data, core/automa
   on mobile data on, Vaayil reads no Wi-Fi name, whatever location grants are held; rules that can't be
   read turn the watcher off, and the service reads the rule again after 1 s, the wait doubling to at
   most 60 s (`wifiGuardRetryDelayMs`), until a read succeeds.
+  A rule edit acts at once only when it changes the decision for the current network (the last
+  network the watchers reported); otherwise the user's own Connect or Disconnect stands. The first
+  rules read after the service starts, and the first good read after a failed one, never act.
 - An inclusive split-tunnel policy with no installed app is never applied: the VM refuses to save
   it and `SplitTunnelResolver` returns no restriction (everything tunnels).
 - The local-network switch is app-wide, as `SplitTunnelSelections.allowLocalNetwork`, stored with
@@ -486,12 +518,17 @@ app -> core/model, core/ui, core/config, core/tunnel-api, core/data, core/automa
 - Quick controls (`:app` `dev.vaayil.app.quick`): the Quick Settings tile, the home-screen
   widget and the launcher's shortcuts share one hub, `QuickControls`; the tile and the widget
   render its `QuickState` presenter, and a tap does what its surface last showed — a tile tap
-  before the first render does nothing. A launcher Connect shortcut, or a tile connect without
-  VPN consent, posts a request in memory only (one slot of 30 s, `QUICK_REQUEST_TTL_MS`,
+  before the first render does nothing. A launcher Connect shortcut, a tile connect without
+  VPN consent, or the widget's no-permission disc posts a request in memory only (one slot of 30 s,
+  `QUICK_REQUEST_TTL_MS`,
   replaced by a newer one and lost on process death) and opens the app, where
   `QuickRequestEffect` runs it through the manual connect gate (C7) while the screen is started;
-  `MainActivity` never reads a tunnel request from its intent. The trampoline activity, the
-  widget's provider and its receiver are `exported="false"`; the tile is exported only behind
+  `MainActivity` never reads a tunnel request from its intent. The hub presents the signal's face
+  after a live tunnel and the no-readable case, and before a FAILED status; its name and
+  `ConnectInApp` target are the "Disconnected" target (ACTIVE, else last-connected, else the first
+  readable profile). The trampoline activity, the widget's provider and its receiver are
+  `exported="false"` (the widget's disc reaches the trampoline through an immutable activity
+  `PendingIntent`); the tile is exported only behind
   `android.permission.BIND_QUICK_SETTINGS_TILE` (`QuickComponentsManifestTest` pins it). The
   tile and the widget connect through `QuickTunnelCommands`, whose duplicate guard, after one CONNECT, skips
   another connect only while no connect has settled since that send (`ConnectionRegistry.connectsSettled`, which
@@ -502,7 +539,9 @@ app -> core/model, core/ui, core/config, core/tunnel-api, core/data, core/automa
   Vaayil off from a locked phone asks for unlock on the tile at every API level and on the
   notification's Disconnect on API 31+; API 26–30 can't make a notification action ask, and
   that gap is accepted. After a process death the widget can keep stale views until Vaayil runs
-  again; its Disconnect then bars the crash resume and never connects. A deleted profile is one
+  again; its Disconnect then bars the crash resume and never connects, and a stale no-permission
+  face's disc still opens Vaayil through the trampoline (once Vaayil runs again that face reads
+  "Disconnected"). A deleted profile is one
   with no stored row (B3), and during a key outage the shortcuts are left as they are. The
   shortcuts do no usage reporting and are never long-lived. The widget and shortcut updaters
   start only from `AppContainer`'s production initializer, after `initEngine()`; test

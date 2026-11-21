@@ -58,6 +58,7 @@ class QuickWidgetScreenshotTest {
         readable: List<QuickProfile> = listOf(home),
         storedCount: Int = 1,
         lastConnectedId: String? = null,
+        vpnConsentMissing: Boolean = false,
     ) = QuickInputs(
         status = TunnelStatus(phase, if (phase == ConnectionPhase.DISCONNECTED) null else "p1"),
         handshake = handshake,
@@ -65,6 +66,7 @@ class QuickWidgetScreenshotTest {
         storedCount = storedCount,
         activeId = null,
         lastConnectedId = lastConnectedId,
+        vpnConsentMissing = vpnConsentMissing,
     )
 
     private val verified = presentQuickState(inputs(ConnectionPhase.CONNECTED, HandshakeState.VERIFIED))
@@ -72,6 +74,9 @@ class QuickWidgetScreenshotTest {
     private val waiting = presentQuickState(inputs(ConnectionPhase.CONNECTED, HandshakeState.WAITING))
     private val disconnected = presentQuickState(inputs(ConnectionPhase.DISCONNECTED, lastConnectedId = "p1"))
     private val failed = presentQuickState(inputs(ConnectionPhase.FAILED))
+    private val noPermission = presentQuickState(
+        inputs(ConnectionPhase.DISCONNECTED, lastConnectedId = "p1", vpnConsentMissing = true),
+    )
     private val noProfile = presentQuickState(
         inputs(ConnectionPhase.DISCONNECTED, readable = emptyList(), storedCount = 0),
     )
@@ -83,6 +88,7 @@ class QuickWidgetScreenshotTest {
         "disconnected" to disconnected,
         "failed" to failed,
         "no-profile" to noProfile,
+        "no-permission" to noPermission,
     )
 
     private var current by mutableStateOf(verified)
@@ -184,5 +190,14 @@ class QuickWidgetScreenshotTest {
         val layout = root.findViewById<TextView>(R.id.quick_widget_name).layout
         assertEquals("the long name's line count", 1, layout.lineCount)
         assertTrue("the long name is not cut with an ellipsis", layout.getEllipsisCount(0) > 0)
+    }
+
+    @Test
+    fun `the no-permission state line fits one line without an ellipsis`() {
+        val root = render(noPermission)
+
+        val layout = checkNotNull(root.findViewById<TextView>(R.id.quick_widget_state).layout)
+        assertEquals("the no-permission line count", 1, layout.lineCount)
+        assertEquals("the no-permission state is ellipsized", 0, layout.getEllipsisCount(0))
     }
 }

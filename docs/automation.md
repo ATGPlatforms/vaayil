@@ -59,7 +59,11 @@ once and accept Android's request; later broadcasts then work. The same
 notification comes from the Wi-Fi guard, the mobile-data rule and connect on
 boot, for the same reason. The next tunnel notification replaces it.
 
-A DISCONNECT while no tunnel is up does nothing.
+After a CONNECT is refused for missing VPN permission, the widget and the Quick
+Settings tile show "No VPN permission" until you connect from the app.
+
+A DISCONNECT while no tunnel is up does nothing. A CONNECT for the profile that is already
+connected does nothing; a CONNECT for another profile switches to it.
 
 ## Delivery: explicit component required
 

@@ -4,6 +4,7 @@ import dev.vaayil.core.model.AutoConnectRules
 import dev.vaayil.core.model.SsidDecision
 import dev.vaayil.core.model.WifiSecurity
 import dev.vaayil.core.model.decide
+import dev.vaayil.core.model.mobileDecision
 import dev.vaayil.core.tunnel.api.ConnectionPhase
 import dev.vaayil.core.tunnel.api.isLive
 
@@ -34,3 +35,51 @@ internal class WifiChangeGate {
         last = null
     }
 }
+
+/**
+ * AUTO-2/J3: the Wi-Fi answer for a reported network, shaped exactly like [evaluateWifi]'s: the
+ * disconnect is a POLICY decision, not a phase read — a visible, secured, trusted SSID with
+ * disconnect-on-trusted on must also supersede a crash resume that just came up (or is coming
+ * up) while the registry still reads idle. Otherwise the phase decides, as before: on a live
+ * tunnel the same rule disconnects, and untrusted networks connect or stay put exactly as
+ * [decideForPhase] always answered.
+ */
+internal fun AutoConnectRules.wifiAnswer(ssid: String?, security: WifiSecurity, phase: ConnectionPhase): SsidDecision =
+    if (decide(ssid, security, tunnelConnected = true) == SsidDecision.DISCONNECT) {
+        SsidDecision.DISCONNECT
+    } else {
+        decideForPhase(ssid, security, phase)
+    }
+
+/**
+ * AUTO-2 (spec §4.6): what a rule edit does to the current Wi-Fi network. Nothing when the edit
+ * only turns the guard on or off (Y3 owns that transition), the new answer when it differs from
+ * the previous one, and nothing else — so an edit that leaves the answer alone leaves the user's
+ * own Connect or Disconnect standing.
+ */
+internal fun wifiRuleChange(
+    previous: AutoConnectRules,
+    current: AutoConnectRules,
+    ssid: String?,
+    security: WifiSecurity,
+    phase: ConnectionPhase,
+): SsidDecision {
+    if (previous.wifiGuardEnabled != current.wifiGuardEnabled) return SsidDecision.NONE
+    val after = current.wifiAnswer(ssid, security, phase)
+    return if (after != previous.wifiAnswer(ssid, security, phase)) after else SsidDecision.NONE
+}
+
+/** AUTO-2 (spec §4.6): CONNECT only when the new mobile answer is CONNECT and the previous one was not. */
+internal fun mobileRuleChange(
+    previous: AutoConnectRules,
+    current: AutoConnectRules,
+    mobile: Boolean,
+    busy: Boolean,
+): SsidDecision =
+    if (current.mobileDecision(mobile, busy) == SsidDecision.CONNECT &&
+        previous.mobileDecision(mobile, busy) != SsidDecision.CONNECT
+    ) {
+        SsidDecision.CONNECT
+    } else {
+        SsidDecision.NONE
+    }

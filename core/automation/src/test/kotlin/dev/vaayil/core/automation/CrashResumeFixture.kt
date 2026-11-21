@@ -75,7 +75,7 @@ internal fun installResumeFixture(): ResumeFixture {
         null,
         TunnelControl(
             scope = CoroutineScope(controlJob + Dispatchers.Unconfined),
-            connectOp = { _, id, admit ->
+            connectOp = { _, id, admit, _ ->
                 connectCalls += id
                 lookup.await()
                 val started = admit()

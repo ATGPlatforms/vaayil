@@ -14,6 +14,9 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.unit.dp
+import androidx.core.graphics.Insets
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.github.takahirom.roborazzi.ExperimentalRoborazziApi
 import com.github.takahirom.roborazzi.captureScreenRoboImage
@@ -31,6 +34,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
+import org.robolectric.shadows.ShadowDialog
 
 /**
  * The passphrase dialog's two forms at font scale 2.0 on a small phone: every line and field
@@ -88,6 +92,84 @@ class PassphraseDialogFontScaleTest {
 
     private fun scrollRange() =
         scrollNode().fetchSemanticsNode().config[SemanticsProperties.VerticalScrollAxisRange]
+
+    private val KEYBOARD_HEIGHT = 280.dp
+
+    /**
+     * w8: the dialog's window no longer fits the system windows, so the keyboard reaches the
+     * content as insets rather than as a resize. The scrim's safe-drawing padding must lift
+     * the sheet clear of them.
+     */
+    private fun keyboard() {
+        val window = requireNotNull(ShadowDialog.getLatestDialog().window) { "the dialog has no window" }
+        val bottom = with(compose.density) { KEYBOARD_HEIGHT.roundToPx() }
+        val insets = WindowInsetsCompat.Builder()
+            .setInsets(WindowInsetsCompat.Type.ime(), Insets.of(0, 0, 0, bottom))
+            .build()
+        compose.runOnUiThread { ViewCompat.dispatchApplyWindowInsets(window.decorView, insets) }
+        compose.waitForIdle()
+    }
+
+    /** Both named buttons end above the keyboard's top edge. */
+    private fun assertClearOfKeyboard(vararg buttons: String) {
+        val root = compose.onNode(isDialog()).fetchSemanticsNode().boundsInRoot
+        val keyboardTop = root.bottom - with(compose.density) { KEYBOARD_HEIGHT.toPx() }
+        for (button in buttons) {
+            val bottom = compose.onNodeWithText(button).fetchSemanticsNode().boundsInRoot.bottom
+            assertTrue(
+                "\"$button\" ends at $bottom px, under the keyboard's top at $keyboardTop px",
+                bottom <= keyboardTop + 0.5f,
+            )
+        }
+    }
+
+    @Test
+    @Config(qualifiers = "w360dp-h580dp")
+    fun `with the keyboard up the export dialog at font scale 1 keeps its buttons clear`() {
+        RuntimeEnvironment.setFontScale(1f)
+        show(PassphraseDialogMode.CREATE)
+        keyboard()
+        fill("Passphrase")
+        fill("Confirm passphrase")
+        assertClearOfKeyboard("Cancel", "Export")
+        field("Confirm passphrase").assertIsDisplayed()
+        compose.assertNoTextClipped("in the export dialog with the keyboard up at font scale 1", isDialog())
+    }
+
+    @Test
+    @Config(qualifiers = "w360dp-h580dp")
+    fun `with the keyboard up the export dialog at font scale 2 keeps its buttons clear`() {
+        show(PassphraseDialogMode.CREATE)
+        keyboard()
+        fill("Passphrase")
+        fill("Confirm passphrase")
+        assertClearOfKeyboard("Cancel", "Export")
+        field("Confirm passphrase").assertIsDisplayed()
+        compose.assertNoTextClipped("in the export dialog with the keyboard up at font scale 2.0", isDialog())
+    }
+
+    @Test
+    @Config(qualifiers = "w360dp-h580dp")
+    fun `with the keyboard up the unlock dialog with its error at font scale 1 keeps its buttons clear`() {
+        RuntimeEnvironment.setFontScale(1f)
+        show(PassphraseDialogMode.UNLOCK, "Wrong passphrase, or the file is damaged.")
+        keyboard()
+        fill("Passphrase")
+        assertClearOfKeyboard("Cancel", "Unlock")
+        field("Passphrase").assertIsDisplayed()
+        compose.assertNoTextClipped("in the unlock dialog with the keyboard up at font scale 1", isDialog())
+    }
+
+    @Test
+    @Config(qualifiers = "w360dp-h580dp")
+    fun `with the keyboard up the unlock dialog with its error at font scale 2 keeps its buttons clear`() {
+        show(PassphraseDialogMode.UNLOCK, "Wrong passphrase, or the file is damaged.")
+        keyboard()
+        fill("Passphrase")
+        assertClearOfKeyboard("Cancel", "Unlock")
+        field("Passphrase").assertIsDisplayed()
+        compose.assertNoTextClipped("in the unlock dialog with the keyboard up at font scale 2.0", isDialog())
+    }
 
     @Test
     @Config(qualifiers = "w360dp-h580dp")

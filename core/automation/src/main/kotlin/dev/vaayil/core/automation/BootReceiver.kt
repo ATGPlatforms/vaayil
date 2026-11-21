@@ -86,7 +86,7 @@ class BootReceiver : BroadcastReceiver() {
                     null
                 }
                 // B1: the command gates the start on VPN consent (and logs a refused one).
-                if (target != null) BackgroundTunnelCommands(context).connect(target)
+                if (target != null) BackgroundTunnelCommands(context).connect(target, BackgroundSender.BOOT)
             }
             if (rules.needsGuardService) {
                 runCatching { AutoConnectService.start(context) }

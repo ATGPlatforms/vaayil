@@ -10,6 +10,8 @@ import android.os.Build
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import dev.vaayil.core.data.ActiveProfileStore
+import dev.vaayil.core.tunnel.wg.ConnectMode
+import dev.vaayil.core.tunnel.wg.ConnectionRegistry
 import dev.vaayil.core.tunnel.wg.EngineProvider
 import dev.vaayil.core.tunnel.wg.TunnelNotifications
 import dev.vaayil.core.tunnel.wg.VpnTunnelService
@@ -18,6 +20,21 @@ import kotlinx.coroutines.withContext
 
 /** B1's CONNECT admission: a start was issued, consent is missing, or the command threw. */
 internal enum class ConnectAdmission { STARTED, NO_CONSENT, REFUSED }
+
+/**
+ * #14: who sends a background CONNECT, the label its log line names, and the mode it asks for.
+ * KEEP_ANY only asks that a tunnel be up, so a duplicate or a racing guard cannot switch away
+ * from the profile the user picked; KEEP_SAME asks for its named profile and switches to it when
+ * another one is up.
+ */
+internal enum class BackgroundSender(val label: String, val mode: ConnectMode) {
+    BOOT("connect-on-boot", ConnectMode.KEEP_ANY),
+    WIFI_RULE("Wi-Fi rule", ConnectMode.KEEP_ANY),
+    MOBILE_RULE("mobile-data rule", ConnectMode.KEEP_ANY),
+    TASKER("Tasker", ConnectMode.KEEP_SAME),
+    TILE("Quick Settings tile", ConnectMode.KEEP_SAME),
+    WIDGET("widget", ConnectMode.KEEP_SAME),
+}
 
 /**
  * B1: the one admission point for the tunnel commands the background automation paths issue — the
@@ -35,12 +52,14 @@ internal enum class ConnectAdmission { STARTED, NO_CONSENT, REFUSED }
 internal class BackgroundTunnelCommands(private val context: Context) {
 
     /**
-     * Starts VpnTunnelService for [profileId] only with VPN consent. Without consent, [postNotice]
-     * posts the notice and the admission is [ConnectAdmission.NO_CONSENT]; a prepare or a start
-     * that threw is [ConnectAdmission.REFUSED]. Only [ConnectAdmission.STARTED] means a start was
-     * issued.
+     * Starts VpnTunnelService for [profileId] in [sender]'s mode, only with VPN consent. Without
+     * consent, [postNotice] posts the notice and [ConnectionRegistry.vpnConsentMissing] remembers
+     * the refusal for the quick controls, so the admission is [ConnectAdmission.NO_CONSENT]; a
+     * prepare or a start that threw is [ConnectAdmission.REFUSED] and leaves the signal alone. Only
+     * [ConnectAdmission.STARTED] means a start was issued — it clears the signal and logs one line
+     * naming the sender and the mode — never the profile.
      */
-    fun connect(profileId: String, postNotice: Boolean = true): ConnectAdmission {
+    fun connect(profileId: String, sender: BackgroundSender, postNotice: Boolean = true): ConnectAdmission {
         // The engine's own consent check (EngineProvider): prepare() returns null when the app is
         // already prepared. Its side effect — preparing Vaayil — happens immediately before a
         // connect that would take the VPN over anyway.
@@ -51,11 +70,14 @@ internal class BackgroundTunnelCommands(private val context: Context) {
             return ConnectAdmission.REFUSED
         }
         if (prepared != null) {
+            ConnectionRegistry.noteVpnConsentMissing()
             if (postNotice) postMissingConsent()
             return ConnectAdmission.NO_CONSENT
         }
         return try {
-            context.startForegroundService(AutoConnectService.connectIntent(context, profileId))
+            context.startForegroundService(AutoConnectService.connectIntent(context, profileId, sender.mode))
+            Log.i(TAG, "connect sent (${sender.label}, ${sender.mode.name})")
+            ConnectionRegistry.clearVpnConsentMissing()
             ConnectAdmission.STARTED
         } catch (e: Exception) {
             Log.w(TAG, "connect start refused (${e.javaClass.simpleName})")

@@ -123,7 +123,7 @@ laid, one film at a time. Where security tools shout — neon greens, terminal
 blackout, militaristic locks — Vellum builds a warm, domestic calm: a cream
 canvas deepened by soft paper films, sage and slate and lavender ink accents,
 cut-paper seams instead of shadows, and clear honest telemetry. The app should
-feel like a well-made household object that happens to guard your traffic.
+feel like a well-made household object that happens to guard your connections.
 Security is conveyed through peace, not urgency: the hero disc, the state
 pills, and the numbers answer "am I protected?" in one glance, then get out
 of the way.
@@ -267,6 +267,10 @@ text colour: ACTIVE `sage-mark`/`on-field-active`, WARNING
 inside one closed 1dp `seam` perimeter: the system widget radius on API 31+, the
 card's 10dp below; no shadow. Its colours are XML resources (the launcher inflates
 them) pinned equal to their `VellumColors` tokens by `QuickWidgetColorsTest`.
+The no-permission face is ERROR: the failed face's bare window with its 2dp
+`error-mark` ring, the ERROR dot and text, and the same name grid. Its disc still
+acts, opening Vaayil through the shortcut trampoline, labelled "Open Vaayil to
+connect {name}".
 Before its first update, and in the picker's preview, the layout reads "Vaayil" on
 the idle disc with no state row. Limits: font scale 2.0 fits the default portrait
 size but not the one-row landscape size (51dp tall); at 3×1 "Waiting for
@@ -325,8 +329,12 @@ under a `stroke-3` thumb, the track ring in `stroke-3` too (3.54:1 — the
 familiar M3 off-knob; the canvas off thumb vanished at 1.28:1, and M3 offers
 no thumb-border parameter, so the ring lives on the track alone; device
 review 2026-09-21, C9). The segmented control is a
-`container-4` pill at 52dp whose selected segment is a *lifted* canvas pill —
-physically raised, not recolored — with radio semantics.
+`container-4` pill at least 52dp; at large text a segment grows and its label
+wraps (F29). Its selected segment is a *lifted* canvas pill — physically raised,
+not recolored — with radio semantics.
+The editor's two Allowed IPs quick buttons sit side by side while both labels fit
+on one line in half the row; otherwise they stack, each full width, rather than
+break a word (w39).
 A saved profile row keeps its controls beside the text only while the text's
 longest unbreakable piece — a whole word of the name or a whole machine-value
 segment — fits beside them, or when its endpoint would need more than two lines
@@ -367,6 +375,9 @@ carry no seam), wordmark at titleLarge, quiet gear.
 ### Dialogs and overlays
 Dialogs, dropdowns and the QR share are lifted sheets over the scrim; the QR
 ink is pinned `#3E5A42` (7.65:1 on a pure-white mat with a 20dp quiet zone).
+The scrim covers the system bars, and the sheet lays out inside
+`WindowInsets.safeDrawing` — the keyboard included — so a dialog's scroll area
+shrinks and its buttons stay visible (w8).
 Warning and error cards use their semantic surfaces with a
 `warning-mark`/`error-mark` seam; warning body text is `on-warning`, never
 the mark.
