@@ -14,7 +14,9 @@ import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 /**
@@ -47,6 +49,22 @@ object ConnectionRegistry {
     val stats = MutableStateFlow(TunnelStats.empty)
     /** G4/J13: the live tunnel's handshake state, computed once for the process from [status] and [stats] by [bridge]. NONE until a bridge runs. */
     val handshake = MutableStateFlow(HandshakeState.NONE)
+
+    private val _vpnConsentMissing = MutableStateFlow(false)
+
+    /**
+     * #23: a background connect was refused for missing VPN consent in this process, and no tunnel
+     * has gone live since. In memory only: a process death forgets it and the quick controls read
+     * "Disconnected" again. Set only by the background commands' admission (R5) — never by the crash
+     * resume's no-consent skip or a start failing with PermissionDenied.
+     */
+    val vpnConsentMissing: StateFlow<Boolean> = _vpnConsentMissing.asStateFlow()
+
+    /** #23: the background admission saw no VPN consent; it posts its notice separately. */
+    fun noteVpnConsentMissing() { _vpnConsentMissing.value = true }
+
+    /** #23: an admitted connect, or a mirrored live status, makes the remembered refusal obsolete. */
+    fun clearVpnConsentMissing() { _vpnConsentMissing.value = false }
 
     private var bridgeJob: Job? = null
 
@@ -113,7 +131,14 @@ object ConnectionRegistry {
     fun bridge(engine: TunnelEngine, scope: CoroutineScope) {
         bridgeJob?.cancel()
         bridgeJob = scope.launch {
-            launch { engine.status.collect { status.value = it } }
+            launch {
+                engine.status.collect {
+                    status.value = it
+                    // #23: a live status (CONNECTING or CONNECTED) covers the in-app connect after
+                    // the gate got consent, even when that connect goes on to fail.
+                    if (it.phase.isLive) clearVpnConsentMissing()
+                }
+            }
             launch { engine.stats.collect { stats.value = it } }
             launch { handshakeState(status, stats).collect { handshake.value = it } }
         }

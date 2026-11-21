@@ -68,6 +68,7 @@ class QuickTunnelCommandsTest {
     fun resetRegistry() {
         ConnectionRegistry.status.value = TunnelStatus.idle
         ConnectionRegistry.handshake.value = HandshakeState.NONE
+        ConnectionRegistry.clearVpnConsentMissing()
     }
 
     private fun entry(context: Context): QuickTunnelCommands = QuickTunnelCommands(
@@ -102,6 +103,16 @@ class QuickTunnelCommandsTest {
         val posted = nm.getNotification(TunnelNotifications.NOTIFICATION_ID)
         assertNotNull("no consent notification in slot 42", posted)
         assertEquals("Vaayil couldn't connect", posted.extras.getCharSequence(Notification.EXTRA_TITLE)?.toString())
+    }
+
+    @Test
+    fun `a connect refused for missing consent leaves the signal set`() {
+        ShadowVpnService.setPrepareResult(Intent()) // missing consent
+        ConnectionRegistry.noteVpnConsentMissing()
+
+        assertEquals(QuickConnectResult.NEEDS_CONSENT, entry(app).connect("p1", noticeWithoutConsent = true))
+
+        assertTrue(ConnectionRegistry.vpnConsentMissing.value)
     }
 
     @Test

@@ -5,9 +5,11 @@ import android.app.Application
 import android.app.Notification
 import android.app.NotificationManager
 import android.content.ComponentName
+import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.location.LocationManager
+import android.net.VpnService
 import android.os.Looper
 import android.util.Log
 import androidx.test.core.app.ApplicationProvider
@@ -48,6 +50,8 @@ import org.robolectric.Robolectric
 import org.robolectric.Shadows.shadowOf
 import org.robolectric.android.controller.ServiceController
 import org.robolectric.annotation.Config
+import org.robolectric.annotation.Implementation
+import org.robolectric.annotation.Implements
 import org.robolectric.shadows.ShadowLog
 import org.robolectric.shadows.ShadowNotificationManager
 import org.robolectric.shadows.ShadowVpnService
@@ -78,6 +82,7 @@ class BackgroundTunnelCommandsTest {
     fun tearDown() {
         if (::controller.isInitialized) controller.destroy()
         ConnectionRegistry.status.value = TunnelStatus.idle
+        ConnectionRegistry.clearVpnConsentMissing()
     }
 
     /** Service fixture: location grants on, watchers registered, and the rules/target seams injected. */
@@ -195,6 +200,38 @@ class BackgroundTunnelCommandsTest {
         assertEquals(VpnTunnelService.ACTION_CONNECT, started?.action)
         assertEquals("p1", started?.getStringExtra(VpnTunnelService.EXTRA_PROFILE_ID))
         assertEquals(ConnectMode.KEEP_SAME.name, started?.getStringExtra(VpnTunnelService.EXTRA_CONNECT_MODE))
+    }
+
+    @Test
+    fun `a consentless connect notes VPN permission missing`() {
+        ShadowVpnService.setPrepareResult(Intent()) // missing consent
+
+        assertEquals(ConnectAdmission.NO_CONSENT, BackgroundTunnelCommands(app).connect("p1", BackgroundSender.TASKER))
+
+        assertTrue(ConnectionRegistry.vpnConsentMissing.value)
+    }
+
+    @Test
+    fun `a started connect clears the signal`() {
+        ConnectionRegistry.noteVpnConsentMissing()
+        ShadowVpnService.setPrepareResult(null)
+
+        assertEquals(ConnectAdmission.STARTED, BackgroundTunnelCommands(app).connect("p1", BackgroundSender.TASKER))
+
+        assertFalse(ConnectionRegistry.vpnConsentMissing.value)
+    }
+
+    @Test
+    @Config(shadows = [ThrowingPrepareShadow::class])
+    fun `a refused connect leaves the signal as it was`() {
+        val commands = BackgroundTunnelCommands(app)
+
+        assertEquals(ConnectAdmission.REFUSED, commands.connect("p1", BackgroundSender.TASKER))
+        assertFalse("a refused connect set the signal", ConnectionRegistry.vpnConsentMissing.value)
+
+        ConnectionRegistry.noteVpnConsentMissing()
+        assertEquals(ConnectAdmission.REFUSED, commands.connect("p1", BackgroundSender.TASKER))
+        assertTrue("a refused connect cleared the signal", ConnectionRegistry.vpnConsentMissing.value)
     }
 
     @Test
@@ -640,5 +677,22 @@ class BackgroundTunnelCommandsTest {
                 restoreResumeFixture(fixture, null, primary) { destroyGuardedServiceAndIdle() }
             }
         }
+    }
+}
+
+/**
+ * T8-b: Robolectric 4.14.1's [ShadowVpnService] can only report a consent result — its `prepare`
+ * returns the Intent set by `setPrepareResult` and can never throw — so this shadow makes
+ * `VpnService.prepare` throw, the one way a consent check reaches [ConnectAdmission.REFUSED]
+ * before a start. It does not extend [ShadowVpnService] because that class's `prepare` is a
+ * protected static the JVM cannot override; the test method that applies it calls nothing else
+ * on VpnService.
+ */
+@Implements(VpnService::class)
+class ThrowingPrepareShadow {
+    companion object {
+        @JvmStatic
+        @Implementation
+        fun prepare(context: Context): Intent? = throw IllegalStateException("prepare failed")
     }
 }

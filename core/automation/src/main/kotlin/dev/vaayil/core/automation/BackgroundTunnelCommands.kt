@@ -11,6 +11,7 @@ import android.util.Log
 import androidx.core.app.NotificationCompat
 import dev.vaayil.core.data.ActiveProfileStore
 import dev.vaayil.core.tunnel.wg.ConnectMode
+import dev.vaayil.core.tunnel.wg.ConnectionRegistry
 import dev.vaayil.core.tunnel.wg.EngineProvider
 import dev.vaayil.core.tunnel.wg.TunnelNotifications
 import dev.vaayil.core.tunnel.wg.VpnTunnelService
@@ -52,10 +53,11 @@ internal class BackgroundTunnelCommands(private val context: Context) {
 
     /**
      * Starts VpnTunnelService for [profileId] in [sender]'s mode, only with VPN consent. Without
-     * consent, [postNotice] posts the notice and the admission is [ConnectAdmission.NO_CONSENT];
-     * a prepare or a start that threw is [ConnectAdmission.REFUSED]. Only
-     * [ConnectAdmission.STARTED] means a start was issued, and it logs one line naming the sender
-     * and the mode — never the profile.
+     * consent, [postNotice] posts the notice and [ConnectionRegistry.vpnConsentMissing] remembers
+     * the refusal for the quick controls, so the admission is [ConnectAdmission.NO_CONSENT]; a
+     * prepare or a start that threw is [ConnectAdmission.REFUSED] and leaves the signal alone. Only
+     * [ConnectAdmission.STARTED] means a start was issued — it clears the signal and logs one line
+     * naming the sender and the mode — never the profile.
      */
     fun connect(profileId: String, sender: BackgroundSender, postNotice: Boolean = true): ConnectAdmission {
         // The engine's own consent check (EngineProvider): prepare() returns null when the app is
@@ -68,12 +70,14 @@ internal class BackgroundTunnelCommands(private val context: Context) {
             return ConnectAdmission.REFUSED
         }
         if (prepared != null) {
+            ConnectionRegistry.noteVpnConsentMissing()
             if (postNotice) postMissingConsent()
             return ConnectAdmission.NO_CONSENT
         }
         return try {
             context.startForegroundService(AutoConnectService.connectIntent(context, profileId, sender.mode))
             Log.i(TAG, "connect sent (${sender.label}, ${sender.mode.name})")
+            ConnectionRegistry.clearVpnConsentMissing()
             ConnectAdmission.STARTED
         } catch (e: Exception) {
             Log.w(TAG, "connect start refused (${e.javaClass.simpleName})")
