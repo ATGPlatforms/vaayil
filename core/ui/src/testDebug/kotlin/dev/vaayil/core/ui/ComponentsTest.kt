@@ -51,14 +51,14 @@ import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 
 /**
- * Component geometry pinned by spec §3.4.3: `PillSegmented` fixes today's
- * content-driven track (≈48dp on device) at exactly 52dp, and `StatusPill`
- * grows 28dp → 32dp. Colors live in the token pins (`VellumTokensTest`) and
- * the draw phase is not observable under Robolectric, so these assert the
- * layout contracts screens rely on. Note the track height must be *pinned*,
- * not merely capped: under Robolectric the emulated font inflates today's
- * content-driven track to 64dp, so a >=-assert cannot discriminate. The class runs
- * under NATIVE graphics so text wraps and measures with real font metrics: the
+ * Component geometry pinned by spec §3.4.3: `PillSegmented`'s track is 52dp
+ * while its labels fit at the current font scale, and grows to fit a wrapped
+ * label at large text (F29), and `StatusPill` grows 28dp → 32dp. Colors live
+ * in the token pins (`VellumTokensTest`) and the draw phase is not observable
+ * under Robolectric, so these assert the layout contracts screens rely on.
+ * At font scale 1.0 the track height is *pinned*, not merely capped: it must be
+ * exactly 52dp, so a >=-assert would not discriminate. The class runs under
+ * NATIVE graphics so text wraps and measures with real font metrics: the
  * large-text tests (F29) depend on it, and the pill's height is content-driven.
  */
 @RunWith(AndroidJUnit4::class)
@@ -92,6 +92,89 @@ class ComponentsTest {
             trackHeightDp,
             0.1f,
         )
+    }
+
+    @Test
+    fun pillSegmentedGrowsAndWrapsAtLargeText() {
+        // F29 / #16: at 2.0 "Secure DNS" is wider than its 134dp segment in a 280dp box,
+        // so the track grows and the label wraps instead of being cut off.
+        var trackHeightPx = 0
+        var density = 1f
+        compose.setContent {
+            density = LocalDensity.current.density
+            AtFontScale(2f) {
+                Box(Modifier.width(280.dp)) {
+                    PillSegmented(
+                        options = listOf("Off", "Secure DNS"),
+                        selectedIndex = 0,
+                        onSelect = {},
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .onGloballyPositioned { trackHeightPx = it.size.height },
+                    )
+                }
+            }
+        }
+        compose.waitForIdle()
+        assertTrue("track stayed ${trackHeightPx / density}dp tall", trackHeightPx / density > 52f)
+        val secureDns = textLayoutOf("Secure DNS")
+        assertEquals("Secure DNS stayed on one line", 2, secureDns.lineCount)
+        for ((label, layout) in listOf("Off" to textLayoutOf("Off"), "Secure DNS" to secureDns)) {
+            // `didOverflowWidth` is true for any text wider than one line — even "Off" reports
+            // it after the semantics re-layout at the parent's full width (the trap
+            // `TextClipping.kt` documents in `:app`). A cut can only show as a paragraph taller
+            // than its node, or as lines missing from the end.
+            val paragraph = layout.multiParagraph
+            assertTrue("\"$label\" is cut at the bottom", paragraph.height <= layout.size.height + 0.5f)
+            assertTrue(
+                "\"$label\" is cut after line ${layout.lineCount}",
+                layout.getLineEnd(layout.lineCount - 1) == label.length,
+            )
+        }
+        val off = compose.onNodeWithText("Off").fetchSemanticsNode()
+        val secure = compose.onNodeWithText("Secure DNS").fetchSemanticsNode()
+        assertEquals("the two segments differ in height", off.size.height, secure.size.height)
+    }
+
+    @Test
+    fun pillSegmentedShortLabelsStay52dpAtLargeText() {
+        var trackHeightPx = 0
+        var density = 1f
+        compose.setContent {
+            density = LocalDensity.current.density
+            AtFontScale(2f) {
+                PillSegmented(
+                    options = listOf("DoH", "DoT"),
+                    selectedIndex = 0,
+                    onSelect = {},
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .onGloballyPositioned { trackHeightPx = it.size.height },
+                )
+            }
+        }
+        compose.waitForIdle()
+        assertEquals("a short label grew the track", 52f, trackHeightPx / density, 0.1f)
+    }
+
+    @Test
+    fun pillSegmentedSplitTunnelLabelsStayOnOneLine() {
+        // The Split Tunnel tab's content padding is 20dp a side (SplitTunnelScreen.kt:104),
+        // so at w360dp its pill is 320dp wide.
+        compose.setContent {
+            AtFontScale(2f) {
+                Box(Modifier.width(320.dp)) {
+                    PillSegmented(
+                        options = listOf("Exclusive", "Inclusive"),
+                        selectedIndex = 0,
+                        onSelect = {},
+                    )
+                }
+            }
+        }
+        compose.waitForIdle()
+        assertEquals("Exclusive wrapped", 1, textLayoutOf("Exclusive").lineCount)
+        assertEquals("Inclusive wrapped", 1, textLayoutOf("Inclusive").lineCount)
     }
 
     @Test

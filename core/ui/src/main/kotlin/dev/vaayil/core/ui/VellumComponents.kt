@@ -10,6 +10,7 @@ import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -282,13 +283,14 @@ fun vellumSwitchColors() = SwitchDefaults.colors(
 
 /**
  * Two-option pill segmenter (Exclusive / Inclusive mode switches), spec §3.4.3:
- * a 52dp container-4 track (radius 999) with the selected option as a lifted
- * canvas pill — `sheet-lift` + seam + `on-surface`, the paper physically rising
- * out of the track. Unselected options sit transparent in `on-surface-variant`
- * and step one film deeper when pressed; press feedback is tonal only
- * (`indication = null`, the Task-3 ripple ruling). The track is a
- * `selectableGroup` and each segment carries `Role.RadioButton` + `selected`
- * semantics so screen readers announce the current option.
+ * a container-4 track at least 52dp tall (radius 26) with the selected option as
+ * a lifted canvas pill — `sheet-lift` + seam + `on-surface`, the paper physically
+ * rising out of the track. At large text the track grows and a segment's label
+ * wraps inside it, both segments keeping the taller height. Unselected options
+ * sit transparent in `on-surface-variant` and step one film deeper when pressed;
+ * press feedback is tonal only (`indication = null`, the Task-3 ripple ruling).
+ * The track is a `selectableGroup` and each segment carries `Role.RadioButton` +
+ * `selected` semantics so screen readers announce the current option.
  */
 @Composable
 fun PillSegmented(
@@ -297,13 +299,14 @@ fun PillSegmented(
     onSelect: (Int) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val trackShape = RoundedCornerShape(50)
-    val segmentShape = RoundedCornerShape(50)
+    val trackShape = RoundedCornerShape(26.dp)
+    val segmentShape = RoundedCornerShape(22.dp)
     Row(
         modifier = modifier
             .selectableGroup()
             .fillMaxWidth()
-            .height(52.dp)
+            .heightIn(min = 52.dp)
+            .height(IntrinsicSize.Min)
             .background(VellumColors.Container4, trackShape)
             .padding(4.dp),
         horizontalArrangement = Arrangement.spacedBy(4.dp),
@@ -341,8 +344,12 @@ fun PillSegmented(
                     option,
                     style = MaterialTheme.typography.labelLarge,
                     color = if (selected) VellumColors.OnSurface else VellumColors.OnSurfaceVariant,
-                    maxLines = 1,
-                    softWrap = false,
+                    // The Box centres the label. `TextAlign.Center` is not used: it places a
+                    // single line at a fractional offset inside its node and moved font-1
+                    // glyphs by a pixel (the fixture gate caught it). Nor is there a horizontal
+                    // padding: that changed the node's integer width the same way. Both stay at
+                    // zero, within the 8dp inset the spec allows.
+                    softWrap = true,
                 )
             }
         }

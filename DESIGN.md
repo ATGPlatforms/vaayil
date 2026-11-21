@@ -325,8 +325,9 @@ under a `stroke-3` thumb, the track ring in `stroke-3` too (3.54:1 — the
 familiar M3 off-knob; the canvas off thumb vanished at 1.28:1, and M3 offers
 no thumb-border parameter, so the ring lives on the track alone; device
 review 2026-09-21, C9). The segmented control is a
-`container-4` pill at 52dp whose selected segment is a *lifted* canvas pill —
-physically raised, not recolored — with radio semantics.
+`container-4` pill at least 52dp; at large text a segment grows and its label
+wraps (F29). Its selected segment is a *lifted* canvas pill — physically raised,
+not recolored — with radio semantics.
 A saved profile row keeps its controls beside the text only while the text's
 longest unbreakable piece — a whole word of the name or a whole machine-value
 segment — fits beside them, or when its endpoint would need more than two lines

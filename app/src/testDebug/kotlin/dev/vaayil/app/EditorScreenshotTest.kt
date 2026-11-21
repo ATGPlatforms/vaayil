@@ -1,6 +1,7 @@
 package dev.vaayil.app
 
 import android.app.Application
+import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -90,17 +91,32 @@ class EditorScreenshotTest {
         compose.onRoot().captureRoboImage("src/testDebug/snapshots/editor-private-dns-w360dp.png")
     }
 
-    private fun showEditor(privateDnsHost: String? = null) {
+    @Test
+    @Config(qualifiers = "w360dp-h800dp")
+    fun editorDnsFont2() {
+        // #16 (spec §4.3): at font scale 2.0 "Secure DNS" wraps and the pill grows with it.
+        showEditor(fontScale = 2f)
+        // Frame the two policy pills: the endpoint label sits right under them, so scrolling to
+        // it leaves the wrapped "Secure DNS" pill fully above it.
+        compose.onNodeWithText("DoH endpoint (https URL)").performScrollTo()
+        compose.waitForIdle()
+        compose.onRoot().captureRoboImage("src/testDebug/snapshots/editor-dns-font2-w360dp.png")
+    }
+
+    private fun showEditor(privateDnsHost: String? = null, fontScale: Float = 1f) {
         compose.setContent {
             VaayilTheme.Content {
                 // Deterministic capture: no motion phases mid-frame.
                 CompositionLocalProvider(LocalReducedMotion provides true) {
-                    ProfileEditorScreen(
-                        state = EditorState(profile, emptyList()),
-                        onField = {},
-                        onSave = {},
-                        privateDnsHost = privateDnsHost,
-                    )
+                    val screen: @Composable () -> Unit = {
+                        ProfileEditorScreen(
+                            state = EditorState(profile, emptyList()),
+                            onField = {},
+                            onSave = {},
+                            privateDnsHost = privateDnsHost,
+                        )
+                    }
+                    if (fontScale == 1f) screen() else AtFontScale(fontScale) { screen() }
                 }
             }
         }
