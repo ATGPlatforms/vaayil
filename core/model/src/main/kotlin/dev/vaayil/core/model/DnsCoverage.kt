@@ -9,11 +9,11 @@ private const val DNS_SERVERS_OUTSIDE =
 private const val FIRST_DNS_SERVER_OUTSIDE =
     "DNS lookups will bypass this tunnel. Its first DNS server isn't in Allowed IPs."
 private const val LATER_DNS_SERVER_OUTSIDE =
-    "Some DNS lookups may bypass this tunnel. One of its DNS servers isn't in Allowed IPs."
+    "DNS lookups may bypass this tunnel. One DNS server isn't in Allowed IPs."
 private const val SECURE_SERVER_OUTSIDE =
     "Secure DNS will bypass this tunnel. Its server isn't in Allowed IPs."
 private const val SECURE_HOSTNAME_UNCOVERED =
-    "Secure DNS will bypass this tunnel unless its server's address is in Allowed IPs."
+    "Secure DNS will bypass this tunnel unless its server is in Allowed IPs."
 
 /**
  * #15, silent unless a DNS server will be reached outside the tunnel: the resolver's plain

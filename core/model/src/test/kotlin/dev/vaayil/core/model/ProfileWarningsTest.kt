@@ -15,10 +15,10 @@ class ProfileWarningsTest {
     private val firstDnsServerOutside =
         "DNS lookups will bypass this tunnel. Its first DNS server isn't in Allowed IPs."
     private val laterDnsServerOutside =
-        "Some DNS lookups may bypass this tunnel. One of its DNS servers isn't in Allowed IPs."
+        "DNS lookups may bypass this tunnel. One DNS server isn't in Allowed IPs."
     private val secureServerOutside = "Secure DNS will bypass this tunnel. Its server isn't in Allowed IPs."
     private val secureHostnameUncovered =
-        "Secure DNS will bypass this tunnel unless its server's address is in Allowed IPs."
+        "Secure DNS will bypass this tunnel unless its server is in Allowed IPs."
 
     /**
      * Public IPv4 ranges only, 150 /8-equivalents (just over half of IPv4, no `/0`), plus a

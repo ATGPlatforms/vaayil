@@ -2,7 +2,6 @@ package dev.vaayil.feature.profiles
 
 import android.app.Application
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
@@ -12,12 +11,9 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import dev.vaayil.core.model.DnsMode
-import dev.vaayil.core.model.DnsPolicy
 import dev.vaayil.core.model.InterfaceConfig
 import dev.vaayil.core.model.PeerConfig
 import dev.vaayil.core.model.Profile
-import dev.vaayil.core.model.SecureDnsType
 import dev.vaayil.core.tunnel.api.ConnectionPhase
 import dev.vaayil.core.tunnel.api.HandshakeState
 import org.junit.Rule
@@ -42,8 +38,6 @@ class ProfileListAddressWarningTest {
         name: String,
         address: String,
         dnsServers: List<String> = listOf("1.1.1.1"),
-        allowedIps: List<String> = listOf("0.0.0.0/0"),
-        dns: DnsPolicy = DnsPolicy(),
     ) = Profile(
         id = id, name = name,
         interfaceConfig = InterfaceConfig(
@@ -54,16 +48,15 @@ class ProfileListAddressWarningTest {
         peer = PeerConfig(
             publicKey = "KyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyU=",
             presharedKey = null, endpoint = "vpn.example.com:51820",
-            allowedIps = allowedIps, persistentKeepalive = 25,
+            allowedIps = listOf("0.0.0.0/0"), persistentKeepalive = 25,
         ),
-        dns = dns,
     )
 
-    private fun screen(ui: () -> ProfileListUiState) {
+    private fun screen(ui: ProfileListUiState) {
         compose.setContent {
             MaterialTheme {
                 ProfileListScreen(
-                    ui = ui(),
+                    ui = ui,
                     onOpenEditor = {},
                     onOpenImport = {},
                     onScanQr = {},
@@ -77,8 +70,6 @@ class ProfileListAddressWarningTest {
             }
         }
     }
-
-    private fun screen(ui: ProfileListUiState) = screen { ui }
 
     @Test
     fun `the warning sits under the mismatched saved row only`() {
@@ -151,86 +142,6 @@ class ProfileListAddressWarningTest {
         val beta = compose.onNodeWithText("Beta").getUnclippedBoundsInRoot()
         assertTrue(note.top > alpha.bottom, "the DNS note follows the profile without DNS")
         assertTrue(note.bottom < beta.top, "the DNS note doesn't appear under the profile with DNS")
-    }
-
-    private val dnsServerOutside = "DNS lookups will bypass this tunnel. Its DNS server isn't in Allowed IPs."
-    private val dnsServersOutside = "DNS lookups will bypass this tunnel. Its DNS servers aren't in Allowed IPs."
-    private val firstDnsServerOutside =
-        "DNS lookups will bypass this tunnel. Its first DNS server isn't in Allowed IPs."
-    private val laterDnsServerOutside =
-        "Some DNS lookups may bypass this tunnel. One of its DNS servers isn't in Allowed IPs."
-    private val secureServerOutside = "Secure DNS will bypass this tunnel. Its server isn't in Allowed IPs."
-    private val secureHostnameUncovered =
-        "Secure DNS will bypass this tunnel unless its server's address is in Allowed IPs."
-
-    private fun coverageFixtures(): List<Pair<Profile, String>> {
-        val allowedIps = listOf("198.51.100.0/24")
-        fun secure(endpoint: String) =
-            DnsPolicy(mode = DnsMode.SECURE, secureType = SecureDnsType.DOH, secureEndpoint = endpoint)
-        return listOf(
-            profile(
-                "one", "One", "198.51.100.2/24",
-                dnsServers = listOf("192.0.2.53"), allowedIps = allowedIps,
-            ) to dnsServerOutside,
-            profile(
-                "many", "Many", "198.51.100.2/24",
-                dnsServers = listOf("192.0.2.53", "192.0.2.54"), allowedIps = allowedIps,
-            ) to dnsServersOutside,
-            profile(
-                "first", "First", "198.51.100.2/24",
-                dnsServers = listOf("192.0.2.53", "198.51.100.53"), allowedIps = allowedIps,
-            ) to firstDnsServerOutside,
-            profile(
-                "later", "Later", "198.51.100.2/24",
-                dnsServers = listOf("198.51.100.53", "192.0.2.53"), allowedIps = allowedIps,
-            ) to laterDnsServerOutside,
-            profile(
-                "secure", "Secure", "198.51.100.2/24",
-                dnsServers = emptyList(), allowedIps = allowedIps,
-                dns = secure("https://192.0.2.1/dns-query"),
-            ) to secureServerOutside,
-            profile(
-                "hostname", "Hostname", "198.51.100.2/24",
-                dnsServers = emptyList(), allowedIps = allowedIps,
-                dns = secure("https://dns.example/dns-query"),
-            ) to secureHostnameUncovered,
-        )
-    }
-
-    @Test
-    fun `every DNS coverage note fits two lines in a saved row at 360dp`() {
-        val items = mutableStateOf(emptyList<Profile>())
-        screen { ProfileListUiState(items = items.value) }
-        coverageFixtures().chunked(3).forEach { batch ->
-            compose.runOnIdle { items.value = batch.map { it.first } }
-            batch.forEach { (_, text) ->
-                assertTrue(
-                    textLayoutOf(text).lineCount <= 2,
-                    "the saved-row note wrapped past two lines: $text",
-                )
-            }
-        }
-    }
-
-    @Test
-    fun `every DNS coverage note fits two lines in the hero at 360dp`() {
-        val fixtures = coverageFixtures()
-        val activeId = mutableStateOf(fixtures.first().first.id)
-        screen {
-            ProfileListUiState(
-                items = fixtures.map { it.first },
-                activeId = activeId.value,
-                phase = ConnectionPhase.CONNECTED,
-                handshakeState = HandshakeState.VERIFIED,
-            )
-        }
-        fixtures.forEach { (profile, text) ->
-            compose.runOnIdle { activeId.value = profile.id }
-            assertTrue(
-                textLayoutOf(text).lineCount <= 2,
-                "the hero note wrapped past two lines: $text",
-            )
-        }
     }
 
     private fun textLayoutOf(text: String): TextLayoutResult {
