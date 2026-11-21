@@ -205,6 +205,7 @@ class BackgroundTunnelCommandsTest {
     @Test
     fun `a consentless connect notes VPN permission missing`() {
         ShadowVpnService.setPrepareResult(Intent()) // missing consent
+        ConnectionRegistry.clearVpnConsentMissing()
 
         assertEquals(ConnectAdmission.NO_CONSENT, BackgroundTunnelCommands(app).connect("p1", BackgroundSender.TASKER))
 
@@ -224,6 +225,7 @@ class BackgroundTunnelCommandsTest {
     @Test
     @Config(shadows = [ThrowingPrepareShadow::class])
     fun `a refused connect leaves the signal as it was`() {
+        ConnectionRegistry.clearVpnConsentMissing()
         val commands = BackgroundTunnelCommands(app)
 
         assertEquals(ConnectAdmission.REFUSED, commands.connect("p1", BackgroundSender.TASKER))
