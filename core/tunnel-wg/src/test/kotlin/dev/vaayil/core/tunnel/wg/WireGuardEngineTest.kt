@@ -43,6 +43,7 @@ import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.SupervisorJob
@@ -1378,14 +1379,17 @@ class WireGuardEngineTest {
             val first = scope.async { engine.startWithOutcome(a) }
             assertTrue("the first start never reached the backend's UP", inUp.await(10, TimeUnit.SECONDS))
 
-            val queued = scope.async { engine.startWithOutcome(a, ConnectMode.KEEP_ANY) }
-            // The first start still owns the mutex, so the keep cannot have returned: it is queued.
+            // UNDISPATCHED runs the keep on this thread until it suspends on the mutex the first
+            // start still holds, so its pending state below is the queued state, not "not started".
+            val queued = scope.async(start = CoroutineStart.UNDISPATCHED) {
+                engine.startWithOutcome(a, ConnectMode.KEEP_ANY)
+            }
             assertFalse("KEEP_ANY completed while the first start still held the mutex", queued.isCompleted)
 
             release.countDown()
 
-            assertEquals(StartOutcome.FAILED, first.await())
-            assertEquals(StartOutcome.STARTED, queued.await())
+            assertEquals(StartOutcome.FAILED, withTimeout(10_000) { first.await() })
+            assertEquals(StartOutcome.STARTED, withTimeout(10_000) { queued.await() })
             assertEquals(listOf("Alpha" to Tunnel.State.UP), backend.calls)
             assertEquals(2, backend.upConfigs.size) // the failed UP and the keep's real start
             assertEquals(TunnelStatus(ConnectionPhase.CONNECTED, "a", null, generation = 1), engine.status.value)
