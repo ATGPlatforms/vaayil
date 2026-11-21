@@ -46,10 +46,11 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.async
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.advanceTimeBy
@@ -1355,18 +1356,44 @@ class WireGuardEngineTest {
     }
 
     @Test
-    fun `a keep queued behind a failed start runs`() = runTest {
+    fun `a keep queued behind a failed start runs`() = runBlocking {
         val a = secureProfile("a", "Alpha")
-        val backend = FakeBackend()
-        val engine = engine(backend, controller(backgroundScope) { RecordingUpstream() }, a)
-        backend.failNextUp = true
-        assertEquals(StartOutcome.FAILED, engine.startWithOutcome(a))
+        var firstUp = true
+        val inUp = CountDownLatch(1)
+        val release = CountDownLatch(1)
+        // The first start parks inside its UP — holding the engine mutex — and fails once released.
+        val backend = FakeBackend().apply {
+            onUp = {
+                if (firstUp) {
+                    firstUp = false
+                    inUp.countDown()
+                    release.await(10, TimeUnit.SECONDS)
+                    throw IOException("scripted UP failure")
+                }
+            }
+        }
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+        val engine = engine(backend, controller(scope) { RecordingUpstream() }, a)
+        try {
+            val first = scope.async { engine.startWithOutcome(a) }
+            assertTrue("the first start never reached the backend's UP", inUp.await(10, TimeUnit.SECONDS))
 
-        assertEquals(StartOutcome.STARTED, engine.startWithOutcome(a, ConnectMode.KEEP_ANY))
+            val queued = scope.async { engine.startWithOutcome(a, ConnectMode.KEEP_ANY) }
+            // The first start still owns the mutex, so the keep cannot have returned: it is queued.
+            assertFalse("KEEP_ANY completed while the first start still held the mutex", queued.isCompleted)
 
-        assertEquals(TunnelStatus(ConnectionPhase.CONNECTED, "a", null, generation = 1), engine.status.value)
-        assertEquals(listOf("Alpha" to Tunnel.State.UP), backend.calls)
-        engine.stop()
+            release.countDown()
+
+            assertEquals(StartOutcome.FAILED, first.await())
+            assertEquals(StartOutcome.STARTED, queued.await())
+            assertEquals(listOf("Alpha" to Tunnel.State.UP), backend.calls)
+            assertEquals(2, backend.upConfigs.size) // the failed UP and the keep's real start
+            assertEquals(TunnelStatus(ConnectionPhase.CONNECTED, "a", null, generation = 1), engine.status.value)
+        } finally {
+            release.countDown() // a failure before the release must never leave the first start parked
+            engine.stop()
+            scope.cancel()
+        }
     }
 
     @Test
