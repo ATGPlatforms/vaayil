@@ -90,4 +90,15 @@ class QuickWidgetLookTest {
             widgetLook(state(QuickTone.IDLE, QuickAction.OpenApp, name = "Vaayil")).discDescription,
         )
     }
+
+    @Test
+    fun `the no-permission disc opens Vaayil with the ERROR face`() {
+        val look = widgetLook(state(QuickTone.ERROR, QuickAction.ConnectInApp("p1")))
+
+        assertEquals("Open Vaayil to connect Home", look.discDescription)
+        assertEquals(R.drawable.quick_widget_disc_failed, look.disc)
+        assertEquals(R.drawable.ic_quick_power_idle, look.glyph)
+        assertEquals(R.drawable.quick_widget_dot_error, look.dot)
+        assertEquals(R.color.vellum_on_error, look.stateColor)
+    }
 }

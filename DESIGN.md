@@ -267,6 +267,10 @@ text colour: ACTIVE `sage-mark`/`on-field-active`, WARNING
 inside one closed 1dp `seam` perimeter: the system widget radius on API 31+, the
 card's 10dp below; no shadow. Its colours are XML resources (the launcher inflates
 them) pinned equal to their `VellumColors` tokens by `QuickWidgetColorsTest`.
+The no-permission face is ERROR: the failed face's bare window with its 2dp
+`error-mark` ring, the ERROR dot and text, and the same name grid. Its disc still
+acts, opening Vaayil through the shortcut trampoline, labelled "Open Vaayil to
+connect {name}".
 Before its first update, and in the picker's preview, the layout reads "Vaayil" on
 the idle disc with no state row. Limits: font scale 2.0 fits the default portrait
 size but not the one-row landscape size (51dp tall); at 3×1 "Waiting for

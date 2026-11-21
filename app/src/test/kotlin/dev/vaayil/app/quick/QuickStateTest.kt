@@ -24,6 +24,7 @@ class QuickStateTest {
         lastConnectedId: String? = null,
         error: TunnelError? = null,
         notice: TunnelNotice? = null,
+        vpnConsentMissing: Boolean = false,
     ) = QuickInputs(
         status = TunnelStatus(phase, profileId, error, notice),
         handshake = handshake,
@@ -31,6 +32,7 @@ class QuickStateTest {
         storedCount = storedCount,
         activeId = activeId,
         lastConnectedId = lastConnectedId,
+        vpnConsentMissing = vpnConsentMissing,
     )
 
     @Test
@@ -136,6 +138,116 @@ class QuickStateTest {
             QuickState("Home", "Disconnected", QuickTone.IDLE, live = false, action = QuickAction.Connect("p1")),
             presentQuickState(
                 inputs(ConnectionPhase.FAILED, "gone", lastConnectedId = "p1"),
+            ),
+        )
+    }
+
+    @Test
+    fun `consent missing shows the no-permission face`() {
+        assertEquals(
+            QuickState(
+                "Home",
+                "No VPN permission",
+                QuickTone.ERROR,
+                live = false,
+                action = QuickAction.ConnectInApp("p1"),
+            ),
+            presentQuickState(
+                inputs(
+                    ConnectionPhase.DISCONNECTED,
+                    activeId = "p1",
+                    lastConnectedId = "p2",
+                    vpnConsentMissing = true,
+                ),
+            ),
+        )
+        assertEquals(
+            QuickState(
+                "Home",
+                "No VPN permission",
+                QuickTone.ERROR,
+                live = false,
+                action = QuickAction.ConnectInApp("p1"),
+            ),
+            presentQuickState(
+                inputs(
+                    ConnectionPhase.DISCONNECTED,
+                    lastConnectedId = "p1",
+                    vpnConsentMissing = true,
+                ),
+            ),
+        )
+        assertEquals(
+            QuickState(
+                "Work",
+                "No VPN permission",
+                QuickTone.ERROR,
+                live = false,
+                action = QuickAction.ConnectInApp("p2"),
+            ),
+            presentQuickState(
+                inputs(ConnectionPhase.DISCONNECTED, vpnConsentMissing = true),
+            ),
+        )
+    }
+
+    @Test
+    fun `a live status beats the missing consent signal`() {
+        assertEquals(
+            QuickState("Home", "Connected", QuickTone.ACTIVE, live = true, action = QuickAction.Disconnect),
+            presentQuickState(
+                inputs(
+                    ConnectionPhase.CONNECTED,
+                    "p1",
+                    HandshakeState.VERIFIED,
+                    vpnConsentMissing = true,
+                ),
+            ),
+        )
+    }
+
+    @Test
+    fun `no readable profile beats the missing consent signal`() {
+        assertEquals(
+            QuickState("Vaayil", "Open Vaayil", QuickTone.IDLE, live = false, action = QuickAction.OpenApp),
+            presentQuickState(
+                inputs(
+                    ConnectionPhase.DISCONNECTED,
+                    readable = emptyList(),
+                    storedCount = 2,
+                    vpnConsentMissing = true,
+                ),
+            ),
+        )
+    }
+
+    @Test
+    fun `missing consent beats a failed status for a readable profile`() {
+        assertEquals(
+            QuickState(
+                "Work",
+                "No VPN permission",
+                QuickTone.ERROR,
+                live = false,
+                action = QuickAction.ConnectInApp("p2"),
+            ),
+            presentQuickState(
+                inputs(
+                    ConnectionPhase.FAILED,
+                    "p1",
+                    lastConnectedId = "p2",
+                    vpnConsentMissing = true,
+                ),
+            ),
+        )
+    }
+
+    @Test
+    fun `failed after consent shows couldn't connect`() {
+        assertEquals(
+            QuickState("Home", "Couldn't connect", QuickTone.ERROR, live = false, action = QuickAction.Connect("p1")),
+            presentQuickState(
+                inputs(ConnectionPhase.FAILED, "p1", vpnConsentMissing = false),
             ),
         )
     }

@@ -8,6 +8,7 @@ import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import dev.vaayil.app.AppContainer
 import dev.vaayil.app.MainActivity
+import dev.vaayil.app.R
 import dev.vaayil.app.settingsDataStore
 import dev.vaayil.core.data.ActiveProfileStore
 import dev.vaayil.core.data.DataGraph
@@ -71,6 +72,31 @@ class QuickShortcutActivityTest {
         val started = shadowOf(activity).nextStartedActivity
         assertEquals(MainActivity::class.java.name, started.component?.className)
         assertEquals(Intent.FLAG_ACTIVITY_NEW_TASK, started.flags and Intent.FLAG_ACTIVITY_NEW_TASK)
+        assertTrue(activity.isFinishing)
+    }
+
+    @Test
+    fun `the widget's no-permission disc posts its request and opens the app`() {
+        val face = presentQuickState(
+            QuickInputs(
+                status = TunnelStatus.idle,
+                handshake = HandshakeState.NONE,
+                readable = listOf(QuickProfile("p1", "Home")),
+                storedCount = 1,
+                activeId = null,
+                lastConnectedId = null,
+                vpnConsentMissing = true,
+            ),
+        )
+        val saved = checkNotNull(
+            shadowOf(widgetClicks(app, face).getValue(R.id.quick_widget_disc)).savedIntent,
+        )
+
+        val activity = Robolectric.buildActivity(QuickShortcutActivity::class.java, saved).create().get()
+
+        assertEquals("p1", container.quickControls.requests.pending.value?.profileId)
+        val started = shadowOf(activity).nextStartedActivity
+        assertEquals(MainActivity::class.java.name, started.component?.className)
         assertTrue(activity.isFinishing)
     }
 

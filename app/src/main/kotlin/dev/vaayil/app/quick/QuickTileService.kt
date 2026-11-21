@@ -27,20 +27,15 @@ internal interface QuickTileHost {
  * A tile tap acts on [shown], the state the shade last displayed. Before the first state arrives
  * there is nothing to act on, so the tap does nothing. A disconnect waits for the unlock on a
  * secure lock screen (the same rule the tunnel notification's Disconnect follows); a connect
- * does not, because it only ever starts a tunnel. A connect that cannot get VPN consent leaves
- * one request for the app's manual connect gate, then opens the app — without the consent notice,
- * since the app itself is about to explain it.
+ * does not, because it only ever starts a tunnel. A connect that cannot get VPN consent — the
+ * no-permission face's tap included — leaves one request for the app's manual connect gate, then
+ * opens the app, without the consent notice, since the app itself is about to explain it.
  */
 internal fun handleTileClick(shown: QuickState?, host: QuickTileHost, controls: QuickControls) {
     when (val action = shown?.action) {
         null -> Unit
-        is QuickAction.Connect -> {
-            val result = controls.commands.connect(action.profileId, noticeWithoutConsent = false)
-            if (result == QuickConnectResult.NEEDS_CONSENT) {
-                controls.requests.post(action.profileId)
-                host.openApp()
-            }
-        }
+        is QuickAction.Connect -> connectOrAsk(action.profileId, host, controls)
+        is QuickAction.ConnectInApp -> connectOrAsk(action.profileId, host, controls)
         QuickAction.Disconnect -> {
             if (host.isSecure()) {
                 host.unlockAndRun { controls.launchDisconnect() }
@@ -49,6 +44,15 @@ internal fun handleTileClick(shown: QuickState?, host: QuickTileHost, controls: 
             }
         }
         QuickAction.OpenApp -> host.openApp()
+    }
+}
+
+/** A connect's one path, whatever face asked for it (R6): ask, and on a refusal request the app. */
+private fun connectOrAsk(profileId: String, host: QuickTileHost, controls: QuickControls) {
+    val result = controls.commands.connect(profileId, noticeWithoutConsent = false)
+    if (result == QuickConnectResult.NEEDS_CONSENT) {
+        controls.requests.post(profileId)
+        host.openApp()
     }
 }
 

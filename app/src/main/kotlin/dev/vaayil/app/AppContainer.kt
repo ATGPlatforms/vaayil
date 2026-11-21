@@ -132,6 +132,7 @@ class AppContainer internal constructor(
             profiles.observeStoredCount(),
             activeProfile.activeId,
             activeProfile.lastConnectedId,
+            ConnectionRegistry.vpnConsentMissing,
         ),
         QuickTunnelCommands(appContext),
         QuickRequests(),

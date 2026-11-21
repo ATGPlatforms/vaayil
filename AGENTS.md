@@ -45,7 +45,13 @@ The maintainer's private docs live in the companion repo `vaayil-dev`, checked o
   it posts "Vaayil couldn't connect" / "VPN permission is off. Open Vaayil and connect once to
   allow it." in the tunnel notification's slot (42, the "VPN connection" channel); a tile
   connect without consent posts nothing, leaves a request and opens the app, where the manual
-  connect gate asks. A DISCONNECT first bars the crash resume
+  connect gate asks. A refused background connect — the widget's included — sets
+  `ConnectionRegistry.vpnConsentMissing` in memory; only `BackgroundTunnelCommands` sets it, and
+  only when it refuses a CONNECT for missing consent, while a connect it admits clears it, as
+  does the bridge mirroring a CONNECTING, CONNECTED or FAILED status, never a DISCONNECTED.
+  While it is set and a profile is readable, the widget and the tile read "No VPN permission" and
+  the widget's disc opens Vaayil through the shortcut trampoline; a refused widget tap posts the
+  same 30 s request as the tile. A DISCONNECT first bars the crash resume
   (`CrashResumeGate.suppress()`, revoke included), clears ACTIVE (LAST kept) and joins a resume the service already
   accepted, then starts the service only while a tunnel is live (`EngineProvider.isTunnelLive()`). On API 34+ a
   `VpnTunnelService` start without consent crashes the
@@ -508,12 +514,17 @@ app -> core/model, core/ui, core/config, core/tunnel-api, core/data, core/automa
 - Quick controls (`:app` `dev.vaayil.app.quick`): the Quick Settings tile, the home-screen
   widget and the launcher's shortcuts share one hub, `QuickControls`; the tile and the widget
   render its `QuickState` presenter, and a tap does what its surface last showed — a tile tap
-  before the first render does nothing. A launcher Connect shortcut, or a tile connect without
-  VPN consent, posts a request in memory only (one slot of 30 s, `QUICK_REQUEST_TTL_MS`,
+  before the first render does nothing. A launcher Connect shortcut, a tile connect without
+  VPN consent, or the widget's no-permission disc posts a request in memory only (one slot of 30 s,
+  `QUICK_REQUEST_TTL_MS`,
   replaced by a newer one and lost on process death) and opens the app, where
   `QuickRequestEffect` runs it through the manual connect gate (C7) while the screen is started;
-  `MainActivity` never reads a tunnel request from its intent. The trampoline activity, the
-  widget's provider and its receiver are `exported="false"`; the tile is exported only behind
+  `MainActivity` never reads a tunnel request from its intent. The hub presents the signal's face
+  after a live tunnel and the no-readable case, and before a FAILED status; its name and
+  `ConnectInApp` target are the "Disconnected" target (ACTIVE, else last-connected, else the first
+  readable profile). The trampoline activity, the widget's provider and its receiver are
+  `exported="false"` (the widget's disc reaches the trampoline through an immutable activity
+  `PendingIntent`); the tile is exported only behind
   `android.permission.BIND_QUICK_SETTINGS_TILE` (`QuickComponentsManifestTest` pins it). The
   tile and the widget connect through `QuickTunnelCommands`, whose duplicate guard, after one CONNECT, skips
   another connect only while no connect has settled since that send (`ConnectionRegistry.connectsSettled`, which
@@ -524,7 +535,9 @@ app -> core/model, core/ui, core/config, core/tunnel-api, core/data, core/automa
   Vaayil off from a locked phone asks for unlock on the tile at every API level and on the
   notification's Disconnect on API 31+; API 26–30 can't make a notification action ask, and
   that gap is accepted. After a process death the widget can keep stale views until Vaayil runs
-  again; its Disconnect then bars the crash resume and never connects. A deleted profile is one
+  again; its Disconnect then bars the crash resume and never connects, and a stale no-permission
+  face's disc still opens Vaayil through the trampoline (once Vaayil runs again that face reads
+  "Disconnected"). A deleted profile is one
   with no stored row (B3), and during a key outage the shortcuts are left as they are. The
   shortcuts do no usage reporting and are never long-lived. The widget and shortcut updaters
   start only from `AppContainer`'s production initializer, after `initEngine()`; test

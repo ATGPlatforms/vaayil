@@ -4,6 +4,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.util.Log
+import dev.vaayil.core.automation.QuickConnectResult
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -11,9 +12,11 @@ import kotlinx.coroutines.launch
 /**
  * The widget's disc tap: a connect for the profile the last push showed, or a disconnect of the
  * live tunnel. Both go through [QuickControls.commands], so the connect keeps B1's consent gate
- * (the widget posts the consent notice) and the disconnect bars a late crash resume. The shown id
- * is re-checked against the profiles readable now, so a tap for a profile deleted since the last
- * push sends nothing and posts no notice. Every handled intent refreshes the placed widgets.
+ * (the widget posts the consent notice) and the disconnect bars a late crash resume. A connect
+ * refused for missing consent leaves one request for the app's manual connect gate, as the tile
+ * does. The shown id is re-checked against the profiles readable now, so a tap for a profile
+ * deleted since the last push sends nothing and posts no notice. Every handled intent refreshes
+ * the placed widgets.
  */
 class QuickWidgetReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
@@ -36,7 +39,8 @@ class QuickWidgetReceiver : BroadcastReceiver() {
             ACTION_CONNECT -> {
                 val profileId = intent.getStringExtra(EXTRA_PROFILE_ID)
                 if (profileId != null && controls.currentInputs().readable.any { it.id == profileId }) {
-                    controls.commands.connect(profileId, noticeWithoutConsent = true)
+                    val result = controls.commands.connect(profileId, noticeWithoutConsent = true)
+                    if (result == QuickConnectResult.NEEDS_CONSENT) controls.requests.post(profileId)
                 }
             }
             ACTION_DISCONNECT -> controls.commands.disconnect()

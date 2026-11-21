@@ -53,6 +53,7 @@ class QuickWidgetViewsTest {
         readable: List<QuickProfile> = listOf(home),
         storedCount: Int = 1,
         lastConnectedId: String? = null,
+        vpnConsentMissing: Boolean = false,
     ) = QuickInputs(
         status = TunnelStatus(phase, if (phase == ConnectionPhase.DISCONNECTED) null else "p1"),
         handshake = handshake,
@@ -60,6 +61,7 @@ class QuickWidgetViewsTest {
         storedCount = storedCount,
         activeId = null,
         lastConnectedId = lastConnectedId,
+        vpnConsentMissing = vpnConsentMissing,
     )
 
     private fun states(): List<QuickState> = listOf(
@@ -126,6 +128,25 @@ class QuickWidgetViewsTest {
             inputs(ConnectionPhase.DISCONNECTED, readable = emptyList(), storedCount = 0),
         )
         assertTrue(shadowOf(widgetClicks(app, open).getValue(R.id.quick_widget_disc)).isActivity)
+    }
+
+    @Test
+    fun `the no-permission disc opens the app's trampoline`() {
+        val face = presentQuickState(
+            inputs(ConnectionPhase.DISCONNECTED, lastConnectedId = "p1", vpnConsentMissing = true),
+        )
+        val clicks = widgetClicks(app, face)
+        val disc = shadowOf(clicks.getValue(R.id.quick_widget_disc))
+
+        assertTrue(disc.isActivity)
+        assertTrue(disc.isImmutable)
+        assertEquals(ComponentName(app, QuickShortcutActivity::class.java), disc.savedIntent.component)
+        assertEquals(QuickShortcutActivity.ACTION_CONNECT_SHORTCUT, disc.savedIntent.action)
+        assertEquals("p1", disc.savedIntent.getStringExtra(QuickShortcutActivity.EXTRA_PROFILE_ID))
+
+        val background = shadowOf(clicks.getValue(android.R.id.background))
+        assertTrue(background.isActivity)
+        assertEquals(ComponentName(app, MainActivity::class.java), background.savedIntent.component)
     }
 
     @Test

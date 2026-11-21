@@ -34,12 +34,15 @@ internal fun quickInputs(
     storedCount: Flow<Int>,
     activeId: Flow<String?>,
     lastConnectedId: Flow<String?>,
+    vpnConsentMissing: Flow<Boolean>,
 ): Flow<QuickInputs> = combine(
     status,
     handshake,
     profiles,
     storedCount,
-    combine(activeId, lastConnectedId) { active, last -> active to last },
+    combine(activeId, lastConnectedId, vpnConsentMissing) { active, last, missing ->
+        Triple(active, last, missing)
+    },
 ) { currentStatus, currentHandshake, readable, stored, pointers ->
     QuickInputs(
         status = currentStatus,
@@ -48,6 +51,7 @@ internal fun quickInputs(
         storedCount = stored,
         activeId = pointers.first,
         lastConnectedId = pointers.second,
+        vpnConsentMissing = pointers.third,
     )
 }
 
