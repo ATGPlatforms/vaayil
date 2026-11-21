@@ -17,6 +17,7 @@ import dev.vaayil.core.model.AutoConnectRules
 import dev.vaayil.core.tunnel.api.ConnectionPhase
 import dev.vaayil.core.tunnel.api.TunnelStatus
 import dev.vaayil.core.tunnel.api.isLive
+import dev.vaayil.core.tunnel.wg.ConnectMode
 import dev.vaayil.core.tunnel.wg.ConnectionRegistry
 import dev.vaayil.core.tunnel.wg.StartOutcome
 import dev.vaayil.core.tunnel.wg.TunnelNotifications
@@ -138,6 +139,7 @@ class AutomationReceiverTest {
         assertEquals(VpnTunnelService::class.java.name, started.component?.className)
         assertEquals(VpnTunnelService.ACTION_CONNECT, started.action)
         assertEquals("p1", started.getStringExtra(VpnTunnelService.EXTRA_PROFILE_ID))
+        assertEquals(ConnectMode.KEEP_SAME.name, started.getStringExtra(VpnTunnelService.EXTRA_CONNECT_MODE))
     }
 
     @Test
@@ -211,6 +213,7 @@ class AutomationReceiverTest {
         val started = awaitNextService()!!
         assertEquals(VpnTunnelService.ACTION_CONNECT, started.action)
         assertEquals("p9", started.getStringExtra(VpnTunnelService.EXTRA_PROFILE_ID))
+        assertEquals(ConnectMode.KEEP_SAME.name, started.getStringExtra(VpnTunnelService.EXTRA_CONNECT_MODE))
     }
 
     @Test

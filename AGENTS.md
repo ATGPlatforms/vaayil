@@ -30,8 +30,13 @@ The maintainer's private docs live in the companion repo `vaayil-dev`, checked o
   with relative-path edits. Verify `git -C <main checkout> status --short` is empty
   before pushing.
 - **Control plane:** all tunnel connect/disconnect goes through `VpnTunnelService` intents
-  (`ACTION_CONNECT`/`ACTION_DISCONNECT` + `EXTRA_PROFILE_ID`). Nothing outside
-  `VpnTunnelService`/`EngineProvider` touches `WireGuardEngine`. Background senders
+  (`ACTION_CONNECT`/`ACTION_DISCONNECT` + `EXTRA_PROFILE_ID`). Every `ACTION_CONNECT` carries a
+  `ConnectMode` in `EXTRA_CONNECT_MODE`: RESTART (absent or unknown) for the in-app connect,
+  settings restarts, the reconnect and the crash resume; KEEP_ANY for connect-on-boot, the Wi-Fi
+  and mobile-data rules and the system's Always-on start, a no-op while any tunnel is up; KEEP_SAME
+  for Tasker, the tile and the widget, a no-op while that profile is up and a switch otherwise.
+  Nothing outside `VpnTunnelService`/`EngineProvider` touches `WireGuardEngine`.
+  Background senders
   (connect-on-boot, the guard service, Tasker) issue those intents only through
   `BackgroundTunnelCommands` (`:core:automation`, B1), and the Quick Settings tile and the
   home-screen widget through `QuickTunnelCommands` in the same module; a launcher shortcut only
@@ -342,12 +347,15 @@ app -> core/model, core/ui, core/config, core/tunnel-api, core/data, core/automa
   profile is CONNECTED restarts at once; one while it is CONNECTING leaves one pending request
   (saves coalesce), which restarts once if that start settles CONNECTED for the same profile and
   is consumed without a restart by FAILED, DISCONNECTED, DISCONNECTING or another profile.
+  Settings restarts are always RESTART, so a save re-applies its settings instead of keeping the
+  live tunnel.
 - Telemetry is totals-only (`TunnelStats` = rx/tx bytes + handshake time). The dashboard
   shows session totals honestly — never invent rates, latency, or "fastest" badges.
 - `EngineProvider.connectById` returns a `StartOutcome`: the outcome of its own start, captured
   under the engine lock (`WireGuardEngine.startWithOutcome`, A6), never a re-read of the shared
   status that a queued start could overwrite. Only STARTED updates the active and last-connected
-  records. A failed switch keeps the previous tunnel and its pointers. A switch away
+  records. A KEPT outcome starts nothing and writes no record. A failed switch keeps the
+  previous tunnel and its pointers. A switch away
   from a live tunnel first resolves the target's endpoint hostname on the underlying network (the
   D1 bootstrap path) and is refused before the backend is touched when it does not resolve (F33);
   IP literals and fresh connects skip that lookup. `VpnTunnelService` never keeps a start request

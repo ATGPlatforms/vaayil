@@ -7,6 +7,7 @@ import android.app.NotificationManager
 import android.content.Context
 import android.content.Intent
 import android.os.Looper
+import android.util.Log
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import dev.vaayil.core.data.ActiveProfileStore
@@ -15,6 +16,7 @@ import dev.vaayil.core.tunnel.api.HandshakeState
 import dev.vaayil.core.tunnel.api.TunnelError
 import dev.vaayil.core.tunnel.api.TunnelStatus
 import dev.vaayil.core.tunnel.api.isLive
+import dev.vaayil.core.tunnel.wg.ConnectMode
 import dev.vaayil.core.tunnel.wg.ConnectionRegistry
 import dev.vaayil.core.tunnel.wg.TunnelNotifications
 import dev.vaayil.core.tunnel.wg.VpnTunnelService
@@ -30,6 +32,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
+import org.robolectric.shadows.ShadowLog
 import org.robolectric.shadows.ShadowNotificationManager
 import org.robolectric.shadows.ShadowVpnService
 
@@ -58,6 +61,7 @@ class QuickTunnelCommandsTest {
         shadowOf(app).grantPermissions(Manifest.permission.POST_NOTIFICATIONS)
         // Robolectric can share the application between methods: no stale start may leak in.
         while (shadowOf(app).nextStartedService != null) Unit
+        ShadowLog.clear()
     }
 
     @After
@@ -110,7 +114,31 @@ class QuickTunnelCommandsTest {
         assertEquals(VpnTunnelService::class.java.name, started?.component?.className)
         assertEquals(VpnTunnelService.ACTION_CONNECT, started?.action)
         assertEquals("p1", started?.getStringExtra(VpnTunnelService.EXTRA_PROFILE_ID))
+        assertEquals(ConnectMode.KEEP_SAME.name, started?.getStringExtra(VpnTunnelService.EXTRA_CONNECT_MODE))
+        assertTrue(
+            "the widget's connect is not logged as the widget's",
+            ShadowLog.getLogsForTag("BackgroundTunnelCommands").any {
+                it.type == Log.INFO && it.msg.contains(BackgroundSender.WIDGET.label)
+            },
+        )
         assertNull("the connect started more than one service", nextStart())
+    }
+
+    @Test
+    fun `the tile's connect asks to keep the named profile`() {
+        ShadowVpnService.setPrepareResult(null)
+
+        assertEquals(QuickConnectResult.SENT, entry(app).connect("p1", noticeWithoutConsent = false))
+
+        val started = nextStart()
+        assertEquals(VpnTunnelService.ACTION_CONNECT, started?.action)
+        assertEquals(ConnectMode.KEEP_SAME.name, started?.getStringExtra(VpnTunnelService.EXTRA_CONNECT_MODE))
+        assertTrue(
+            "the tile's connect is not logged as the tile's",
+            ShadowLog.getLogsForTag("BackgroundTunnelCommands").any {
+                it.type == Log.INFO && it.msg.contains(BackgroundSender.TILE.label)
+            },
+        )
     }
 
     @Test

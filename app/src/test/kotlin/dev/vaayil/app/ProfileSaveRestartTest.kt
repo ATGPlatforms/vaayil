@@ -18,6 +18,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Before
 import org.junit.Test
@@ -73,6 +74,7 @@ class ProfileSaveRestartTest {
         assertEquals(VpnTunnelService::class.java.name, intent.component?.className)
         assertEquals(VpnTunnelService.ACTION_CONNECT, intent.action)
         assertEquals("p1", intent.getStringExtra(VpnTunnelService.EXTRA_PROFILE_ID))
+        assertFalse(intent.hasExtra(VpnTunnelService.EXTRA_CONNECT_MODE)) // RESTART by R1
     }
 
     @Test
@@ -86,6 +88,7 @@ class ProfileSaveRestartTest {
         assertEquals(VpnTunnelService::class.java.name, intent.component?.className)
         assertEquals(VpnTunnelService.ACTION_CONNECT, intent.action)
         assertEquals("p1", intent.getStringExtra(VpnTunnelService.EXTRA_PROFILE_ID))
+        assertFalse(intent.hasExtra(VpnTunnelService.EXTRA_CONNECT_MODE)) // RESTART by R1
     }
 
     @Test
@@ -145,5 +148,6 @@ class ProfileSaveRestartTest {
         val intent = shadowOf(context as Application).nextStartedService
         assertEquals(VpnTunnelService.ACTION_CONNECT, intent.action)
         assertEquals("p1", intent.getStringExtra(VpnTunnelService.EXTRA_PROFILE_ID))
+        assertFalse(intent.hasExtra(VpnTunnelService.EXTRA_CONNECT_MODE)) // RESTART by R1
     }
 }

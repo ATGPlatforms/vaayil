@@ -9,6 +9,7 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.location.LocationManager
 import android.os.Looper
+import android.util.Log
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import dev.vaayil.core.data.ActiveProfileStore
@@ -17,6 +18,7 @@ import dev.vaayil.core.model.WifiSecurity
 import dev.vaayil.core.tunnel.api.ConnectionPhase
 import dev.vaayil.core.tunnel.api.TunnelStatus
 import dev.vaayil.core.tunnel.api.isLive
+import dev.vaayil.core.tunnel.wg.ConnectMode
 import dev.vaayil.core.tunnel.wg.ConnectionRegistry
 import dev.vaayil.core.tunnel.wg.StartOutcome
 import dev.vaayil.core.tunnel.wg.TunnelNotifications
@@ -35,6 +37,7 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -45,6 +48,7 @@ import org.robolectric.Robolectric
 import org.robolectric.Shadows.shadowOf
 import org.robolectric.android.controller.ServiceController
 import org.robolectric.annotation.Config
+import org.robolectric.shadows.ShadowLog
 import org.robolectric.shadows.ShadowNotificationManager
 import org.robolectric.shadows.ShadowVpnService
 
@@ -65,7 +69,10 @@ class BackgroundTunnelCommandsTest {
         get() = shadowOf(app.getSystemService(NotificationManager::class.java))
 
     @Before
-    fun grantPostNotifications() = shadowOf(app).grantPermissions(Manifest.permission.POST_NOTIFICATIONS)
+    fun grantPostNotifications() {
+        shadowOf(app).grantPermissions(Manifest.permission.POST_NOTIFICATIONS)
+        ShadowLog.clear()
+    }
 
     @After
     fun tearDown() {
@@ -128,7 +135,7 @@ class BackgroundTunnelCommandsTest {
         )
         ShadowVpnService.setPrepareResult(Intent()) // missing consent
 
-        BackgroundTunnelCommands(app).connect("p1")
+        BackgroundTunnelCommands(app).connect("p1", BackgroundSender.TASKER)
 
         assertNull(nextStart())
         assertEquals(42, TunnelNotifications.NOTIFICATION_ID)
@@ -155,9 +162,9 @@ class BackgroundTunnelCommandsTest {
     fun `repeated refusals reuse the one tunnel slot`() {
         ShadowVpnService.setPrepareResult(Intent()) // missing consent
         val commands = BackgroundTunnelCommands(app)
-        commands.connect("p1")
-        commands.connect("p1")
-        commands.connect("p2")
+        commands.connect("p1", BackgroundSender.TASKER)
+        commands.connect("p1", BackgroundSender.TASKER)
+        commands.connect("p2", BackgroundSender.TASKER)
         assertEquals(1, nm.size())
     }
 
@@ -165,7 +172,7 @@ class BackgroundTunnelCommandsTest {
     fun `a refused connect without the notification grant starts nothing and never throws`() {
         ShadowVpnService.setPrepareResult(Intent()) // missing consent
         shadowOf(app).denyPermissions(Manifest.permission.POST_NOTIFICATIONS)
-        BackgroundTunnelCommands(app).connect("p1")
+        BackgroundTunnelCommands(app).connect("p1", BackgroundSender.TASKER)
         assertNull(nextStart())
         assertNull(nm.getNotification(TunnelNotifications.NOTIFICATION_ID))
     }
@@ -173,7 +180,7 @@ class BackgroundTunnelCommandsTest {
     @Test
     fun `a refused connect without a launcher still posts and never throws`() {
         ShadowVpnService.setPrepareResult(Intent()) // missing consent
-        BackgroundTunnelCommands(app).connect("p1")
+        BackgroundTunnelCommands(app).connect("p1", BackgroundSender.TASKER)
         val posted = nm.getNotification(TunnelNotifications.NOTIFICATION_ID)
         assertNotNull(posted)
         assertNull(posted.contentIntent) // the library has no launcher: the tap-through is simply absent
@@ -182,11 +189,12 @@ class BackgroundTunnelCommandsTest {
     @Test
     fun `a consented connect starts the tunnel for the resolved target`() {
         ShadowVpnService.setPrepareResult(null)
-        BackgroundTunnelCommands(app).connect("p1")
+        BackgroundTunnelCommands(app).connect("p1", BackgroundSender.TASKER)
         val started = nextStart()
         assertEquals(VpnTunnelService::class.java.name, started?.component?.className)
         assertEquals(VpnTunnelService.ACTION_CONNECT, started?.action)
         assertEquals("p1", started?.getStringExtra(VpnTunnelService.EXTRA_PROFILE_ID))
+        assertEquals(ConnectMode.KEEP_SAME.name, started?.getStringExtra(VpnTunnelService.EXTRA_CONNECT_MODE))
     }
 
     @Test
@@ -240,6 +248,7 @@ class BackgroundTunnelCommandsTest {
         assertEquals(VpnTunnelService::class.java.name, started?.component?.className)
         assertEquals(VpnTunnelService.ACTION_CONNECT, started?.action)
         assertEquals("p1", started?.getStringExtra(VpnTunnelService.EXTRA_PROFILE_ID))
+        assertEquals(ConnectMode.KEEP_ANY.name, started?.getStringExtra(VpnTunnelService.EXTRA_CONNECT_MODE))
     }
 
     @Test
@@ -265,6 +274,28 @@ class BackgroundTunnelCommandsTest {
         val started = nextStart()
         assertEquals(VpnTunnelService.ACTION_CONNECT, started?.action)
         assertEquals("p1", started?.getStringExtra(VpnTunnelService.EXTRA_PROFILE_ID))
+        assertEquals(ConnectMode.KEEP_ANY.name, started?.getStringExtra(VpnTunnelService.EXTRA_CONNECT_MODE))
+    }
+
+    @Test
+    fun `every background sender asks for its mode and logs one line naming itself`() {
+        ShadowVpnService.setPrepareResult(null)
+        val commands = BackgroundTunnelCommands(app)
+        for (sender in BackgroundSender.entries) {
+            shadowOf(app).clearStartedServices()
+            ShadowLog.clear()
+
+            assertEquals(ConnectAdmission.STARTED, commands.connect("sender-probe-7c1", sender))
+
+            val started = nextStart()
+            assertEquals("${sender.label}: mode", sender.mode.name, started?.getStringExtra(VpnTunnelService.EXTRA_CONNECT_MODE))
+            val lines = ShadowLog.getLogsForTag("BackgroundTunnelCommands").filter { it.type == Log.INFO }
+            assertEquals("${sender.label}: info lines", 1, lines.size)
+            val line = lines.single().msg
+            assertTrue("${sender.label}: the line does not name the sender", line.contains(sender.label))
+            assertTrue("${sender.label}: the line does not name the mode", line.contains(sender.mode.name))
+            assertFalse("${sender.label}: the line holds the profile id", line.contains("sender-probe-7c1"))
+        }
     }
 
     @Test

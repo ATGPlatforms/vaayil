@@ -25,6 +25,7 @@ import dev.vaayil.core.model.WifiSecurity
 import dev.vaayil.core.model.decide
 import dev.vaayil.core.model.mobileDecision
 import dev.vaayil.core.tunnel.api.isLive
+import dev.vaayil.core.tunnel.wg.ConnectMode
 import dev.vaayil.core.tunnel.wg.ConnectionRegistry
 import dev.vaayil.core.tunnel.wg.VpnTunnelService
 import kotlinx.coroutines.CancellationException
@@ -212,7 +213,7 @@ class AutoConnectService : Service() {
             return@launch
         }
         when (rules.decideForPhase(ssid, security, ConnectionRegistry.status.value.phase)) {
-            SsidDecision.CONNECT -> connectResolvedTarget()
+            SsidDecision.CONNECT -> connectResolvedTarget(BackgroundSender.WIFI_RULE)
             SsidDecision.DISCONNECT -> tunnelCommands.disconnect(foreground = false)
             SsidDecision.NONE -> Unit
         }
@@ -224,7 +225,7 @@ class AutoConnectService : Service() {
         lastMobile = mobile
         val rules = readRulesOrNull() ?: return@launch
         val busy = ConnectionRegistry.status.value.phase.isLive
-        if (rules.mobileDecision(mobile, busy) == SsidDecision.CONNECT) connectResolvedTarget()
+        if (rules.mobileDecision(mobile, busy) == SsidDecision.CONNECT) connectResolvedTarget(BackgroundSender.MOBILE_RULE)
     }
 
     /** B2: whether the grants and the Location switch currently let the Wi-Fi name reach the rules. */
@@ -235,11 +236,11 @@ class AutoConnectService : Service() {
     /**
      * I1: a stale pointer (deleted profile) must not foreground-start VpnTunnelService with
      * nothing to connect — the service would idle past the 5 s FGS contract. Resolve first,
-     * then let [tunnelCommands] admit the start (B1).
+     * then let [tunnelCommands] admit the start (B1) as [sender]'s rule (#14).
      */
-    private suspend fun connectResolvedTarget() {
+    private suspend fun connectResolvedTarget(sender: BackgroundSender) {
         val target = readTargetOrNull() ?: return
-        tunnelCommands.connect(target)
+        tunnelCommands.connect(target, sender)
     }
 
     /** B1: a read that throws is logged by class, never a stored value, and skips its evaluation. */
@@ -336,9 +337,14 @@ class AutoConnectService : Service() {
         private const val TAG = "AutoConnectService"
         const val CHANNEL_ID = "automation"
         const val NOTIFICATION_ID = 43
-        fun connectIntent(context: Context, profileId: String? = null): Intent =
+        fun connectIntent(
+            context: Context,
+            profileId: String? = null,
+            mode: ConnectMode = ConnectMode.RESTART,
+        ): Intent =
             Intent(context, VpnTunnelService::class.java)
                 .setAction(VpnTunnelService.ACTION_CONNECT)
+                .putExtra(VpnTunnelService.EXTRA_CONNECT_MODE, mode.name)
                 .apply { if (profileId != null) putExtra(VpnTunnelService.EXTRA_PROFILE_ID, profileId) }
 
         /**

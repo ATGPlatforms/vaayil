@@ -55,8 +55,8 @@ class QuickTunnelCommands internal constructor(
 
     /**
      * Sends one CONNECT for [profileId], or explains why it did not. [noticeWithoutConsent] picks
-     * whether a missing VPN consent also posts the consent notice: the widget does, the tile does
-     * not. The call is synchronous because [BackgroundTunnelCommands.connect] is.
+     * the sender: the widget posts the consent notice, the tile does not. The call is synchronous
+     * because [BackgroundTunnelCommands.connect] is.
      */
     @Synchronized
     fun connect(profileId: String, noticeWithoutConsent: Boolean): QuickConnectResult {
@@ -69,7 +69,8 @@ class QuickTunnelCommands internal constructor(
         }
         val snapshot = status.value
         val settledBeforeSend = settledConnects()
-        return when (commands.connect(profileId, postNotice = noticeWithoutConsent)) {
+        val sender = if (noticeWithoutConsent) BackgroundSender.WIDGET else BackgroundSender.TILE
+        return when (commands.connect(profileId, sender, postNotice = noticeWithoutConsent)) {
             ConnectAdmission.STARTED -> {
                 statusAtSend = snapshot
                 settledAtSend = settledBeforeSend
