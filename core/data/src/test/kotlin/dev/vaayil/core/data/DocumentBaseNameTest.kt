@@ -22,8 +22,21 @@ class DocumentBaseNameTest {
     }
 
     @Test
-    fun `no display name falls back to the last path segment`() {
+    fun `the display name loses every trailing import suffix`() {
+        assertEquals("DOC-20261023-WA0000", documentBaseName("DOC-20261023-WA0000.bin", null))
+        assertEquals("home", documentBaseName("home.conf.txt", null))
+        assertEquals("home", documentBaseName("home.CONF", null))
+        assertEquals("home", documentBaseName("home.conf ", null))
+        assertEquals("home.lan", documentBaseName("home.lan", null))
+        assertEquals("Imported", documentBaseName(".conf.txt", null))
+        // The known limit: one pass over the suffixes leaves a suffix inside a saved copy.
+        assertEquals("home.conf (1)", documentBaseName("home.conf (1).txt", null))
+    }
+
+    @Test
+    fun `no display name falls back to the file name in the last path segment`() {
         assertEquals("work", documentBaseName(null, "work.conf"))
+        assertEquals("home", documentBaseName(null, "primary:Download/home.conf"))
     }
 
     @Test
