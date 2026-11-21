@@ -211,7 +211,8 @@ app -> core/model, core/ui, core/config, core/tunnel-api, core/data, core/automa
   cause) rebuilds it, which re-runs the lookup (`ReprobingUpstream`, wrapped around the secure
   upstream in `DnsResolver.kt`). The editor's hint says so (C9): "A hostname DNS server is looked up
   through your current network's resolver when the tunnel comes up, and again after a network change
-  or a failure." Secure DNS rides the tunnel; only bootstrap and bypass sockets are protected.
+  or a failure." Secure DNS rides the tunnel when its server's address is in Allowed IPs (the editor
+  warns otherwise); only bootstrap and bypass sockets are protected.
 - "The underlying network" is ONE network (K2, S10): `selectUnderlying` (`:core:tunnel-wg`
   `UnderlyingNetwork.kt`) picks among non-VPN networks with INTERNET, FOREGROUND and
   NOT_RESTRICTED, VALIDATED first, then Ethernet > Wi-Fi > cellular. Only its DNS servers are
@@ -252,6 +253,19 @@ app -> core/model, core/ui, core/config, core/tunnel-api, core/data, core/automa
   family its Allowed IPs route, no Secure DNS in effect and no usable split-DNS rules (`DnsPlanner`'s rule).
   `Profile.warnings()` then says "DNS lookups will bypass this tunnel. Add a DNS server to keep them in." when the
   profile reads as a tunnel; it never blocks Save, and Vaayil does not fail such a profile closed.
+  A DNS server outside Allowed IPs is reached outside the tunnel too (#15): `dnsCoverageWarning()`
+  checks the secure endpoint when Secure DNS is in effect, else every literal plain server of an
+  intercepting profile, else the literal plain servers of a routed family; `Profile.warnings()` adds
+  its note only when J12 did not fire and T-1 is false. A literal is outside when no Allowed IPs
+  entry of its family contains it, that family is not closed and no interface subnet holds it; a
+  hostname secure endpoint warns unless every open family is covered. It never resolves a name and
+  never blocks Save. Its six strings:
+  "DNS lookups will bypass this tunnel. Its DNS server isn't in Allowed IPs.",
+  "DNS lookups will bypass this tunnel. Its DNS servers aren't in Allowed IPs.",
+  "DNS lookups will bypass this tunnel. Its first DNS server isn't in Allowed IPs.",
+  "DNS lookups may bypass this tunnel. One DNS server isn't in Allowed IPs.",
+  "Secure DNS will bypass this tunnel. Its server isn't in Allowed IPs." and
+  "Secure DNS will bypass this tunnel unless its server is in Allowed IPs."
 - Lockdown doesn't stop offloaded keepalives either (X1): any app with ordinary network permissions (the public
   report's app declared only INTERNET and ACCESS_NETWORK_STATE) can start a NAT-T keepalive
   (`ConnectivityManager.createSocketKeepalive` on an `IpSecManager` UDP-encapsulation socket). Where the network

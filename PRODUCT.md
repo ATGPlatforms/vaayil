@@ -18,9 +18,9 @@ guard) and may not open the UI for days. TV is a later phase.
 Vaayil is a privacy-first WireGuard VPN client for Android. All features are
 available free, without a time limit or in-app purchases. It manages profiles
 (imported by file/QR or entered manually), connects and disconnects tunnels,
-splits per-app traffic, and hardens DNS (DoH/DoT + split DNS) through an
-in-tunnel resolver. Client only: Vaayil sells no bandwidth and runs no
-infrastructure, and it talks to no provider APIs. Success is a tunnel that
+chooses which apps use the tunnel, and hardens DNS (DoH/DoT + split DNS)
+through an in-tunnel resolver. Client only: Vaayil sells no bandwidth and runs
+no infrastructure, and it talks to no provider APIs. Success is a tunnel that
 comes up, stays up, keeps connections inside it — and a user who can verify
 all three at a glance.
 

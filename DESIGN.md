@@ -123,7 +123,7 @@ laid, one film at a time. Where security tools shout — neon greens, terminal
 blackout, militaristic locks — Vellum builds a warm, domestic calm: a cream
 canvas deepened by soft paper films, sage and slate and lavender ink accents,
 cut-paper seams instead of shadows, and clear honest telemetry. The app should
-feel like a well-made household object that happens to guard your traffic.
+feel like a well-made household object that happens to guard your connections.
 Security is conveyed through peace, not urgency: the hero disc, the state
 pills, and the numbers answer "am I protected?" in one glance, then get out
 of the way.

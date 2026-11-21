@@ -88,7 +88,8 @@ limit, no in-app purchases and no ads, and Vaayil is free software under
 
 - **DNS over HTTPS or DNS over TLS,** set per profile, with one-tap presets for
   well-known DNS-over-HTTPS resolvers. Encrypted DNS travels inside the tunnel, through
-  Vaayil's own resolver.
+  Vaayil's own resolver, when the server's address is in the profile's Allowed IPs;
+  Vaayil warns you when it might not be.
 - **Split DNS:** have chosen domains answered by your current network's resolver instead
   of the tunnel's, which helps with names on your local network. It changes only which
   resolver answers; connections are routed as before.
