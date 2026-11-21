@@ -28,8 +28,10 @@ import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -40,6 +42,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
@@ -340,16 +343,19 @@ fun PillSegmented(
                     ),
                 contentAlignment = Alignment.Center,
             ) {
+                // A label that wrapped fills its segment's width, so the Box can no longer
+                // centre it line by line: centre the lines and inset the block only then.
+                // The inset only narrows the text, so a wrapped label cannot fit on one line
+                // again and the state settles (a widened segment unwraps it the same way).
+                var wrapped by remember(option) { mutableStateOf(false) }
                 Text(
                     option,
                     style = MaterialTheme.typography.labelLarge,
                     color = if (selected) VellumColors.OnSurface else VellumColors.OnSurfaceVariant,
-                    // The Box centres the label. `TextAlign.Center` is not used: it places a
-                    // single line at a fractional offset inside its node and moved font-1
-                    // glyphs by a pixel (the fixture gate caught it). Nor is there a horizontal
-                    // padding: that changed the node's integer width the same way. Both stay at
-                    // zero, within the 8dp inset the spec allows.
+                    modifier = if (wrapped) Modifier.padding(horizontal = 8.dp) else Modifier,
+                    textAlign = if (wrapped) TextAlign.Center else TextAlign.Start,
                     softWrap = true,
+                    onTextLayout = { wrapped = it.lineCount > 1 },
                 )
             }
         }

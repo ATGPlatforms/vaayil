@@ -178,6 +178,53 @@ class ComponentsTest {
     }
 
     @Test
+    fun pillSegmentedWrappedLabelCentresEveryLineInItsSegment() {
+        // Ruling T2-b / spec §4.3: once "Secure DNS" wraps, its Text takes the segment's full
+        // width, so the Box no longer centres it. Every line must be centred in the segment,
+        // clear of the 22dp corners.
+        var trackWidthPx = 0
+        var density = 1f
+        compose.setContent {
+            density = LocalDensity.current.density
+            AtFontScale(2f) {
+                Box(Modifier.width(280.dp)) {
+                    PillSegmented(
+                        options = listOf("Off", "Secure DNS"),
+                        selectedIndex = 1,
+                        onSelect = {},
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .onGloballyPositioned { trackWidthPx = it.size.width },
+                    )
+                }
+            }
+        }
+        compose.waitForIdle()
+        val layout = textLayoutOf("Secure DNS")
+        assertEquals("Secure DNS stayed on one line", 2, layout.lineCount)
+        // The track's 4dp padding on each side and the 4dp gap leave each segment
+        // (track - 12dp) / 2 wide.
+        val segmentWidthPx = (trackWidthPx - 12 * density) / 2f
+        val paragraphWidthPx = layout.size.width.toFloat()
+        val insetPx = (segmentWidthPx - paragraphWidthPx) / 2f
+        val minimumInsetPx = 8 * density
+        for (line in 0 until layout.lineCount) {
+            val left = insetPx + layout.getLineLeft(line)
+            val right = insetPx + (paragraphWidthPx - layout.getLineRight(line))
+            assertEquals(
+                "line ${line + 1} is not centred (${left / density}dp on the left, ${right / density}dp on the right)",
+                left,
+                right,
+                1f,
+            )
+            assertTrue(
+                "line ${line + 1} sits ${left / density}dp from the segment's left edge",
+                left >= minimumInsetPx - 1f,
+            )
+        }
+    }
+
+    @Test
     fun statusPillIs32dpTall() {
         var pillHeightPx = 0
         var density = 1f
