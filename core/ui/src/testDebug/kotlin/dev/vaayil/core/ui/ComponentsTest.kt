@@ -227,7 +227,7 @@ class ComponentsTest {
 
     @Test
     fun pillSegmentedUnwrapsWhenAWidenedSegmentFitsThePlainLabel() {
-        // Fix round 1: the wrap decision must read the label's unpadded width. Widening the
+        // The wrap decision must read the label's unpadded width. Widening the
         // segment just enough for "Secure DNS" itself — but not for it plus the 16dp inset —
         // must return it to one line, exactly as a fresh instance at that width would render.
         var width by mutableStateOf(280.dp)

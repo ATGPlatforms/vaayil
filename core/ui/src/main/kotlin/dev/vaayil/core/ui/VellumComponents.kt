@@ -352,7 +352,7 @@ fun PillSegmented(
                 // centre it line by line: centre the lines and inset the block only then. The
                 // decision compares the label's intrinsic width with the *unpadded* available
                 // width, not the padded layout, so a segment widened until the plain label
-                // fits unwraps it instead of keeping the inset (fix round 1).
+                // fits unwraps it instead of keeping the inset.
                 var wrapped by remember(option) { mutableStateOf(false) }
                 Text(
                     option,

@@ -53,7 +53,7 @@ class DocumentBaseNameTest {
 
     @Test
     fun `a saved copy keeps the suffix inside its name`() {
-        // The known limit: one pass over the suffixes leaves a suffix inside a saved copy.
+        // The known limit: only trailing suffixes come off, so one inside a saved copy's name stays.
         assertEquals("home.conf (1)", documentBaseName("home.conf (1).txt", null))
     }
 
