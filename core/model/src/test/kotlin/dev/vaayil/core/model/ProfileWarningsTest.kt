@@ -372,6 +372,32 @@ class ProfileWarningsTest {
     }
 
     @Test
+    fun `an interface subnet of an unrouted family doesn't hide an intercepting server`() {
+        assertEquals(
+            listOf(dnsServerOutside),
+            profile(
+                listOf("198.51.100.2/24", "2001:db8:1::2/64"),
+                listOf("198.51.100.0/24"),
+                dnsServers = listOf("2001:db8:1::53"),
+                dns = DnsPolicy(rules = listOf(DnsSplitRule("corp.example", bypass = false))),
+            ).warnings(),
+        )
+    }
+
+    @Test
+    fun `an interface subnet of an unrouted family doesn't hide a secure literal`() {
+        assertEquals(
+            listOf(secureServerOutside),
+            profile(
+                listOf("198.51.100.2/24", "2001:db8:1::2/64"),
+                listOf("198.51.100.0/24"),
+                emptyList(),
+                secure(SecureDnsType.DOH, "https://[2001:db8:1::53]/dns-query"),
+            ).warnings(),
+        )
+    }
+
+    @Test
     fun `intercepting with a closed family is silent`() {
         assertEquals(
             emptyList<String>(),

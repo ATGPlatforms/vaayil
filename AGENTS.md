@@ -268,9 +268,9 @@ app -> core/model, core/ui, core/config, core/tunnel-api, core/data, core/automa
   checks the secure endpoint when Secure DNS is in effect, else every literal plain server of an
   intercepting profile, else the literal plain servers of a routed family; `Profile.warnings()` adds
   its note only when J12 did not fire and T-1 is false. A literal is outside when no Allowed IPs
-  entry of its family contains it, that family is not closed and no interface subnet holds it; a
-  hostname secure endpoint warns unless every open family is covered. It never resolves a name and
-  never blocks Save. Its six strings:
+  entry of its family contains it, that family is not closed and no interface subnet of a routed
+  family holds it; a hostname secure endpoint warns unless every open family is covered. It never
+  resolves a name and never blocks Save. Its six strings:
   "DNS lookups will bypass this tunnel. Its DNS server isn't in Allowed IPs.",
   "DNS lookups will bypass this tunnel. Its DNS servers aren't in Allowed IPs.",
   "DNS lookups will bypass this tunnel. Its first DNS server isn't in Allowed IPs.",

@@ -27,10 +27,12 @@ private const val SECURE_HOSTNAME_UNCOVERED =
  * a family its Allowed IPs route, because WgConfigMapper hands the VPN only those.
  *
  * A literal is outside when no parseable Allowed IPs entry of its family contains it, its family
- * is not closed, and it is not inside an interface address's subnet. A closed family has a
- * valid prefix-0 entry somewhere but none of its own: Android's unreachable route makes its
- * lookups fail rather than bypass, so it never warns. An interface address's subnet is directly
- * connected, so a server there reaches WireGuard, which drops it: lookups fail, never bypass.
+ * is not closed, and it is not inside the subnet of an interface address the tunnel keeps, one
+ * of a family its Allowed IPs route (WgConfigMapper drops the others, so their subnets have no
+ * route). A closed family has a valid prefix-0 entry somewhere but none of its own: Android's
+ * unreachable route makes its lookups fail rather than bypass, so it never warns. A kept
+ * interface address's subnet is directly connected, so a server there reaches WireGuard, which
+ * drops it: lookups fail, never bypass.
  *
  * A hostname secure endpoint has no addresses until the tunnel starts, so it warns unless every
  * family that is not closed is covered completely, e.g. by `0.0.0.0/0` and `::/0`.
@@ -86,7 +88,7 @@ private fun Profile.secureHost(): String? {
 
 /**
  * Whether [server], a strict literal, is reached outside the tunnel: no Allowed IPs entry of its
- * family contains it, that family is not closed, and no interface subnet holds it.
+ * family contains it, that family is not closed, and no interface subnet of a routed family holds it.
  */
 private fun Profile.outsideAllowedIps(
     server: String,
@@ -97,6 +99,9 @@ private fun Profile.outsideAllowedIps(
     val host = dnsHostBlock(server) ?: return false
     if (if (host.bits == V6_BITS) v6Closed else v4Closed) return false
     if (blocks.any { it.bits == host.bits && it.contains(host) }) return false
-    val interfaceSubnets = interfaceConfig.addresses.mapNotNull(::parseBlock)
+    val routed = peer.allowedIps.map(::isIpv6Entry).toSet()
+    val interfaceSubnets = interfaceConfig.addresses
+        .filter { isIpv6Entry(it) in routed }
+        .mapNotNull(::parseBlock)
     return interfaceSubnets.none { it.bits == host.bits && it.contains(host) }
 }
