@@ -2,6 +2,7 @@ package dev.vaayil.feature.settings
 
 import android.app.Application
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
@@ -23,12 +24,17 @@ class SettingsLocationCardTest {
     @get:Rule
     val compose = createComposeRule()
 
-    private fun screen(permission: PermissionState, onOpenLocationSettings: () -> Unit) {
+    private fun screen(
+        permission: PermissionState,
+        rules: AutoConnectRules = AutoConnectRules(wifiGuardEnabled = true),
+        onDisconnectOnTrusted: () -> Unit = {},
+        onOpenLocationSettings: () -> Unit = {},
+    ) {
         compose.setContent {
             SettingsScreen(
                 ui = SettingsFlags(),
                 automation = AutomationUiState(
-                    rules = AutoConnectRules(wifiGuardEnabled = true),
+                    rules = rules,
                     permissionState = permission,
                 ),
                 appVersion = "1.0.0",
@@ -40,7 +46,7 @@ class SettingsLocationCardTest {
                 onOpenAppLicense = {},
                 onWifiGuard = {},
                 onAutoConnectOnMobileData = {},
-                onDisconnectOnTrusted = {},
+                onDisconnectOnTrusted = { onDisconnectOnTrusted() },
                 onConnectOnBoot = {},
                 onAddTrustedSsid = {},
                 onRemoveTrustedSsid = {},
@@ -49,6 +55,44 @@ class SettingsLocationCardTest {
                 onOpenLocationSettings = onOpenLocationSettings,
             )
         }
+    }
+
+    @Test
+    fun `disconnect on trusted is hidden while the wifi rule is off`() {
+        screen(
+            PermissionState.GRANTED,
+            rules = AutoConnectRules(wifiGuardEnabled = false, disconnectOnTrusted = true),
+        )
+        compose.onNodeWithText("Disconnect on trusted networks").assertDoesNotExist()
+    }
+
+    @Test
+    fun `disconnect on trusted follows the trusted list`() {
+        var disconnects = 0
+        screen(
+            PermissionState.GRANTED,
+            rules = AutoConnectRules(wifiGuardEnabled = true, trustedSsids = setOf("Home")),
+            onDisconnectOnTrusted = { disconnects++ },
+        )
+        val row = compose.onNodeWithText("Disconnect on trusted networks").performScrollTo()
+        row.assertIsDisplayed()
+        compose.onNodeWithText(
+            "Turns the tunnel off when this device joins a network on your trusted list",
+        ).assertIsDisplayed()
+        val addBottom = compose.onNodeWithText("Add").getUnclippedBoundsInRoot().bottom
+        val rowTop = row.getUnclippedBoundsInRoot().top
+        val mobileTop = compose.onNodeWithText("Auto-connect on mobile data")
+            .getUnclippedBoundsInRoot().top
+        assertTrue(
+            "the row sits below the trusted-list editor (rowTop=$rowTop, addBottom=$addBottom)",
+            rowTop >= addBottom,
+        )
+        assertTrue(
+            "the row sits above the mobile-data rule (rowTop=$rowTop, mobileTop=$mobileTop)",
+            rowTop < mobileTop,
+        )
+        row.performClick()
+        assertEquals(1, disconnects)
     }
 
     @Test

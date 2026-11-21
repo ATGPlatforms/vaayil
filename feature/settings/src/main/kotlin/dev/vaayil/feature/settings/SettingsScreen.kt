@@ -198,6 +198,13 @@ fun SettingsScreen(
                         onRemove = onRemoveTrustedSsid,
                         modifier = Modifier.padding(top = 12.dp),
                     )
+                    RowDivider(inset = 0.dp)
+                    SwitchRow(
+                        title = "Disconnect on trusted networks",
+                        supporting = "Turns the tunnel off when this device joins a network on your trusted list",
+                        checked = automation.rules.disconnectOnTrusted,
+                        onChecked = onDisconnectOnTrusted,
+                    )
                 }
                 RowDivider(inset = 0.dp)
                 SwitchRow(
@@ -205,13 +212,6 @@ fun SettingsScreen(
                     supporting = "Connects your active profile whenever the device is on mobile data",
                     checked = automation.rules.autoConnectOnMobileData,
                     onChecked = onAutoConnectOnMobileData,
-                )
-                RowDivider(inset = 0.dp)
-                SwitchRow(
-                    title = "Disconnect on trusted networks",
-                    supporting = "Turns the tunnel off when you join a trusted network",
-                    checked = automation.rules.disconnectOnTrusted,
-                    onChecked = onDisconnectOnTrusted,
                 )
                 RowDivider(inset = 0.dp)
                 SwitchRow(
