@@ -53,17 +53,24 @@ object ConnectionRegistry {
     private val _vpnConsentMissing = MutableStateFlow(false)
 
     /**
-     * #23: a background connect was refused for missing VPN consent in this process, and no tunnel
-     * has gone live since. In memory only: a process death forgets it and the quick controls read
-     * "Disconnected" again. Set only by the background commands' admission (R5) — never by the crash
-     * resume's no-consent skip or a start failing with PermissionDenied.
+     * #23: a background connect was refused for missing VPN consent in this process. Cleared when
+     * the mirrored status goes live (CONNECTING or CONNECTED) or FAILED — FAILED counts too because
+     * a status collector can miss the CONNECTING before it, and a start that fails was admitted
+     * after consent. DISCONNECTED never clears: it is also the idle state. In memory only: a process
+     * death forgets it and the quick controls read "Disconnected" again. Set only by the background
+     * commands' admission (R5) — never by the crash resume's no-consent skip or a start failing with
+     * PermissionDenied.
      */
     val vpnConsentMissing: StateFlow<Boolean> = _vpnConsentMissing.asStateFlow()
 
     /** #23: the background admission saw no VPN consent; it posts its notice separately. */
     fun noteVpnConsentMissing() { _vpnConsentMissing.value = true }
 
-    /** #23: an admitted connect, or a mirrored live status, makes the remembered refusal obsolete. */
+    /**
+     * #23: an admitted connect, or a mirrored live or FAILED status, makes the remembered refusal
+     * obsolete. FAILED counts because a conflation can hide the CONNECTING before it; DISCONNECTED
+     * is also the idle state and never clears.
+     */
     fun clearVpnConsentMissing() { _vpnConsentMissing.value = false }
 
     private var bridgeJob: Job? = null
@@ -134,9 +141,10 @@ object ConnectionRegistry {
             launch {
                 engine.status.collect {
                     status.value = it
-                    // #23: a live status (CONNECTING or CONNECTED) covers the in-app connect after
-                    // the gate got consent, even when that connect goes on to fail.
-                    if (it.phase.isLive) clearVpnConsentMissing()
+                    // #23: live or FAILED — a collector can skip the CONNECTING that opened the
+                    // start when FAILED replaces it first, and every FAILED ends an admitted start
+                    // (DISCONNECTED is also idle, so it never clears).
+                    if (it.phase.isLive || it.phase == ConnectionPhase.FAILED) clearVpnConsentMissing()
                 }
             }
             launch { engine.stats.collect { stats.value = it } }

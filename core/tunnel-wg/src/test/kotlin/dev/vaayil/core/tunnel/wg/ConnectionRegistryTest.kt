@@ -22,6 +22,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
@@ -82,6 +83,45 @@ class ConnectionRegistryTest {
             engine.status.value = TunnelStatus(ConnectionPhase.FAILED, "p", TunnelError.HandshakeTimeout)
             runCurrent()
             assertFalse(ConnectionRegistry.vpnConsentMissing.value, "a FAILED status set the signal")
+        } finally {
+            scope.cancel()
+        }
+    }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    @Test
+    fun `a FAILED that replaces the CONNECTING before it still clears the signal`() = runTest {
+        val engine = MutableTunnelEngine()
+        val scope = CoroutineScope(SupervisorJob() + StandardTestDispatcher(testScheduler))
+        try {
+            ConnectionRegistry.bridge(engine, scope)
+            ConnectionRegistry.noteVpnConsentMissing()
+
+            // Like a fresh connect whose start fails synchronously: the collector resumes only now
+            // and sees the FAILED alone, the CONNECTING conflated away.
+            engine.status.value = TunnelStatus(ConnectionPhase.CONNECTING, "p", null)
+            engine.status.value = TunnelStatus(ConnectionPhase.FAILED, "p", TunnelError.HandshakeTimeout)
+            runCurrent()
+
+            assertFalse(ConnectionRegistry.vpnConsentMissing.value, "a conflated CONNECTING before FAILED left the signal set")
+        } finally {
+            scope.cancel()
+        }
+    }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    @Test
+    fun `DISCONNECTED alone does not clear the signal`() = runTest {
+        val engine = MutableTunnelEngine()
+        val scope = CoroutineScope(SupervisorJob() + UnconfinedTestDispatcher(testScheduler))
+        try {
+            ConnectionRegistry.bridge(engine, scope)
+            ConnectionRegistry.noteVpnConsentMissing()
+
+            engine.status.value = TunnelStatus(ConnectionPhase.DISCONNECTED, "p", null)
+            runCurrent()
+
+            assertTrue(ConnectionRegistry.vpnConsentMissing.value, "a DISCONNECTED status cleared the signal")
         } finally {
             scope.cancel()
         }
